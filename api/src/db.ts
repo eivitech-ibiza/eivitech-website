@@ -2,6 +2,8 @@ import pg from "pg";
 
 const { Pool } = pg;
 
+type QueryResultRow = pg.QueryResultRow;
+
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
@@ -13,7 +15,7 @@ export const pool = new Pool({
   ssl: process.env.PGSSLMODE === "require" ? { rejectUnauthorized: false } : undefined,
 });
 
-export async function query<T = Record<string, unknown>>(text: string, params?: unknown[]) {
+export async function query<T extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]) {
   return pool.query<T>(text, params);
 }
 
