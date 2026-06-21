@@ -20,13 +20,17 @@ function getDisplayZone(project: Project) {
   return project.slug === "apartamento-marina-botafoch" ? "Marina Botafoc, Ibiza" : project.zone;
 }
 
+function getProjectPath(project: Project) {
+  return project.slug === "apartamento-marina-botafoch" ? "/proyectos/apartamento-marina-botafoc" : `/proyectos/${project.slug}`;
+}
+
 export function ProjectCard({ project, priority = false }: { project: Project; priority?: boolean }) {
   const cover = getCover(project);
   const displayName = getDisplayName(project);
   const displayZone = getDisplayZone(project);
 
   return (
-    <Link to={`/proyectos/${project.slug}`} className="group block">
+    <Link to={getProjectPath(project)} className="group block">
       <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-muted">
         <img
           src={cover}
