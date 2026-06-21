@@ -2,13 +2,14 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { SITE } from "@/data/site";
+import { tr } from "@/lib/i18n";
 
 const NAV = [
-  { to: "/", label: "Inicio" },
-  { to: "/servicios", label: "Servicios" },
-  { to: "/proyectos", label: "Proyectos" },
-  { to: "/empresa", label: "Empresa" },
-  { to: "/contacto", label: "Contacto" },
+  { to: "/", label: tr("Inicio", "Home", "Home") },
+  { to: "/servicios", label: tr("Servicios", "Servizi", "Services") },
+  { to: "/proyectos", label: tr("Proyectos", "Progetti", "Projects") },
+  { to: "/empresa", label: tr("Empresa", "Azienda", "Company") },
+  { to: "/contacto", label: tr("Contacto", "Contatto", "Contact") },
 ];
 
 export function Header() {
@@ -24,6 +25,8 @@ export function Header() {
   }, []);
 
   useEffect(() => setOpen(false), [pathname]);
+
+  const ctaLabel = tr("Solicitar valoración", "Richiedi una valutazione", "Request an assessment");
 
   return (
     <header
@@ -59,12 +62,12 @@ export function Header() {
             to="/contacto"
             className="inline-flex items-center rounded-sm bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
           >
-            Solicitar valoración
+            {ctaLabel}
           </Link>
         </div>
 
         <button
-          aria-label={open ? "Cerrar menú" : "Abrir menú"}
+          aria-label={open ? tr("Cerrar menú", "Chiudi menu", "Close menu") : tr("Abrir menú", "Apri menu", "Open menu")}
           onClick={() => setOpen((o) => !o)}
           className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-sm border border-border"
         >
@@ -91,7 +94,7 @@ export function Header() {
               to="/contacto"
               className="mt-3 inline-flex items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
             >
-              Solicitar valoración
+              {ctaLabel}
             </Link>
             <a href={SITE.phoneHref} className="py-3 text-sm text-muted-foreground">
               {SITE.phone}
