@@ -1,5 +1,7 @@
 import type { LeadFormData } from "@/components/LeadQualificationForm";
 
+const CRM_ENDPOINT = "https://ibiza-project-accelerator-production.up.railway.app";
+
 export type CrmLeadPayload = LeadFormData & {
   source: string;
   landing_page?: string;
@@ -31,7 +33,18 @@ export function saveLeadPreview(payload: CrmLeadPayload) {
 }
 
 export async function submitLeadToCrm(payload: CrmLeadPayload) {
-  // GitHub Pages is static hosting. Do not place CRM secrets, SMTP keys or private webhooks here.
-  // Production path: call a serverless function or secured backend that validates Clerk auth/server credentials.
-  return saveLeadPreview(payload);
+  const response = await fetch(`${CRM_ENDPOINT}/api/leads`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "CRM submit failed");
+    throw new Error(message || "CRM submit failed");
+  }
+
+  return response.json();
 }
