@@ -30,19 +30,38 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 18
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --legacy-peer-deps
+          else
+            npm install --legacy-peer-deps
+          fi
 
       - name: Build
         run: npm run build
 
+      - name: Detect build output directory
+        id: detect_output
+        run: |
+          if [ -d dist ]; then
+            echo "path=dist" >> $GITHUB_OUTPUT
+          elif [ -d build ]; then
+            echo "path=build" >> $GITHUB_OUTPUT
+          else
+            echo "No build output found (expected 'dist' or 'build')" >&2
+            ls -la
+            exit 1
+          fi
+
       - name: Verify build output
         run: |
-          test -d dist
-          test -f dist/index.html
-          ls -la dist
+          echo "Using output dir: ${{ steps.detect_output.outputs.path }}"
+          test -d ${{ steps.detect_output.outputs.path }}
+          test -f ${{ steps.detect_output.outputs.path }}/index.html || test -f ${{ steps.detect_output.outputs.path }}/index.htm
+          ls -la ${{ steps.detect_output.outputs.path }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -50,7 +69,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ${{ steps.detect_output.outputs.path }}
 
       - name: Deploy to GitHub Pages
         id: deployment
