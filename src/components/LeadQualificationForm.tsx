@@ -33,6 +33,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
   const navigate = useNavigate();
   const startedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -60,6 +61,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
 
   const onSubmit = async (data: LeadFormData) => {
     setSubmitting(true);
+    setSubmitError(null);
     const utm = captureUtm();
     const payload = { ...data, ...utm, source, timestamp: new Date().toISOString() };
     track("form_submit", { source });
@@ -67,14 +69,16 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
 
     try {
       await submitLeadToCrm(payload);
+      await new Promise((r) => setTimeout(r, 400));
+      navigate("/gracias");
     } catch (error) {
       track("form_error", { source, reason: "crm_submit_failed" });
       // eslint-disable-next-line no-console
       console.error("[lead] CRM submit failed", error);
+      setSubmitError("No hemos podido enviar la solicitud en este momento. Inténtalo de nuevo o contacta directamente por WhatsApp.");
+    } finally {
+      setSubmitting(false);
     }
-
-    await new Promise((r) => setTimeout(r, 400));
-    navigate("/gracias");
   };
 
   return (
@@ -185,6 +189,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
         </span>
       </label>
       {errors.consentimiento && <p className={errorCls}>{errors.consentimiento.message}</p>}
+      {submitError && <p className="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{submitError}</p>}
 
       <button
         type="submit"
