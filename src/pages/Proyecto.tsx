@@ -4,6 +4,7 @@ import { getProject } from "@/data/projects";
 
 const LEGACY_SLUGS: Record<string, string> = {
   "apartamento-marina-botafoc": "apartamento-marina-botafoch",
+  "sant-josep-de-sa-talaia": "casa-sant-josep",
 };
 
 const Proyecto = () => {
