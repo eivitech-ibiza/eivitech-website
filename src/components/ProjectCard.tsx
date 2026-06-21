@@ -5,10 +5,12 @@ import type { Project } from "@/data/projects";
 const mediaRoot = String.fromCharCode(104,116,116,112,115,58,47,47,101,105,118,105,116,101,99,104,46,99,111,109,47,119,112,45,99,111,110,116,101,110,116,47,117,112,108,111,97,100,115,47,50,48,50,49,47,48,56,47);
 const valverdeCover = `${mediaRoot}terraza-casita-valverde-4-1024x576.jpg`;
 const botafocCover = `${mediaRoot}marina-botafoch-apartamento-04-1024x768.jpg`;
+const trueCover = `${mediaRoot}true-bar-1-576x1024.jpeg`;
 
 function getCover(project: Project) {
   if (project.slug === "urbanizacion-valverde") return valverdeCover;
   if (project.slug === "apartamento-marina-botafoch") return botafocCover;
+  if (project.slug === "true-bar") return trueCover;
   return project.image;
 }
 
