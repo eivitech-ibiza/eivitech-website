@@ -28,6 +28,16 @@ function getProjectMedia(project: Project) {
     };
   }
 
+  if (project.slug === "true-bar") {
+    return {
+      hero: mediaUrl("true-bar-2.jpeg"),
+      gallery: [
+        { src: mediaUrl("true-bar-2.jpeg"), alt: tr("Terraza exterior del proyecto True Bar", "Terrazza esterna del progetto True Bar", "Outdoor terrace of the True Bar project") },
+        { src: mediaUrl("true-bar-1-576x1024.jpeg"), alt: tr("Fachada blanca del proyecto True Bar", "Facciata bianca del progetto True Bar", "White facade of the True Bar project"), portrait: true },
+      ] as GalleryItem[],
+    };
+  }
+
   if (project.slug === "apartamento-marina-botafoch") {
     return {
       hero: mediaUrl("marina-botafoch-apartamento-04-1024x768.jpg"),
@@ -50,27 +60,49 @@ function getProjectMedia(project: Project) {
 }
 
 function getProjectPresentation(project: Project) {
-  if (project.slug !== "apartamento-marina-botafoch") return project;
+  if (project.slug === "true-bar") {
+    return {
+      ...project,
+      short: tr("Reforma de local comercial en Ibiza con terraza exterior, cubierta renovada, baños, cocina y porche en madera tratada.", "Ristrutturazione di locale commerciale a Ibiza con terrazza esterna, copertura rinnovata, bagni, cucina e portico in legno trattato.", "Commercial space renovation in Ibiza with outdoor terrace, renewed roof, bathrooms, kitchen and treated wood porch."),
+      situation: tr("Local cerca del mar, expuesto a humedad, sol y viento, con necesidad de renovar zonas clave y mejorar la imagen exterior.", "Locale vicino al mare, esposto a umidità, sole e vento, con necessità di rinnovare aree chiave e migliorare l'immagine esterna.", "A space near the sea, exposed to humidity, sun and wind, requiring key areas to be renewed and the exterior image improved."),
+      goal: tr("Crear un espacio funcional, fresco y resistente, reforzando la terraza y la experiencia del cliente en el exterior.", "Creare uno spazio funzionale, fresco e resistente, rafforzando la terrazza e l'esperienza del cliente all'esterno.", "Create a functional, fresh and durable space, strengthening the terrace and the outdoor customer experience."),
+      works: [
+        tr("Renovación e impermeabilización de la cubierta", "Rinnovo e impermeabilizzazione della copertura", "Roof renovation and waterproofing"),
+        tr("Reforma de baños y cocina", "Ristrutturazione di bagni e cucina", "Bathroom and kitchen renovation"),
+        tr("Adecuación de la zona principal del local", "Adeguamento della zona principale del locale", "Upgrade of the main area of the space"),
+        tr("Porche en madera tratada para la terraza", "Portico in legno trattato per la terrazza", "Treated wood porch for the terrace"),
+        tr("Mejora exterior con vegetación e imagen comercial", "Miglioramento esterno con vegetazione e immagine commerciale", "Exterior improvement with greenery and commercial identity"),
+      ],
+      materials: [tr("Madera tratada", "Legno trattato", "Treated wood"), tr("Cubierta impermeabilizada", "Copertura impermeabilizzata", "Waterproofed roof"), tr("Acabados resistentes", "Finiture resistenti", "Durable finishes"), tr("Terraza exterior", "Terrazza esterna", "Outdoor terrace")],
+      result: tr("Un local más atractivo, funcional y preparado para el clima de Ibiza, con una terraza exterior más agradable y una imagen reconocible.", "Un locale più attraente, funzionale e preparato per il clima di Ibiza, con una terrazza esterna più piacevole e un'immagine riconoscibile.", "A more attractive, functional space prepared for Ibiza's climate, with a more pleasant outdoor terrace and recognizable image."),
+      metaTitle: tr("True Bar — Reforma de local comercial en Ibiza | Eivitech", "True Bar — Ristrutturazione di locale commerciale a Ibiza | Eivitech", "True Bar — Commercial space renovation in Ibiza | Eivitech"),
+      metaDescription: tr("Reforma de True Bar en Ibiza: terraza, cubierta, baños, cocina, porche en madera tratada e imagen exterior.", "Ristrutturazione del True Bar a Ibiza: terrazza, copertura, bagni, cucina, portico in legno trattato e immagine esterna.", "True Bar renovation in Ibiza: terrace, roof, bathrooms, kitchen, treated wood porch and exterior image."),
+    };
+  }
 
-  return {
-    ...project,
-    name: "Apartamento Marina Botafoc",
-    zone: "Marina Botafoc, Ibiza",
-    short: tr("Reforma integral de 120 m² en Marina Botafoc con cocina a medida, microcemento, baños y luz indirecta.", "Ristrutturazione completa di 120 m² a Marina Botafoc con cucina su misura, microcemento, bagni e luce indiretta.", "Full 120 m² renovation in Marina Botafoc with custom kitchen, microcement, bathrooms and indirect lighting."),
-    situation: tr("Apartamento de 120 m² con una distribución poco aprovechada y necesidad de crear una experiencia más amplia, luminosa y contemporánea.", "Appartamento di 120 m² con una distribuzione poco sfruttata e la necessità di creare un'esperienza più ampia, luminosa e contemporanea.", "A 120 m² apartment with an underused layout and the need to create a wider, brighter and more contemporary experience."),
-    goal: tr("Rediseñar la vivienda como un espacio fluido: cocina integrada, baños con acabado continuo, iluminación ambiental y una relación más elegante entre interior y terraza.", "Ridisegnare l'abitazione come uno spazio fluido: cucina integrata, bagni con finitura continua, illuminazione ambientale e una relazione più elegante tra interno e terrazza.", "Redesign the home as a fluid space: integrated kitchen, bathrooms with continuous finishes, ambient lighting and a more elegant relationship between interior and terrace."),
-    works: [
-      tr("Redistribución completa de los espacios", "Redistribuzione completa degli spazi", "Complete space redistribution"),
-      tr("Cocina a medida con madera, blanco y encimera negra", "Cucina su misura con legno, bianco e piano nero", "Custom kitchen with wood, white finishes and black countertop"),
-      tr("Baños con microcemento gris y mamparas de vidrio", "Bagni con microcemento grigio e pareti in vetro", "Bathrooms with grey microcement and glass screens"),
-      tr("Iluminación LED indirecta en dormitorio, baños y zonas de paso", "Illuminazione LED indiretta in camera, bagni e zone di passaggio", "Indirect LED lighting in bedroom, bathrooms and circulation areas"),
-      tr("Integración visual entre salón, cocina y terraza", "Integrazione visiva tra soggiorno, cucina e terrazza", "Visual integration between living area, kitchen and terrace"),
-    ],
-    materials: [tr("Microcemento gris", "Microcemento grigio", "Grey microcement"), tr("Madera natural", "Legno naturale", "Natural wood"), tr("Encimera negra", "Piano nero", "Black countertop"), tr("Iluminación LED", "Illuminazione LED", "LED lighting"), "Bosch"],
-    result: tr("Un apartamento contemporáneo, luminoso y muy visual, donde la luz indirecta, la madera y el microcemento crean una atmósfera de diseño sin perder funcionalidad diaria.", "Un appartamento contemporaneo, luminoso e molto scenografico, dove luce indiretta, legno e microcemento creano un'atmosfera di design senza perdere funzionalità quotidiana.", "A contemporary, bright and highly visual apartment where indirect light, wood and microcement create a design-led atmosphere without losing everyday functionality."),
-    metaTitle: tr("Apartamento Marina Botafoc — Reforma integral | Eivitech Ibiza", "Appartamento Marina Botafoc — Ristrutturazione completa | Eivitech Ibiza", "Marina Botafoc Apartment — Full renovation | Eivitech Ibiza"),
-    metaDescription: tr("Reforma integral de 120 m² en Marina Botafoc: cocina a medida, microcemento, baños, iluminación LED indirecta y terraza.", "Ristrutturazione completa di 120 m² a Marina Botafoc: cucina su misura, microcemento, bagni, illuminazione LED indiretta e terrazza.", "Full 120 m² renovation in Marina Botafoc: custom kitchen, microcement, bathrooms, indirect LED lighting and terrace."),
-  };
+  if (project.slug === "apartamento-marina-botafoch") {
+    return {
+      ...project,
+      name: "Apartamento Marina Botafoc",
+      zone: "Marina Botafoc, Ibiza",
+      short: tr("Reforma integral de 120 m² en Marina Botafoc con cocina a medida, microcemento, baños y luz indirecta.", "Ristrutturazione completa di 120 m² a Marina Botafoc con cucina su misura, microcemento, bagni e luce indiretta.", "Full 120 m² renovation in Marina Botafoc with custom kitchen, microcement, bathrooms and indirect lighting."),
+      situation: tr("Apartamento de 120 m² con una distribución poco aprovechada y necesidad de crear una experiencia más amplia, luminosa y contemporánea.", "Appartamento di 120 m² con una distribuzione poco sfruttata e la necessità di creare un'esperienza più ampia, luminosa e contemporanea.", "A 120 m² apartment with an underused layout and the need to create a wider, brighter and more contemporary experience."),
+      goal: tr("Rediseñar la vivienda como un espacio fluido: cocina integrada, baños con acabado continuo, iluminación ambiental y una relación más elegante entre interior y terraza.", "Ridisegnare l'abitazione come uno spazio fluido: cucina integrata, bagni con finitura continua, illuminazione ambientale e una relazione più elegante tra interno e terrazza.", "Redesign the home as a fluid space: integrated kitchen, bathrooms with continuous finishes, ambient lighting and a more elegant relationship between interior and terrace."),
+      works: [
+        tr("Redistribución completa de los espacios", "Redistribuzione completa degli spazi", "Complete space redistribution"),
+        tr("Cocina a medida con madera, blanco y encimera negra", "Cucina su misura con legno, bianco e piano nero", "Custom kitchen with wood, white finishes and black countertop"),
+        tr("Baños con microcemento gris y mamparas de vidrio", "Bagni con microcemento grigio e pareti in vetro", "Bathrooms with grey microcement and glass screens"),
+        tr("Iluminación LED indirecta en dormitorio, baños y zonas de paso", "Illuminazione LED indiretta in camera, bagni e zone di passaggio", "Indirect LED lighting in bedroom, bathrooms and circulation areas"),
+        tr("Integración visual entre salón, cocina y terraza", "Integrazione visiva tra soggiorno, cucina e terrazza", "Visual integration between living area, kitchen and terrace"),
+      ],
+      materials: [tr("Microcemento gris", "Microcemento grigio", "Grey microcement"), tr("Madera natural", "Legno naturale", "Natural wood"), tr("Encimera negra", "Piano nero", "Black countertop"), tr("Iluminación LED", "Illuminazione LED", "LED lighting"), "Bosch"],
+      result: tr("Un apartamento contemporáneo, luminoso y muy visual, donde la luz indirecta, la madera y el microcemento crean una atmósfera de diseño sin perder funcionalidad diaria.", "Un appartamento contemporaneo, luminoso e molto scenografico, dove luce indiretta, legno e microcemento creano un'atmosfera di design senza perdere funzionalità quotidiana.", "A contemporary, bright and highly visual apartment where indirect light, wood and microcement create a design-led atmosphere without losing everyday functionality."),
+      metaTitle: tr("Apartamento Marina Botafoc — Reforma integral | Eivitech Ibiza", "Appartamento Marina Botafoc — Ristrutturazione completa | Eivitech Ibiza", "Marina Botafoc Apartment — Full renovation | Eivitech Ibiza"),
+      metaDescription: tr("Reforma integral de 120 m² en Marina Botafoc: cocina a medida, microcemento, baños, iluminación LED indirecta y terraza.", "Ristrutturazione completa di 120 m² a Marina Botafoc: cucina su misura, microcemento, bagni, illuminazione LED indiretta e terrazza.", "Full 120 m² renovation in Marina Botafoc: custom kitchen, microcement, bathrooms, indirect LED lighting and terrace."),
+    };
+  }
+
+  return project;
 }
 
 export function CaseStudyTemplate({ project }: { project: Project }) {
