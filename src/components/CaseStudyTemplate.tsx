@@ -11,6 +11,10 @@ const mediaUrl = (name: string) => `${mediaRoot}${name}`;
 
 type GalleryItem = { src: string; alt: string; portrait?: boolean };
 
+function getProjectPath(project: Project) {
+  return project.slug === "apartamento-marina-botafoch" ? "/proyectos/apartamento-marina-botafoc" : `/proyectos/${project.slug}`;
+}
+
 function getProjectMedia(project: Project) {
   if (project.slug === "urbanizacion-valverde") {
     return {
@@ -72,7 +76,7 @@ function getProjectPresentation(project: Project) {
 export function CaseStudyTemplate({ project }: { project: Project }) {
   const presentation = getProjectPresentation(project);
   const others = PROJECTS.filter((p) => p.slug !== project.slug).slice(0, 3);
-  const path = `/proyectos/${project.slug}`;
+  const path = getProjectPath(project);
   const media = getProjectMedia(project);
 
   return (
