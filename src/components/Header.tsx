@@ -52,14 +52,6 @@ export function Header() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `rounded-sm border border-border px-3 py-2 text-xs font-medium transition ${isActive ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`
-            }
-          >
-            CRM
-          </NavLink>
           <a href={SITE.phoneHref} className="text-sm text-muted-foreground hover:text-foreground">
             {SITE.phone}
           </a>
@@ -95,14 +87,6 @@ export function Header() {
                 {n.label}
               </NavLink>
             ))}
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                `py-3 text-base ${isActive ? "text-foreground" : "text-muted-foreground"}`
-              }
-            >
-              CRM privado
-            </NavLink>
             <Link
               to="/contacto"
               className="mt-3 inline-flex items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
