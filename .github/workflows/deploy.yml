@@ -33,12 +33,7 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci --legacy-peer-deps
-          else
-            npm install --legacy-peer-deps
-          fi
+        run: npm install --legacy-peer-deps
 
       - name: Build
         run: npm run build
@@ -51,7 +46,7 @@ jobs:
           elif [ -d build ]; then
             echo "path=build" >> $GITHUB_OUTPUT
           else
-            echo "No build output found (expected 'dist' or 'build')" >&2
+            echo "No build output found"
             ls -la
             exit 1
           fi
