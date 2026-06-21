@@ -52,6 +52,8 @@ type DashboardLead = {
   nextAction?: string;
 };
 
+const LOGOUT_REDIRECT_URL = "/ibiza-project-accelerator/";
+
 const SERVICE_LABELS: Record<string, string> = {
   "reforma-integral": "Reforma integral",
   bano: "Baño",
@@ -194,7 +196,7 @@ function DashboardShell() {
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <UserButton />
             <span className="text-sm text-muted-foreground">{email}</span>
-            <SignOutButton>
+            <SignOutButton redirectUrl={LOGOUT_REDIRECT_URL}>
               <button className="rounded-sm border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
                 Cerrar sesión
               </button>
@@ -225,7 +227,7 @@ function DashboardShell() {
             <div className="font-medium">Usuario autorizado</div>
             <div className="text-muted-foreground">{email}</div>
           </div>
-          <SignOutButton>
+          <SignOutButton redirectUrl={LOGOUT_REDIRECT_URL}>
             <button className="rounded-sm border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
               Cerrar sesión
             </button>
