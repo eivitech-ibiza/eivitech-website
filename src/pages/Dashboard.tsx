@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
-  ClipboardList,
   Clock,
   FileText,
   Hammer,
@@ -14,23 +13,26 @@ import {
   MapPin,
   MessageCircle,
   RefreshCw,
-  Search,
   ShieldCheck,
-  Sparkles,
   Target,
   Users,
   Wrench,
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, hasClientAdminAccess } from "@/lib/config";
-import { fetchCrmLeads } from "@/lib/crm";
+import { addCrmLeadActivity, fetchCrmLeads, updateCrmLead, type CrmLeadUpdatePayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
+
+type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
+type LeadPriority = "alta" | "media" | "baja";
+type DashboardTab = "clientes" | "partners" | "control";
 
 type ApiLead = {
   id?: string;
   created_at?: string;
-  status?: string;
-  priority?: string;
+  updated_at?: string;
+  status?: LeadStatus;
+  priority?: LeadPriority;
   score?: number;
   nombre?: string;
   email?: string;
@@ -46,16 +48,18 @@ type ApiLead = {
   mensaje?: string | null;
   source?: string | null;
   utm_source?: string | null;
-  utm_campaign?: string | null;
   next_action?: string | null;
+  next_follow_up_at?: string | null;
 };
 
 type DashboardLead = {
   id: string;
   createdAt?: string;
-  status?: string;
+  updatedAt?: string;
+  status: LeadStatus;
+  priority: LeadPriority;
   score: number;
-  nombre?: string;
+  nombre: string;
   email?: string;
   telefono?: string;
   tipoCliente?: string;
@@ -69,24 +73,36 @@ type DashboardLead = {
   mensaje?: string;
   source?: string;
   utmSource?: string;
-  utmCampaign?: string;
   nextAction?: string;
+  nextFollowUpAt?: string;
 };
 
-type CollaboratorCategory = {
-  id: string;
-  category: string;
-  scope: string;
-  risk: "alto" | "medio" | "bajo";
-  status: "critico" | "scouting" | "estable" | "backup";
-  why: string;
-  nextAction: string;
-  dataToCollect: string[];
+type PipelineAction = {
+  label: string;
+  helper: string;
+  payload: CrmLeadUpdatePayload;
+  title: string;
+  tone?: "primary" | "success" | "danger" | "neutral";
 };
-
-type DashboardTab = "clientes" | "colaboradores" | "control";
 
 const LOGOUT_REDIRECT_URL = "/ibiza-project-accelerator/";
+
+const STATUS_LABELS: Record<LeadStatus, string> = {
+  new: tr("Solicitud recibida", "Richiesta ricevuta", "Request received"),
+  first_contact: tr("Cualificado / primer contacto", "Qualificato / primo contatto", "Qualified / first contact"),
+  visit_review: tr("Visita / revisión", "Visita / revisione", "Visit / review"),
+  proposal: tr("Presupuesto / evaluación", "Preventivo / valutazione", "Proposal / evaluation"),
+  follow_up: "Follow-up",
+  won: tr("Concluido / aprobado", "Concluso / approvato", "Closed / approved"),
+  lost: tr("Fallido / descartado", "Fallito / scartato", "Lost / rejected"),
+  review_portfolio: tr("Reseña / backup", "Recensione / backup", "Review / backup"),
+};
+
+const PRIORITY_LABELS: Record<LeadPriority, string> = {
+  alta: tr("Alta", "Alta", "High"),
+  media: tr("Media", "Media", "Medium"),
+  baja: tr("Baja", "Bassa", "Low"),
+};
 
 const SERVICE_LABELS: Record<string, string> = {
   "reforma-integral": tr("Reforma integral", "Ristrutturazione completa", "Full renovation"),
@@ -98,295 +114,99 @@ const SERVICE_LABELS: Record<string, string> = {
   otro: tr("Otro", "Altro", "Other"),
 };
 
-const PROPERTY_LABELS: Record<string, string> = {
-  villa: "Villa",
-  apartamento: tr("Apartamento", "Appartamento", "Apartment"),
-  casa: "Casa",
-  "local-comercial": tr("Local comercial", "Locale commerciale", "Commercial premises"),
-  otro: tr("Otro", "Altro", "Other"),
-};
-
-const CLIENT_LABELS: Record<string, string> = {
-  propietario: tr("Propietario", "Proprietario", "Owner"),
-  comprador: tr("Comprador", "Acquirente", "Buyer"),
-  inversor: tr("Inversor", "Investitore", "Investor"),
-  agencia: tr("Agencia", "Agenzia", "Agency"),
-  empresa: tr("Empresa", "Impresa", "Company"),
-  otro: tr("Otro", "Altro", "Other"),
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  new: tr("Solicitud recibida", "Richiesta ricevuta", "Request received"),
-  first_contact: tr("Primera valoración", "Prima valutazione", "First assessment"),
-  visit_review: tr("Visita / revisión", "Visita / revisione", "Visit / review"),
-  proposal: tr("Presupuesto", "Preventivo", "Proposal"),
-  follow_up: "Follow-up",
-  won: tr("Trabajo cerrado", "Lavoro chiuso", "Closed job"),
-  lost: tr("Perdido", "Perso", "Lost"),
-  review_portfolio: tr("Reseña / portfolio", "Recensione / portfolio", "Review / portfolio"),
-};
-
-const PRIORITY_LABELS = {
-  high: tr("Alta", "Alta", "High"),
-  medium: tr("Media", "Media", "Medium"),
-  low: tr("Baja", "Bassa", "Low"),
-};
-
-const BUCKET_LABELS = {
-  qualified: tr("Cualificada", "Qualificata", "Qualified"),
-  visitReady: tr("Lista para visita", "Pronta per visita", "Ready for visit"),
-  proposalFollowUp: tr("Presupuesto / follow-up", "Preventivo / follow-up", "Proposal / follow-up"),
-  missingData: tr("Faltan datos", "Dati mancanti", "Missing data"),
-  review: tr("Por revisar", "Da verificare", "To review"),
-};
-
-const COLLABORATOR_CATEGORIES: CollaboratorCategory[] = [
+const CLIENT_ACTIONS: PipelineAction[] = [
   {
-    id: "carpinteria",
-    category: tr("Carpintería a medida", "Falegnameria su misura", "Custom carpentry"),
-    scope: tr(
-      "Puertas, armarios, panelados, cocinas a medida y muebles especiales.",
-      "Porte, armadi, pannellature, cucine su misura e mobili speciali.",
-      "Doors, wardrobes, panels, custom kitchens and special furniture."
-    ),
-    risk: "alto",
-    status: "critico",
-    why: tr(
-      "Categoría señalada como una de las que más puede erosionar margen, por precios variables y trabajos a medida.",
-      "Categoria indicata come una di quelle che può erodere maggiormente il margine, per prezzi variabili e lavorazioni su misura.",
-      "Category identified as one of the most likely to erode margin, due to variable pricing and custom work."
-    ),
-    nextAction: tr(
-      "Crear comparativa con mínimo 3 opciones y pedir presupuesto sobre el mismo caso ficticio.",
-      "Creare una comparativa con almeno 3 opzioni e chiedere un preventivo sullo stesso caso fittizio.",
-      "Create a comparison with at least 3 options and request a quote for the same test case."
-    ),
-    dataToCollect: [
-      tr("rango precios", "fascia prezzi", "price range"),
-      tr("plazos reales", "tempi reali", "real timelines"),
-      tr("fotos trabajos", "foto lavori", "work photos"),
-      tr("condiciones anticipo", "condizioni anticipo", "deposit terms"),
-      tr("garantía / correcciones", "garanzia / correzioni", "warranty / corrections"),
-    ],
+    label: tr("Qualifica", "Qualifica", "Qualify"),
+    helper: tr("Da richiesta a lead qualificato", "Da richiesta a lead qualificato", "Move request to qualified"),
+    payload: { status: "first_contact", priority: "media", next_action: tr("Completare qualifica e fissare il prossimo passaggio.", "Completare qualifica e fissare il prossimo passaggio.", "Complete qualification and define next step.") },
+    title: tr("Lead qualificato", "Lead qualificato", "Lead qualified"),
+    tone: "primary",
   },
   {
-    id: "aluminio",
-    category: tr("Aluminio, ventanas y cerramientos", "Alluminio, finestre e infissi", "Aluminium, windows and frames"),
-    scope: tr(
-      "Ventanas, cerramientos, carpintería de aluminio y sustituciones puntuales.",
-      "Finestre, serramenti, carpenteria in alluminio e sostituzioni puntuali.",
-      "Windows, frames, aluminium carpentry and specific replacements."
-    ),
-    risk: "alto",
-    status: "critico",
-    why: tr(
-      "Riesgo operativo alto si se paga anticipo y la instalación se retrasa, porque Eivitech queda expuesta ante el cliente final.",
-      "Rischio operativo alto se viene pagato l’anticipo e l’installazione ritarda, perché Eivitech resta esposta verso il cliente finale.",
-      "High operational risk if a deposit is paid and installation is delayed, because Eivitech remains exposed to the final client."
-    ),
-    nextAction: tr(
-      "Buscar alternativas y registrar por escrito fecha estimada, anticipo, penalización interna y responsable.",
-      "Cercare alternative e registrare per iscritto data stimata, anticipo, penalizzazione interna e responsabile.",
-      "Find alternatives and record estimated date, deposit, internal penalty and owner in writing."
-    ),
-    dataToCollect: [
-      tr("fecha instalación", "data installazione", "installation date"),
-      tr("anticipo", "anticipo", "deposit"),
-      tr("tiempo fabricación", "tempo produzione", "fabrication time"),
-      tr("persona responsable", "persona responsabile", "responsible person"),
-      tr("historial retrasos", "storico ritardi", "delay history"),
-    ],
+    label: tr("Alta priorità", "Alta priorità", "High priority"),
+    helper: tr("Segnalalo come opportunità calda", "Segnalalo come opportunità calda", "Mark as hot opportunity"),
+    payload: { priority: "alta", next_action: tr("Contattare velocemente e preparare valutazione prioritaria.", "Contattare velocemente e preparare valutazione prioritaria.", "Contact quickly and prepare priority assessment.") },
+    title: tr("Priorità aggiornata", "Priorità aggiornata", "Priority updated"),
+    tone: "danger",
   },
   {
-    id: "cristaleria",
-    category: tr("Cristalería y espejos", "Vetreria e specchi", "Glasswork and mirrors"),
-    scope: tr(
-      "Vidrios, mamparas, espejos, detalles de baño y cerramientos ligeros.",
-      "Vetri, pareti doccia, specchi, dettagli bagno e chiusure leggere.",
-      "Glass, shower screens, mirrors, bathroom details and light enclosures."
-    ),
-    risk: "medio",
-    status: "scouting",
-    why: tr(
-      "Suele depender de medición precisa, fabricación externa y montaje limpio en fase final.",
-      "Dipende spesso da misurazioni precise, produzione esterna e montaggio pulito nella fase finale.",
-      "Often depends on precise measurement, external fabrication and clean installation in the final phase."
-    ),
-    nextAction: tr(
-      "Preparar ficha de proveedor con tiempos, disponibilidad y trabajos anteriores.",
-      "Preparare una scheda fornitore con tempi, disponibilità e lavori precedenti.",
-      "Prepare a supplier sheet with timelines, availability and previous work."
-    ),
-    dataToCollect: [
-      tr("zonas cubiertas", "zone coperte", "covered areas"),
-      tr("tiempo medición", "tempo misurazione", "measurement time"),
-      tr("tiempo entrega", "tempo consegna", "delivery time"),
-      tr("precio montaje", "prezzo montaggio", "installation price"),
-      tr("seguro / roturas", "assicurazione / rotture", "insurance / breakages"),
-    ],
+    label: tr("Visita", "Visita", "Visit"),
+    helper: tr("Pronto per sopralluogo", "Pronto per sopralluogo", "Ready for site visit"),
+    payload: { status: "visit_review", next_action: tr("Organizzare sopralluogo o revisione tecnica.", "Organizzare sopralluogo o revisione tecnica.", "Schedule site visit or technical review.") },
+    title: tr("Spostato a visita", "Spostato a visita", "Moved to visit"),
   },
   {
-    id: "marmolistas",
-    category: tr("Mármol, piedra y encimeras", "Marmo, pietra e piani cucina", "Marble, stone and countertops"),
-    scope: tr(
-      "Encimeras, travertino, piedra natural, piezas especiales y acabados premium.",
-      "Piani cucina, travertino, pietra naturale, pezzi speciali e finiture premium.",
-      "Countertops, travertine, natural stone, special pieces and premium finishes."
-    ),
-    risk: "medio",
-    status: "backup",
-    why: tr(
-      "Impacta mucho en percepción premium del proyecto y puede bloquear cocina/baño si llega tarde.",
-      "Incide molto sulla percezione premium del progetto e può bloccare cucina o bagno se arriva in ritardo.",
-      "Strongly affects the premium perception of the project and can block kitchen or bathroom delivery if delayed."
-    ),
-    nextAction: tr(
-      "Tener proveedor principal y backup por tipo de material.",
-      "Avere fornitore principale e backup per tipo di materiale.",
-      "Have a primary supplier and a backup by material type."
-    ),
-    dataToCollect: [
-      tr("materiales", "materiali", "materials"),
-      tr("muestras", "campioni", "samples"),
-      tr("plazo corte", "tempo taglio", "cutting time"),
-      tr("plazo instalación", "tempo installazione", "installation time"),
-      tr("condiciones reposición", "condizioni sostituzione", "replacement terms"),
-    ],
+    label: tr("Preventivo", "Preventivo", "Proposal"),
+    helper: tr("Preventivo in preparazione/inviato", "Preventivo in preparazione/inviato", "Proposal prepared/sent"),
+    payload: { status: "proposal", next_action: tr("Preparare o inviare preventivo e definire follow-up.", "Preparare o inviare preventivo e definire follow-up.", "Prepare or send proposal and define follow-up.") },
+    title: tr("Spostato a preventivo", "Spostato a preventivo", "Moved to proposal"),
   },
   {
-    id: "herreria",
-    category: tr("Herrería / metal", "Fabbro / metallo", "Metalwork"),
-    scope: tr(
-      "Barandillas, pasamanos, puertas metálicas, botolas y piezas especiales.",
-      "Ringhiere, corrimano, porte metalliche, botole e pezzi speciali.",
-      "Railings, handrails, metal doors, hatches and special pieces."
-    ),
-    risk: "medio",
-    status: "scouting",
-    why: tr(
-      "Trabajos puntuales pero críticos cuando afectan seguridad, acabado o entrega.",
-      "Lavori puntuali ma critici quando incidono su sicurezza, finitura o consegna.",
-      "Occasional but critical work when it affects safety, finishes or delivery."
-    ),
-    nextAction: tr(
-      "Crear lista de 2-3 herreros con fotos, rango de precios y disponibilidad.",
-      "Creare una lista di 2-3 fabbri con foto, fascia prezzi e disponibilità.",
-      "Create a list of 2-3 metalworkers with photos, price range and availability."
-    ),
-    dataToCollect: [
-      tr("especialidad", "specializzazione", "specialty"),
-      tr("soldadura", "saldatura", "welding"),
-      tr("acabados", "finiture", "finishes"),
-      tr("plazos", "tempi", "timelines"),
-      tr("trabajos similares", "lavori simili", "similar work"),
-    ],
+    label: "Follow-up",
+    helper: tr("Offerta aperta da seguire", "Offerta aperta da seguire", "Open offer to follow up"),
+    payload: { status: "follow_up", next_action: tr("Fare follow-up e registrare risposta cliente.", "Fare follow-up e registrare risposta cliente.", "Follow up and record client response.") },
+    title: "Follow-up",
   },
   {
-    id: "arquitectura",
-    category: tr("Arquitectura / diseño / dirección técnica", "Architettura / design / direzione tecnica", "Architecture / design / technical management"),
-    scope: tr(
-      "Apoyo técnico cuando el cliente no tiene arquitecto o necesita definición de proyecto.",
-      "Supporto tecnico quando il cliente non ha un architetto o ha bisogno di definire il progetto.",
-      "Technical support when the client has no architect or needs project definition."
-    ),
-    risk: "medio",
-    status: "estable",
-    why: tr(
-      "Clave para clientes premium, inversores y proyectos con decisiones complejas.",
-      "Chiave per clienti premium, investitori e progetti con decisioni complesse.",
-      "Key for premium clients, investors and projects with complex decisions."
-    ),
-    nextAction: tr(
-      "Definir cuándo se activa este partner y qué documentación debe entregar.",
-      "Definire quando attivare questo partner e quale documentazione deve consegnare.",
-      "Define when this partner is activated and what documentation must be delivered."
-    ),
-    dataToCollect: [
-      tr("tipo proyecto", "tipo progetto", "project type"),
-      tr("honorarios", "onorari", "fees"),
-      tr("tiempos", "tempi", "timelines"),
-      tr("entregables", "consegne", "deliverables"),
-      tr("licencias / permisos", "licenze / permessi", "licenses / permits"),
-    ],
+    label: tr("Conclusa", "Conclusa", "Won"),
+    helper: tr("Trattativa chiusa positivamente", "Trattativa chiusa positivamente", "Deal closed positively"),
+    payload: { status: "won", priority: "media", next_action: tr("Preparare consegna, recensione e materiale portfolio.", "Preparare consegna, recensione e materiale portfolio.", "Prepare delivery, review and portfolio material.") },
+    title: tr("Trattativa conclusa", "Trattativa conclusa", "Deal won"),
+    tone: "success",
+  },
+  {
+    label: tr("Fallita", "Fallita", "Lost"),
+    helper: tr("Registra motivo e nota", "Registra motivo e nota", "Record reason and note"),
+    payload: { status: "lost", priority: "baja", next_action: tr("Registrare motivo perdita e possibile recupero futuro.", "Registrare motivo perdita e possibile recupero futuro.", "Record lost reason and possible future recovery.") },
+    title: tr("Trattativa fallita", "Trattativa fallita", "Deal lost"),
+    tone: "neutral",
   },
 ];
 
-const CLIENT_SEGMENTS = [
+const PARTNER_ACTIONS: PipelineAction[] = [
   {
-    title: tr("Propietario vivienda / villa", "Proprietario casa / villa", "House / villa owner"),
-    focus: tr(
-      "Quiere reformar sin coordinar oficios, materiales y decisiones cada día.",
-      "Vuole ristrutturare senza coordinare ogni giorno artigiani, materiali e decisioni.",
-      "Wants to renovate without coordinating trades, materials and decisions every day."
-    ),
-    filter: tr(
-      "Fotos, zona, alcance, timing, presupuesto orientativo y disponibilidad para visita.",
-      "Foto, zona, portata lavori, timing, budget orientativo e disponibilità per visita.",
-      "Photos, area, scope, timing, indicative budget and availability for visit."
-    ),
+    label: tr("Contattato", "Contattato", "Contacted"),
+    helper: tr("Primo contatto fatto", "Primo contatto fatto", "First contact done"),
+    payload: { status: "first_contact", next_action: tr("Richiedere portfolio, prezzi indicativi e disponibilità.", "Richiedere portfolio, prezzi indicativi e disponibilità.", "Request portfolio, indicative prices and availability.") },
+    title: tr("Partner contattato", "Partner contattato", "Partner contacted"),
   },
   {
-    title: tr("Inversor o comprador", "Investitore o acquirente", "Investor or buyer"),
-    focus: tr(
-      "Quiere valorar potencial, coste orientativo y mejora del inmueble antes o después de comprar.",
-      "Vuole valutare potenziale, costo orientativo e miglioramento dell’immobile prima o dopo l’acquisto.",
-      "Wants to assess potential, indicative cost and property improvement before or after buying."
-    ),
-    filter: tr(
-      "Objetivo económico, prioridad de trabajos, urgencia y nivel de decisión.",
-      "Obiettivo economico, priorità lavori, urgenza e livello decisionale.",
-      "Economic objective, work priority, urgency and decision level."
-    ),
+    label: tr("Valutazione", "Valutazione", "Evaluation"),
+    helper: tr("Da confrontare con altri fornitori", "Da confrontare con altri fornitori", "Compare with other suppliers"),
+    payload: { status: "proposal", priority: "media", next_action: tr("Valutare con scorecard: qualità, prezzo, tempi, garanzie.", "Valutare con scorecard: qualità, prezzo, tempi, garanzie.", "Evaluate with scorecard: quality, price, timing, guarantees.") },
+    title: tr("Partner in valutazione", "Partner in valutazione", "Partner in evaluation"),
   },
   {
-    title: tr("Local comercial / restaurante / bar", "Locale commerciale / ristorante / bar", "Commercial premises / restaurant / bar"),
-    focus: tr(
-      "Necesita imagen, funcionalidad y entrega ordenada sin perder semanas operativas.",
-      "Ha bisogno di immagine, funzionalità e consegna ordinata senza perdere settimane operative.",
-      "Needs image, functionality and orderly delivery without losing operational weeks."
-    ),
-    filter: tr(
-      "Fecha objetivo, permisos, instalaciones, imagen deseada y restricciones de apertura.",
-      "Data obiettivo, permessi, impianti, immagine desiderata e vincoli di apertura.",
-      "Target date, permits, installations, desired image and opening constraints."
-    ),
+    label: tr("Approvato", "Approvato", "Approved"),
+    helper: tr("Collaboratore utilizzabile", "Collaboratore utilizzabile", "Usable collaborator"),
+    payload: { status: "won", priority: "alta", next_action: tr("Inserire tra i collaboratori approvati e definire regole operative.", "Inserire tra i collaboratori approvati e definire regole operative.", "Add to approved collaborators and define operating rules.") },
+    title: tr("Partner approvato", "Partner approvato", "Partner approved"),
+    tone: "success",
   },
   {
-    title: tr("Agencia / property manager", "Agenzia / property manager", "Agency / property manager"),
-    focus: tr(
-      "Busca referente local fiable para resolver trabajos y reformas de clientes.",
-      "Cerca un referente locale affidabile per gestire lavori e ristrutturazioni dei clienti.",
-      "Looks for a reliable local point of contact for client works and renovations."
-    ),
-    filter: tr(
-      "Tipo de relación, volumen potencial, tiempos de respuesta y expectativas de reporting.",
-      "Tipo di relazione, volume potenziale, tempi di risposta e aspettative di reportistica.",
-      "Relationship type, potential volume, response times and reporting expectations."
-    ),
+    label: "Backup",
+    helper: tr("Opzione secondaria", "Opzione secondaria", "Secondary option"),
+    payload: { status: "review_portfolio", priority: "media", next_action: tr("Tenere come backup e rivalutare su progetti compatibili.", "Tenere come backup e rivalutare su progetti compatibili.", "Keep as backup and reassess for compatible projects.") },
+    title: tr("Partner in backup", "Partner in backup", "Partner as backup"),
+  },
+  {
+    label: tr("Scartato", "Scartato", "Rejected"),
+    helper: tr("Non adatto ora", "Non adatto ora", "Not suitable now"),
+    payload: { status: "lost", priority: "baja", next_action: tr("Registrare motivo esclusione.", "Registrare motivo esclusione.", "Record rejection reason.") },
+    title: tr("Partner scartato", "Partner scartato", "Partner rejected"),
+    tone: "neutral",
   },
 ];
-
-function normalise(value?: string, labels?: Record<string, string>) {
-  if (!value) return "—";
-  return labels?.[value] ?? value.replaceAll("-", " ");
-}
-
-function formatDate(value?: string) {
-  if (!value) return "—";
-  try {
-    return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
 
 function mapLead(lead: ApiLead): DashboardLead {
   return {
     id: lead.id || `${lead.email || "lead"}-${lead.created_at || Date.now()}`,
     createdAt: lead.created_at,
-    status: lead.status,
+    updatedAt: lead.updated_at,
+    status: lead.status || "new",
+    priority: lead.priority || "media",
     score: typeof lead.score === "number" ? lead.score : 0,
-    nombre: lead.nombre,
+    nombre: lead.nombre || tr("Senza nome", "Senza nome", "Without name"),
     email: lead.email,
     telefono: lead.telefono,
     tipoCliente: lead.tipo_cliente,
@@ -400,64 +220,54 @@ function mapLead(lead: ApiLead): DashboardLead {
     mensaje: lead.mensaje ?? undefined,
     source: lead.source ?? undefined,
     utmSource: lead.utm_source ?? undefined,
-    utmCampaign: lead.utm_campaign ?? undefined,
     nextAction: lead.next_action ?? undefined,
+    nextFollowUpAt: lead.next_follow_up_at ?? undefined,
   };
 }
 
-function getPriorityTone(score: number) {
-  if (score >= 75) return "border-destructive/30 bg-destructive/10 text-destructive";
-  if (score >= 55) return "border-primary/30 bg-primary/10 text-primary";
-  return "border-border bg-muted text-muted-foreground";
+function isPartnerLead(lead: DashboardLead) {
+  return Boolean(lead.source?.includes("partner") || lead.mensaje?.includes("[PARTNER_COLLABORATOR_APPLICATION]"));
 }
 
-function getPriorityLabel(score: number) {
-  if (score >= 75) return PRIORITY_LABELS.high;
-  if (score >= 55) return PRIORITY_LABELS.medium;
-  return PRIORITY_LABELS.low;
+function getPartnerInfo(lead: DashboardLead, key: string) {
+  const row = lead.mensaje?.split("\n").find((line) => line.toLowerCase().startsWith(`${key.toLowerCase()}:`));
+  return row?.split(":").slice(1).join(":").trim() || "—";
 }
 
-function getRiskLabel(risk: CollaboratorCategory["risk"]) {
-  if (risk === "alto") return tr("alto", "alto", "high");
-  if (risk === "medio") return tr("medio", "medio", "medium");
-  return tr("bajo", "basso", "low");
+function normalise(value?: string, labels?: Record<string, string>) {
+  if (!value) return "—";
+  return labels?.[value] ?? value.replaceAll("-", " ");
 }
 
-function getRiskTone(risk: CollaboratorCategory["risk"]) {
-  if (risk === "alto") return "border-destructive/30 bg-destructive/10 text-destructive";
-  if (risk === "medio") return "border-primary/30 bg-primary/10 text-primary";
-  return "border-secondary/30 bg-secondary/10 text-secondary";
+function formatDate(value?: string) {
+  if (!value) return "—";
+  try {
+    return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
-function getStatusTone(status?: string) {
+function getStatusTone(status: LeadStatus) {
   if (status === "won" || status === "review_portfolio") return "border-secondary/30 bg-secondary/10 text-secondary";
   if (status === "proposal" || status === "follow_up") return "border-primary/30 bg-primary/10 text-primary";
   if (status === "lost") return "border-destructive/30 bg-destructive/10 text-destructive";
   return "border-border bg-card text-muted-foreground";
 }
 
-function getLeadCompleteness(lead: DashboardLead) {
-  const checks = [lead.email, lead.telefono, lead.tipoCliente, lead.tipoPropiedad, lead.intervencion, lead.plazo, lead.tieneFotos === "si", lead.tieneProyecto && lead.tieneProyecto !== "no"];
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+function getPriorityTone(priority: LeadPriority) {
+  if (priority === "alta") return "border-destructive/30 bg-destructive/10 text-destructive";
+  if (priority === "media") return "border-primary/30 bg-primary/10 text-primary";
+  return "border-border bg-muted text-muted-foreground";
 }
 
-function getLeadBucket(lead: DashboardLead) {
-  if (lead.status === "proposal" || lead.status === "follow_up") return BUCKET_LABELS.proposalFollowUp;
-  if (lead.status === "visit_review") return BUCKET_LABELS.visitReady;
-  if (lead.tieneFotos !== "si" || !lead.presupuesto) return BUCKET_LABELS.missingData;
-  if (lead.score >= 55) return BUCKET_LABELS.qualified;
-  return BUCKET_LABELS.review;
-}
-
-function getWhatsAppHref(lead: DashboardLead) {
+function getWhatsAppHref(lead: DashboardLead, partner = false) {
   const rawPhone = (lead.telefono || "").replace(/[^+\d]/g, "");
   const phone = rawPhone.startsWith("+") ? rawPhone.slice(1) : rawPhone;
   const message = encodeURIComponent(
-    tr(
-      `Hola ${lead.nombre || ""}, gracias por contactar con Eivitech. Hemos recibido la información sobre tu proyecto en Ibiza. ¿Puedes enviarnos fotos, vídeos o planos del estado actual para valorar el siguiente paso?`,
-      `Ciao ${lead.nombre || ""}, grazie per aver contattato Eivitech. Abbiamo ricevuto le informazioni sul tuo progetto a Ibiza. Puoi inviarci foto, video o planimetrie dello stato attuale per valutare il prossimo passo?`,
-      `Hi ${lead.nombre || ""}, thanks for contacting Eivitech. We have received the information about your project in Ibiza. Could you send us photos, videos or plans of the current state so we can assess the next step?`
-    )
+    partner
+      ? tr(`Hola ${lead.nombre}, gracias por presentarte como colaborador profesional de Eivitech. ¿Puedes enviarnos portfolio, zona de trabajo, disponibilidad y condiciones orientativas?`, `Ciao ${lead.nombre}, grazie per esserti proposto come collaboratore professionale Eivitech. Puoi inviarci portfolio, zona di lavoro, disponibilità e condizioni orientative?`, `Hi ${lead.nombre}, thanks for applying as an Eivitech professional partner. Could you send us your portfolio, work area, availability and indicative terms?`)
+      : tr(`Hola ${lead.nombre}, gracias por contactar con Eivitech. ¿Puedes enviarnos fotos, vídeos o planos para valorar el siguiente paso?`, `Ciao ${lead.nombre}, grazie per aver contattato Eivitech. Puoi inviarci foto, video o planimetrie per valutare il prossimo passo?`, `Hi ${lead.nombre}, thanks for contacting Eivitech. Could you send us photos, videos or plans so we can assess the next step?`)
   );
   return phone ? `https://wa.me/${phone}?text=${message}` : `https://wa.me/34674735188?text=${message}`;
 }
@@ -469,8 +279,10 @@ function DashboardShell() {
   const hasAccess = hasClientAdminAccess(email);
   const [leads, setLeads] = useState<DashboardLead[]>([]);
   const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("clientes");
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   async function loadLeads() {
     setLoading(true);
@@ -484,12 +296,41 @@ function DashboardShell() {
     } catch (err) {
       console.error("[dashboard] failed to load PostgreSQL leads", err);
       setError(tr(
-        "No se han podido cargar los leads desde PostgreSQL. Revisa que el email usado en Clerk esté en BOOTSTRAP_ADMIN_EMAILS de Railway.",
-        "Non è stato possibile caricare i lead da PostgreSQL. Controlla che l’email usata in Clerk sia presente in BOOTSTRAP_ADMIN_EMAILS su Railway.",
-        "Could not load leads from PostgreSQL. Check that the email used in Clerk is included in BOOTSTRAP_ADMIN_EMAILS on Railway."
+        "No se han podido cargar los datos desde PostgreSQL. Revisa que el email usado en Clerk esté en BOOTSTRAP_ADMIN_EMAILS de Railway.",
+        "Non è stato possibile caricare i dati da PostgreSQL. Controlla che l’email usata in Clerk sia presente in BOOTSTRAP_ADMIN_EMAILS su Railway.",
+        "Could not load data from PostgreSQL. Check that the email used in Clerk is included in BOOTSTRAP_ADMIN_EMAILS on Railway."
       ));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function applyAction(lead: DashboardLead, action: PipelineAction) {
+    setSavingId(lead.id);
+    setError(null);
+
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Missing Clerk token");
+      const note = notes[lead.id]?.trim();
+      const result = await updateCrmLead(token, lead.id, action.payload);
+
+      if (note) {
+        await addCrmLeadActivity(token, lead.id, {
+          type: "note",
+          title: action.title,
+          notes: note,
+        });
+      }
+
+      const updated = mapLead(result.lead as ApiLead);
+      setLeads((current) => current.map((item) => (item.id === lead.id ? updated : item)));
+      setNotes((current) => ({ ...current, [lead.id]: "" }));
+    } catch (err) {
+      console.error("[dashboard] failed to update lead", err);
+      setError(tr("No se ha podido actualizar el estado.", "Non è stato possibile aggiornare lo stato.", "Could not update status."));
+    } finally {
+      setSavingId(null);
     }
   }
 
@@ -497,26 +338,20 @@ function DashboardShell() {
     if (hasAccess) void loadLeads();
   }, [hasAccess]);
 
-  const sortedLeads = useMemo(() => [...leads].sort((a, b) => b.score - a.score), [leads]);
+  const clientLeads = useMemo(() => leads.filter((lead) => !isPartnerLead(lead)), [leads]);
+  const partnerLeads = useMemo(() => leads.filter(isPartnerLead), [leads]);
+  const sortedClients = useMemo(() => [...clientLeads].sort((a, b) => b.score - a.score), [clientLeads]);
+  const sortedPartners = useMemo(() => [...partnerLeads].sort((a, b) => Number(b.priority === "alta") - Number(a.priority === "alta") || b.score - a.score), [partnerLeads]);
+
   const stats = useMemo(() => ({
-    total: leads.length,
-    qualified: leads.filter((lead) => lead.score >= 55).length,
-    high: leads.filter((lead) => lead.score >= 75).length,
-    missingAssets: leads.filter((lead) => lead.tieneFotos !== "si").length,
-    proposals: leads.filter((lead) => lead.status === "proposal" || lead.status === "follow_up").length,
-    collaboratorsCritical: COLLABORATOR_CATEGORIES.filter((item) => item.risk === "alto" || item.status === "critico").length,
-  }), [leads]);
-
-  const pipeline = useMemo(() => Object.entries(STATUS_LABELS).map(([status, label]) => ({
-    status,
-    label,
-    total: leads.filter((lead) => lead.status === status).length,
-  })), [leads]);
-
-  const leadBuckets = useMemo(() => Object.values(BUCKET_LABELS).map((bucket) => ({
-    bucket,
-    leads: sortedLeads.filter((lead) => getLeadBucket(lead) === bucket),
-  })), [sortedLeads]);
+    clients: clientLeads.length,
+    qualified: clientLeads.filter((lead) => lead.status !== "new" && lead.status !== "lost").length,
+    high: clientLeads.filter((lead) => lead.priority === "alta").length,
+    won: clientLeads.filter((lead) => lead.status === "won").length,
+    lost: clientLeads.filter((lead) => lead.status === "lost").length,
+    partners: partnerLeads.length,
+    approvedPartners: partnerLeads.filter((lead) => lead.status === "won").length,
+  }), [clientLeads, partnerLeads]);
 
   if (!hasAccess) {
     return (
@@ -527,11 +362,7 @@ function DashboardShell() {
           </div>
           <h1 className="display-md mt-5">{tr("Acceso no autorizado", "Accesso non autorizzato", "Unauthorized access")}</h1>
           <p className="mt-4 text-muted-foreground leading-relaxed">
-            {tr(
-              "Has iniciado sesión, pero este usuario no está incluido en la lista de acceso operativo del CRM.",
-              "Hai effettuato l’accesso, ma questo utente non è incluso nella lista di accesso operativo del CRM.",
-              "You are signed in, but this user is not included in the CRM operational access list."
-            )}
+            {tr("Has iniciado sesión, pero este usuario no está incluido en la lista de acceso operativo del CRM.", "Hai effettuato l’accesso, ma questo utente non è incluso nella lista di accesso operativo del CRM.", "You are signed in, but this user is not included in the CRM operational access list.")}
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <UserButton />
@@ -552,19 +383,14 @@ function DashboardShell() {
       <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
         <div>
           <div className="eyebrow">Eivitech Ops Partner</div>
-          <h1 className="display-lg mt-4">{tr("Dashboard clientes y colaboradores", "Dashboard clienti e collaboratori", "Clients and collaborators dashboard")}</h1>
+          <h1 className="display-lg mt-4">{tr("CRM clientes y partners", "CRM clienti e partner", "Clients and partners CRM")}</h1>
           <p className="mt-4 max-w-3xl text-muted-foreground leading-relaxed">
             {tr(
-              "Panel operativo para controlar solicitudes de clientes, prioridades comerciales, follow-up y categorías de colaboradores profesionales a seleccionar o monitorizar.",
-              "Pannello operativo per controllare richieste clienti, priorità commerciali, follow-up e categorie di collaboratori professionali da selezionare o monitorare.",
-              "Operational panel to control client requests, commercial priorities, follow-ups and professional collaborator categories to select or monitor."
+              "Controla solicitudes, colaboradores profesionales, estados de avance, prioridad y notas operativas desde una sola dashboard.",
+              "Controlla richieste, collaboratori professionali, stati di avanzamento, priorità e note operative da una sola dashboard.",
+              "Control requests, professional partners, progress statuses, priority and operational notes from one dashboard."
             )}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border border-border bg-card px-3 py-1">{tr("Leads: PostgreSQL Railway", "Lead: PostgreSQL Railway", "Leads: PostgreSQL Railway")}</span>
-            <span className="rounded-full border border-border bg-card px-3 py-1">{tr("Acceso: Clerk", "Accesso: Clerk", "Access: Clerk")}</span>
-            <span className="rounded-full border border-border bg-card px-3 py-1">{tr("Colaboradores: registro operativo por validar", "Collaboratori: registro operativo da validare", "Collaborators: operational register to validate")}</span>
-          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card px-4 py-3 shadow-soft">
@@ -581,317 +407,108 @@ function DashboardShell() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {error && <div className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
-      <div className="grid gap-4 md:grid-cols-5">
-        <Metric icon={ClipboardList} label={tr("Solicitudes", "Richieste", "Requests")} value={stats.total} helper={tr("Total en PostgreSQL", "Totale in PostgreSQL", "Total in PostgreSQL")} />
-        <Metric icon={ShieldCheck} label={tr("Cualificados", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("Score operativo ≥ 55", "Score operativo ≥ 55", "Operational score ≥ 55")} />
-        <Metric icon={AlertTriangle} label={tr("Alta prioridad", "Alta priorità", "High priority")} value={stats.high} helper={tr("Score ≥ 75", "Score ≥ 75", "Score ≥ 75")} />
-        <Metric icon={FileText} label={tr("Presupuesto / follow-up", "Preventivo / follow-up", "Proposal / follow-up")} value={stats.proposals} helper={tr("No perder oportunidades", "Non perdere opportunità", "Avoid losing opportunities")} />
-        <Metric icon={Hammer} label={tr("Colaboradores críticos", "Collaboratori critici", "Critical collaborators")} value={stats.collaboratorsCritical} helper={tr("Categorías a controlar", "Categorie da controllare", "Categories to control")} />
+      <div className="grid gap-4 md:grid-cols-7">
+        <Metric icon={Users} label={tr("Clienti", "Clienti", "Clients")} value={stats.clients} helper={tr("Richieste commerciali", "Richieste commerciali", "Commercial requests")} />
+        <Metric icon={ShieldCheck} label={tr("Qualificati", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("Non più nuovi", "Non più nuovi", "No longer new")} />
+        <Metric icon={AlertTriangle} label={tr("Alta priorità", "Alta priorità", "High priority")} value={stats.high} helper={tr("Da seguire subito", "Da seguire subito", "Follow immediately")} />
+        <Metric icon={CheckCircle2} label={tr("Conclusi", "Conclusi", "Won")} value={stats.won} helper={tr("Trattative chiuse", "Trattative chiuse", "Closed deals")} />
+        <Metric icon={Clock} label={tr("Falliti", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo da registrare", "Con motivo da registrare", "Reason to record")} />
+        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidature", "Candidature", "Applications")} />
+        <Metric icon={Wrench} label={tr("Approvati", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Collaboratori validati", "Collaboratori validati", "Validated partners")} />
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 rounded-sm border border-border bg-card p-2 shadow-soft">
-        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clientes", "Clienti", "Clients")} onClick={() => setActiveTab("clientes")} />
-        <TabButton active={activeTab === "colaboradores"} icon={Hammer} label={tr("Colaboradores profesionales", "Collaboratori professionali", "Professional collaborators")} onClick={() => setActiveTab("colaboradores")} />
-        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Control operativo", "Controllo operativo", "Operational control")} onClick={() => setActiveTab("control")} />
-        <button
-          onClick={() => void loadLeads()}
-          disabled={loading}
-          className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60"
-        >
-          <RefreshCw size={15} /> {loading ? tr("Cargando…", "Caricamento…", "Loading…") : tr("Actualizar", "Aggiorna", "Refresh")}
+        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clienti", "Clienti", "Clients")} onClick={() => setActiveTab("clientes")} />
+        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partner professionali", "Partner professionali", "Professional partners")} onClick={() => setActiveTab("partners")} />
+        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Controllo operativo", "Controllo operativo", "Operational control")} onClick={() => setActiveTab("control")} />
+        <button onClick={() => void loadLeads()} disabled={loading} className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60">
+          <RefreshCw size={15} /> {loading ? tr("Caricamento…", "Caricamento…", "Loading…") : tr("Aggiorna", "Aggiorna", "Refresh")}
         </button>
       </div>
 
       {activeTab === "clientes" && (
-        <ClientsPanel loading={loading} sortedLeads={sortedLeads} pipeline={pipeline} leadBuckets={leadBuckets} />
+        <LeadsBoard
+          type="client"
+          leads={sortedClients}
+          actions={CLIENT_ACTIONS}
+          loading={loading}
+          savingId={savingId}
+          notes={notes}
+          setNotes={setNotes}
+          onAction={applyAction}
+        />
       )}
 
-      {activeTab === "colaboradores" && <CollaboratorsPanel />}
+      {activeTab === "partners" && (
+        <LeadsBoard
+          type="partner"
+          leads={sortedPartners}
+          actions={PARTNER_ACTIONS}
+          loading={loading}
+          savingId={savingId}
+          notes={notes}
+          setNotes={setNotes}
+          onAction={applyAction}
+        />
+      )}
 
       {activeTab === "control" && <ControlPanel />}
 
       <div className="mt-8 rounded-sm border border-border bg-card p-6 text-sm text-muted-foreground shadow-soft">
-        <div className="font-medium text-foreground">{tr("Usuarios frontend autorizados", "Utenti frontend autorizzati", "Authorized frontend users")}</div>
-        {ALLOWED_ADMIN_EMAILS.length > 0 ? (
-          <div className="mt-2">{ALLOWED_ADMIN_EMAILS.join(", ")}</div>
-        ) : (
-          <div className="mt-2">{tr("No hay allowlist frontend configurada.", "Nessuna allowlist frontend configurata.", "No frontend allowlist configured.")}</div>
-        )}
+        <div className="font-medium text-foreground">{tr("Utenti frontend autorizzati", "Utenti frontend autorizzati", "Authorized frontend users")}</div>
+        <div className="mt-2">{ALLOWED_ADMIN_EMAILS.length > 0 ? ALLOWED_ADMIN_EMAILS.join(", ") : tr("Nessuna allowlist frontend configurata.", "Nessuna allowlist frontend configurata.", "No frontend allowlist configured.")}</div>
       </div>
     </section>
   );
 }
 
-function ClientsPanel({
-  loading,
-  sortedLeads,
-  pipeline,
-  leadBuckets,
-}: {
+function LeadsBoard({ type, leads, actions, loading, savingId, notes, setNotes, onAction }: {
+  type: "client" | "partner";
+  leads: DashboardLead[];
+  actions: PipelineAction[];
   loading: boolean;
-  sortedLeads: DashboardLead[];
-  pipeline: { status: string; label: string; total: number }[];
-  leadBuckets: { bucket: string; leads: DashboardLead[] }[];
+  savingId: string | null;
+  notes: Record<string, string>;
+  setNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onAction: (lead: DashboardLead, action: PipelineAction) => Promise<void>;
 }) {
-  return (
-    <div className="mt-8 space-y-8">
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-sm border border-border bg-card p-6 shadow-card">
-          <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-2xl">{tr("Clientes y oportunidades", "Clienti e opportunità", "Clients and opportunities")}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {tr(
-                  "Lectura operativa de leads: calidad, estado, datos faltantes y próxima acción.",
-                  "Lettura operativa dei lead: qualità, stato, dati mancanti e prossima azione.",
-                  "Operational reading of leads: quality, status, missing data and next action."
-                )}
-              </p>
-            </div>
-            <span className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
-              BANT + {tr("completitud materiales", "completezza materiali", "asset completeness")}
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="rounded-sm border border-dashed border-border bg-background p-8 text-sm text-muted-foreground">
-              {tr("Cargando solicitudes desde PostgreSQL…", "Caricamento richieste da PostgreSQL…", "Loading requests from PostgreSQL…")}
-            </div>
-          ) : sortedLeads.length === 0 ? (
-            <div className="rounded-sm border border-dashed border-border bg-background p-8 text-sm text-muted-foreground">
-              {tr("Aún no hay solicitudes visibles para este usuario.", "Non ci sono ancora richieste visibili per questo utente.", "There are no visible requests for this user yet.")}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {sortedLeads.map((lead) => <LeadCard key={lead.id} lead={lead} />)}
-            </div>
-          )}
-        </div>
-
-        <aside className="space-y-4">
-          <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Target size={17} className="text-primary" /> {tr("Pipeline clientes", "Pipeline clienti", "Client pipeline")}
-            </div>
-            <div className="mt-5 space-y-3">
-              {pipeline.map((item) => (
-                <div key={item.status} className="flex items-center justify-between gap-3 border-b border-border/70 pb-2 last:border-0 last:pb-0">
-                  <span className="text-sm text-muted-foreground">{item.label}</span>
-                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusTone(item.status)}`}>{item.total}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Sparkles size={17} className="text-primary" /> {tr("Segmentos a impulsar", "Segmenti da spingere", "Segments to prioritize")}
-            </div>
-            <div className="mt-4 space-y-4">
-              {CLIENT_SEGMENTS.map((segment) => (
-                <div key={segment.title} className="rounded-sm bg-background p-4">
-                  <div className="font-medium">{segment.title}</div>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{segment.focus}</p>
-                  <p className="mt-2 text-xs leading-relaxed"><span className="font-medium">{tr("Filtro", "Filtro", "Filter")}:</span> {segment.filter}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl">{tr("Buckets operativos", "Bucket operativi", "Operational buckets")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{tr("Vista rápida para decidir qué hacer hoy.", "Vista rapida per decidere cosa fare oggi.", "Quick view to decide what to do today.")}</p>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-5">
-          {leadBuckets.map((bucket) => (
-            <div key={bucket.bucket} className="rounded-sm border border-border bg-background p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-medium">{bucket.bucket}</div>
-                <span className="rounded-full bg-card px-2 py-1 text-xs text-muted-foreground">{bucket.leads.length}</span>
-              </div>
-              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-                {bucket.leads.slice(0, 4).map((lead) => (
-                  <div key={lead.id} className="truncate">{lead.nombre || tr("Lead sin nombre", "Lead senza nome", "Lead without name")}</div>
-                ))}
-                {bucket.leads.length === 0 && <div>—</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeadCard({ lead }: { lead: DashboardLead }) {
-  const completeness = getLeadCompleteness(lead);
+  const emptyText = type === "partner"
+    ? tr("Non ci sono ancora candidature partner.", "Non ci sono ancora candidature partner.", "There are no partner applications yet.")
+    : tr("Non ci sono ancora richieste cliente.", "Non ci sono ancora richieste cliente.", "There are no client requests yet.");
 
   return (
-    <article className="rounded-sm border border-border bg-background p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-display text-xl">{lead.nombre || tr("Lead sin nombre", "Lead senza nome", "Lead without name")}</h3>
-            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getPriorityTone(lead.score)}`}>
-              {tr("Prioridad", "Priorità", "Priority")} {getPriorityLabel(lead.score)} · {lead.score}/100
-            </span>
-            <span className={`rounded-full border px-2.5 py-1 text-xs ${getStatusTone(lead.status)}`}>
-              {normalise(lead.status, STATUS_LABELS)}
-            </span>
-            <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground">
-              {tr("Completo", "Completo", "Complete")} {completeness}%
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span>{lead.email || tr("Sin email", "Senza email", "No email")}</span>
-            <span>{lead.telefono || tr("Sin teléfono", "Senza telefono", "No phone")}</span>
-            <span className="inline-flex items-center gap-1"><MapPin size={13} /> {lead.zona || "Ibiza"}</span>
-            <span>{formatDate(lead.createdAt)}</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a href={getWhatsAppHref(lead)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
-            <MessageCircle size={14} /> WhatsApp
-          </a>
-          {lead.email && (
-            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza | ${tr("Hemos recibido tu solicitud", "Abbiamo ricevuto la tua richiesta", "We received your request")}`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
-              <Mail size={14} /> Email
-            </a>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
-        <Info label="Authority" value={normalise(lead.tipoCliente, CLIENT_LABELS)} />
-        <Info label={tr("Propiedad", "Proprietà", "Property")} value={normalise(lead.tipoPropiedad, PROPERTY_LABELS)} />
-        <Info label="Need" value={normalise(lead.intervencion, SERVICE_LABELS)} />
-        <Info label="Timing" value={normalise(lead.plazo)} />
-      </div>
-
-      <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-        <ChecklistItem ok={Boolean(lead.presupuesto)} label={`${tr("Budget", "Budget", "Budget")}: ${lead.presupuesto || tr("por validar", "da validare", "to validate")}`} />
-        <ChecklistItem ok={lead.tieneFotos === "si"} label={`${tr("Fotos/vídeo", "Foto/video", "Photos/video")}: ${normalise(lead.tieneFotos)}`} />
-        <ChecklistItem ok={lead.tieneProyecto === "si" || lead.tieneProyecto === "en-proceso"} label={`${tr("Proyecto", "Progetto", "Project")}: ${normalise(lead.tieneProyecto)}`} />
-      </div>
-
-      <div className="mt-4 rounded-sm bg-accent/50 p-4 text-sm">
-        <div className="font-medium">{tr("Próxima acción recomendada", "Prossima azione consigliata", "Recommended next action")}</div>
-        <p className="mt-1 text-muted-foreground">{lead.nextAction || tr("Preparar primera valoración y proponer siguiente paso.", "Preparare la prima valutazione e proporre il prossimo passo.", "Prepare the first assessment and propose the next step.")}</p>
-      </div>
-
-      {lead.mensaje && (
-        <p className="mt-4 border-l-2 border-primary/40 pl-4 text-sm text-muted-foreground">{lead.mensaje}</p>
-      )}
-    </article>
-  );
-}
-
-function CollaboratorsPanel() {
-  return (
-    <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr]">
-      <div className="rounded-sm border border-border bg-card p-6 shadow-card">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl">{tr("Registro colaboradores profesionales", "Registro collaboratori professionali", "Professional collaborators register")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {tr(
-                "Categorías operativas para seleccionar, comparar y monitorizar, reduciendo riesgo, retrasos y pérdida de margen.",
-                "Categorie operative da selezionare, confrontare e monitorare per ridurre rischio, ritardi e perdita di margine.",
-                "Operational categories to select, compare and monitor, reducing risk, delays and margin loss."
-              )}
-            </p>
-          </div>
-          <span className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
-            Scouting + scorecard
-          </span>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {COLLABORATOR_CATEGORIES.map((item) => (
-            <article key={item.id} className="rounded-sm border border-border bg-background p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="font-display text-xl">{item.category}</h3>
-                <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getRiskTone(item.risk)}`}>{tr("Riesgo", "Rischio", "Risk")} {getRiskLabel(item.risk)}</span>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.scope}</p>
-              <div className="mt-4 rounded-sm bg-accent/50 p-3 text-sm">
-                <div className="font-medium">{tr("Por qué monitorizarlo", "Perché monitorarlo", "Why monitor it")}</div>
-                <p className="mt-1 text-muted-foreground">{item.why}</p>
-              </div>
-              <div className="mt-4 text-sm">
-                <div className="font-medium">{tr("Próxima acción", "Prossima azione", "Next action")}</div>
-                <p className="mt-1 text-muted-foreground">{item.nextAction}</p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {item.dataToCollect.map((data) => (
-                  <span key={data} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground">{data}</span>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
+    <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.38fr]">
+      <div className="space-y-4">
+        {loading ? (
+          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{tr("Caricamento dati da PostgreSQL…", "Caricamento dati da PostgreSQL…", "Loading data from PostgreSQL…")}</div>
+        ) : leads.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{emptyText}</div>
+        ) : (
+          leads.map((lead) => (
+            <LeadCard
+              key={lead.id}
+              type={type}
+              lead={lead}
+              actions={actions}
+              saving={savingId === lead.id}
+              note={notes[lead.id] || ""}
+              onNoteChange={(value) => setNotes((current) => ({ ...current, [lead.id]: value }))}
+              onAction={(action) => onAction(lead, action)}
+            />
+          ))
+        )}
       </div>
 
       <aside className="space-y-4">
-        <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Search size={17} className="text-primary" /> {tr("SOP scouting colaborador", "SOP scouting collaboratore", "Collaborator scouting SOP")}
-          </div>
-          <ol className="mt-5 space-y-4 text-sm">
-            {[
-              tr("Identificar categoría y trabajo tipo para usar como test.", "Identificare categoria e lavoro tipo da usare come test.", "Identify category and test work type."),
-              tr("Encontrar mínimo 3 profesionales alternativos por categoría crítica.", "Trovare minimo 3 professionisti alternativi per categoria critica.", "Find at least 3 alternative professionals for each critical category."),
-              tr("Pedir presupuesto sobre el mismo caso, con fotos o medidas idénticas.", "Chiedere preventivo sullo stesso caso, con foto o misure identiche.", "Request a quote for the same case, with identical photos or measurements."),
-              tr("Registrar precio, anticipo, tiempos, garantía, comunicación y trabajos similares.", "Registrare prezzo, anticipo, tempi, garanzia, comunicazione e lavori simili.", "Record price, deposit, timelines, warranty, communication and similar work."),
-              tr("Asignar estado: por testar, aprobado, backup, evitar.", "Assegnare stato: da testare, approvato, backup, da evitare.", "Assign status: to test, approved, backup, avoid."),
-              tr("Validar con Daniele antes de insertarlo en un proyecto real.", "Validare con Daniele prima di inserirlo in un progetto reale.", "Validate with Daniele before using in a real project."),
-            ].map((step, index) => (
-              <li key={step} className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">{index + 1}</span>
-                <span className="text-muted-foreground">{step}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <ClipboardCheck size={17} className="text-primary" /> {tr("Scorecard colaborador", "Scorecard collaboratore", "Collaborator scorecard")}
-          </div>
-          <div className="mt-4 grid gap-3 text-sm">
-            {[
-              tr("Calidad trabajos anteriores", "Qualità lavori precedenti", "Quality of previous work"),
-              tr("Precio comparable", "Prezzo comparabile", "Comparable price"),
-              tr("Respeto de tiempos", "Rispetto tempi", "Respect of timelines"),
-              tr("Comunicación", "Comunicazione", "Communication"),
-              tr("Condiciones de anticipo", "Condizioni anticipo", "Deposit terms"),
-              tr("Disponibilidad para correcciones", "Disponibilità correzioni", "Availability for corrections"),
-              tr("Documentación / factura", "Documentazione / fattura", "Documentation / invoice"),
-            ].map((item) => (
-              <ChecklistItem key={item} ok={false} label={item} neutral />
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-sm border border-primary/25 bg-primary/10 p-6 text-sm shadow-soft">
-          <div className="font-medium text-foreground">{tr("Guardrail operativo", "Guardrail operativo", "Operational guardrail")}</div>
+        <PipelineSummary leads={leads} />
+        <div className="rounded-sm border border-primary/25 bg-primary/10 p-5 text-sm shadow-soft">
+          <div className="font-medium text-foreground">{type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}</div>
           <p className="mt-2 leading-relaxed text-muted-foreground">
-            {tr(
-              "No considerar fiable a un colaborador solo porque está disponible. Primero hacen falta evidencias: presupuesto comparable, trabajos similares, tiempos, condiciones, responsabilidad y validación final de Daniele.",
-              "Non dare per affidabile un collaboratore solo perché è disponibile. Prima servono evidenze: preventivo comparabile, lavori simili, tempi, condizioni, responsabilità e validazione finale di Daniele.",
-              "Do not consider a collaborator reliable only because they are available. Evidence comes first: comparable quote, similar work, timelines, terms, responsibility and final validation by Daniele."
-            )}
+            {type === "partner"
+              ? tr("Non approvare un collaboratore solo perché è disponibile: prima servono portfolio, prezzi, tempi, garanzie e una prova o referenza.", "Non approvare un collaboratore solo perché è disponibile: prima servono portfolio, prezzi, tempi, garanzie e una prova o referenza.", "Do not approve a partner just because they are available: first collect portfolio, prices, timing, guarantees and a test or reference.")
+              : tr("Ogni lead deve avere prossimo step chiaro: qualifica, visita, preventivo, follow-up, concluso o fallito con motivo.", "Ogni lead deve avere prossimo step chiaro: qualifica, visita, preventivo, follow-up, concluso o fallito con motivo.", "Every lead needs a clear next step: qualification, visit, proposal, follow-up, won or lost with reason.")}
           </p>
         </div>
       </aside>
@@ -899,65 +516,153 @@ function CollaboratorsPanel() {
   );
 }
 
+function LeadCard({ type, lead, actions, saving, note, onNoteChange, onAction }: {
+  type: "client" | "partner";
+  lead: DashboardLead;
+  actions: PipelineAction[];
+  saving: boolean;
+  note: string;
+  onNoteChange: (value: string) => void;
+  onAction: (action: PipelineAction) => void;
+}) {
+  const partner = type === "partner";
+
+  return (
+    <article className="rounded-sm border border-border bg-card p-5 shadow-soft">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-display text-xl">{lead.nombre}</h3>
+            <span className={`rounded-full border px-2.5 py-1 text-xs ${getStatusTone(lead.status)}`}>{STATUS_LABELS[lead.status]}</span>
+            <span className={`rounded-full border px-2.5 py-1 text-xs ${getPriorityTone(lead.priority)}`}>{tr("Priorità", "Priorità", "Priority")} {PRIORITY_LABELS[lead.priority]}</span>
+            <span className="rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">Score {lead.score}/100</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <span>{lead.email || "—"}</span>
+            <span>{lead.telefono || "—"}</span>
+            <span className="inline-flex items-center gap-1"><MapPin size={13} /> {lead.zona || "Ibiza"}</span>
+            <span>{formatDate(lead.createdAt)}</span>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
+            <MessageCircle size={14} /> WhatsApp
+          </a>
+          {lead.email && (
+            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
+              <Mail size={14} /> Email
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+        {partner ? (
+          <>
+            <Info label={tr("Categoria", "Categoria", "Category")} value={getPartnerInfo(lead, "Categoría")} />
+            <Info label={tr("Azienda", "Azienda", "Company")} value={getPartnerInfo(lead, "Empresa/marca")} />
+            <Info label={tr("Esperienza", "Esperienza", "Experience")} value={getPartnerInfo(lead, "Experiencia")} />
+            <Info label={tr("Disponibilità", "Disponibilità", "Availability")} value={getPartnerInfo(lead, "Disponibilidad")} />
+          </>
+        ) : (
+          <>
+            <Info label="Authority" value={normalise(lead.tipoCliente)} />
+            <Info label={tr("Proprietà", "Proprietà", "Property")} value={normalise(lead.tipoPropiedad)} />
+            <Info label="Need" value={normalise(lead.intervencion, SERVICE_LABELS)} />
+            <Info label="Timing" value={normalise(lead.plazo)} />
+          </>
+        )}
+      </div>
+
+      {lead.nextAction && (
+        <div className="mt-4 rounded-sm bg-accent/50 p-4 text-sm">
+          <div className="font-medium">{tr("Prossima azione", "Prossima azione", "Next action")}</div>
+          <p className="mt-1 text-muted-foreground">{lead.nextAction}</p>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 md:grid-cols-[1fr_0.65fr]">
+        <div>
+          <label className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">{tr("Nota interna / motivo", "Nota interna / motivo", "Internal note / reason")}</label>
+          <textarea
+            rows={3}
+            value={note}
+            onChange={(event) => onNoteChange(event.target.value)}
+            placeholder={partner ? tr("Esempio: buon portfolio, prezzi da confrontare, disponibile solo su lavori programmati…", "Esempio: buon portfolio, prezzi da confrontare, disponibile solo su lavori programmati…", "Example: good portfolio, prices to compare, only available for scheduled work…") : tr("Esempio: budget non chiaro, cliente da richiamare venerdì, trattativa persa per prezzo…", "Esempio: budget non chiaro, cliente da richiamare venerdì, trattativa persa per prezzo…", "Example: budget unclear, call client Friday, deal lost due to price…")}
+            className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-1">
+          {actions.map((action) => (
+            <ActionButton key={`${lead.id}-${action.label}`} action={action} disabled={saving} onClick={() => onAction(action)} />
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PipelineSummary({ leads }: { leads: DashboardLead[] }) {
+  const rows = (Object.keys(STATUS_LABELS) as LeadStatus[]).map((status) => ({ status, total: leads.filter((lead) => lead.status === status).length }));
+
+  return (
+    <div className="rounded-sm border border-border bg-card p-5 shadow-soft">
+      <div className="flex items-center gap-2 text-sm font-medium"><Target size={17} className="text-primary" /> Pipeline</div>
+      <div className="mt-4 space-y-3">
+        {rows.map((row) => (
+          <div key={row.status} className="flex items-center justify-between gap-3 border-b border-border/70 pb-2 last:border-0 last:pb-0">
+            <span className="text-sm text-muted-foreground">{STATUS_LABELS[row.status]}</span>
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusTone(row.status)}`}>{row.total}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActionButton({ action, disabled, onClick }: { action: PipelineAction; disabled: boolean; onClick: () => void }) {
+  const tone = action.tone || "primary";
+  const toneClass = tone === "success"
+    ? "border-secondary/30 bg-secondary/10 text-secondary hover:bg-secondary/15"
+    : tone === "danger"
+      ? "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15"
+      : tone === "neutral"
+        ? "border-border bg-background text-muted-foreground hover:bg-accent"
+        : "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15";
+
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} className={`rounded-sm border px-3 py-2 text-left text-xs transition disabled:opacity-50 ${toneClass}`}>
+      <span className="block font-medium">{disabled ? tr("Salvataggio…", "Salvataggio…", "Saving…") : action.label}</span>
+      <span className="mt-0.5 block text-[11px] opacity-80">{action.helper}</span>
+    </button>
+  );
+}
+
 function ControlPanel() {
   return (
     <div className="mt-8 grid gap-8 lg:grid-cols-3">
       <div className="rounded-sm border border-border bg-card p-6 shadow-card lg:col-span-2">
-        <h2 className="font-display text-2xl">{tr("Roadmap operativa 30 / 60 / 90", "Roadmap operativa 30 / 60 / 90", "30 / 60 / 90 operational roadmap")}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{tr("Secuencia práctica: primero orden interno, luego canales, luego campañas medibles.", "Sequenza pratica: prima ordine interno, poi canali, poi campagne misurabili.", "Practical sequence: internal order first, then channels, then measurable campaigns.")}</p>
+        <h2 className="font-display text-2xl">{tr("Logica operativa", "Logica operativa", "Operational logic")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {tr(
+            "Il CRM ora separa due flussi: clienti e partner professionali. I partner entrano dallo stesso database come lead marcati partner, così non servono modifiche rischiose al backend prima di validare il processo.",
+            "Il CRM ora separa due flussi: clienti e partner professionali. I partner entrano dallo stesso database come lead marcati partner, così non servono modifiche rischiose al backend prima di validare il processo.",
+            "The CRM now separates two flows: clients and professional partners. Partners enter the same database as partner-marked leads, avoiding risky backend changes before validating the process."
+          )}
+        </p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <RoadmapCard
-            period={tr("30 días", "30 giorni", "30 days")}
-            title={tr("Orden operativo", "Ordine operativo", "Operational order")}
-            items={[
-              tr("CRM clientes legible", "CRM clienti leggibile", "Readable client CRM"),
-              tr("Datos faltantes evidentes", "Campi mancanti evidenti", "Visible missing fields"),
-              tr("Colaboradores críticos mapeados", "Collaboratori critici mappati", "Critical collaborators mapped"),
-              tr("3 case study listos", "3 case study pronti", "3 case studies ready"),
-            ]}
-          />
-          <RoadmapCard
-            period={tr("60 días", "60 giorni", "60 days")}
-            title={tr("Procesos y contenidos", "Processi e contenuti", "Processes and content")}
-            items={[
-              tr("Follow-up estándar", "Follow-up standard", "Standard follow-up"),
-              tr("Scorecard colaboradores", "Scorecard collaboratori", "Collaborator scorecard"),
-              "Google Business",
-              tr("Instagram portfolio real", "Instagram portfolio reale", "Real Instagram portfolio"),
-            ]}
-          />
-          <RoadmapCard
-            period={tr("90 días", "90 giorni", "90 days")}
-            title={tr("Medición", "Misurazione", "Measurement")}
-            items={[
-              tr("Calidad lead por fuente", "Qualità lead per fonte", "Lead quality by source"),
-              tr("Presupuestos enviados/aceptados", "Preventivi inviati/accettati", "Proposals sent/accepted"),
-              tr("Motivos perdidos", "Motivi persi", "Reasons lost"),
-              tr("Report colaboradores", "Report collaboratori", "Collaborator report"),
-            ]}
-          />
+          <RoadmapCard title="1. Intake" items={[tr("Cliente o partner sceglie il form corretto", "Cliente o partner sceglie il form corretto", "Client or partner chooses the right form"), tr("Dati minimi obbligatori", "Dati minimi obbligatori", "Required minimum data"), tr("Salvataggio in PostgreSQL", "Salvataggio in PostgreSQL", "Saved in PostgreSQL")]} />
+          <RoadmapCard title="2. Qualifica" items={[tr("Status manuale", "Status manuale", "Manual status"), tr("Priorità alta/media/bassa", "Priorità alta/media/bassa", "High/medium/low priority"), tr("Nota interna obbligatoria per lost/rejected", "Nota interna obbligatoria per lost/rejected", "Internal note for lost/rejected")]} />
+          <RoadmapCard title="3. Esecuzione" items={[tr("Follow-up", "Follow-up", "Follow-up"), tr("Preventivo o valutazione", "Preventivo o valutazione", "Proposal or evaluation"), tr("Concluso/Approvato o Fallito/Scartato", "Concluso/Approvato o Fallito/Scartato", "Won/approved or lost/rejected")]} />
         </div>
       </div>
-
       <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Clock size={17} className="text-primary" /> {tr("Rutina semanal", "Routine settimanale", "Weekly routine")}
-        </div>
+        <div className="flex items-center gap-2 text-sm font-medium"><FileText size={17} className="text-primary" /> {tr("Regole minime", "Regole minime", "Minimum rules")}</div>
         <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-          <ChecklistItem ok label={tr("Controlar nuevos leads", "Controllare nuovi lead", "Check new leads")} />
-          <ChecklistItem ok label={tr("Pedir fotos/vídeos faltantes", "Chiedere foto/video mancanti", "Request missing photos/videos")} />
-          <ChecklistItem ok label={tr("Actualizar estado presupuesto", "Aggiornare stato preventivo", "Update proposal status")} />
-          <ChecklistItem ok label={tr("Follow-up ofertas abiertas", "Follow-up offerte aperte", "Follow up open offers")} />
-          <ChecklistItem ok label={tr("Actualizar problemas colaboradores", "Aggiornare problemi collaboratori", "Update collaborator issues")} />
-        </div>
-      </div>
-
-      <div className="rounded-sm border border-border bg-card p-6 shadow-soft lg:col-span-3">
-        <h2 className="font-display text-2xl">{tr("Riesgos a controlar", "Rischi da tenere sotto controllo", "Risks to control")}</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <RiskCard icon={AlertTriangle} title={tr("Leads no cualificados", "Lead non qualificati", "Unqualified leads")} text={tr("Si faltan fotos, timing, presupuesto o tipo de inmueble, la solicitud entra en caos operativo.", "Se mancano foto, timing, budget o tipo immobile, la richiesta entra in caos operativo.", "If photos, timing, budget or property type are missing, the request creates operational chaos.")} />
-          <RiskCard icon={Wrench} title={tr("Colaborador no fiable", "Collaboratore non affidabile", "Unreliable collaborator")} text={tr("Retraso o trabajo mal hecho recae sobre Eivitech, incluso cuando el trabajo está subcontratado.", "Ritardo o lavoro fatto male ricade su Eivitech, anche quando il lavoro è subappaltato.", "Delay or poor work falls back on Eivitech, even when the work is subcontracted.")} />
-          <RiskCard icon={ShieldCheck} title={tr("Privacidad e imágenes", "Privacy e immagini", "Privacy and images")} text={tr("Fotos, vídeos, datos cliente y portfolio deben usarse solo con autorización y verificación privacy/GDPR.", "Foto, video, dati cliente e portfolio vanno usati solo con autorizzazione e verifica privacy/GDPR.", "Photos, videos, client data and portfolio should only be used with authorization and privacy/GDPR verification.")} />
+          <ChecklistItem ok label={tr("Ogni cambio importante deve avere una nota", "Ogni cambio importante deve avere una nota", "Every important change should have a note")} />
+          <ChecklistItem ok label={tr("Alta priorità solo se c'è urgenza o valore reale", "Alta priorità solo se c'è urgenza o valore reale", "High priority only with urgency or real value")} />
+          <ChecklistItem ok label={tr("Partner approvato solo con evidenze", "Partner approvato solo con evidenze", "Partner approved only with evidence")} />
+          <ChecklistItem ok label={tr("Trattativa fallita sempre con motivo", "Trattativa fallita sempre con motivo", "Lost deal always with reason")} />
         </div>
       </div>
     </div>
@@ -977,12 +682,7 @@ function Metric({ icon: Icon, label, value, helper }: { icon: LucideIcon; label:
 
 function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; icon: LucideIcon; label: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-sm transition ${
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
-      }`}
-    >
+    <button onClick={onClick} className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-sm transition ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
       <Icon size={15} /> {label}
     </button>
   );
@@ -997,21 +697,20 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ChecklistItem({ ok, label, neutral = false }: { ok: boolean; label: string; neutral?: boolean }) {
-  const Icon = ok ? CheckCircle2 : neutral ? ClipboardList : AlertTriangle;
+function ChecklistItem({ ok, label }: { ok: boolean; label: string }) {
+  const Icon = ok ? CheckCircle2 : AlertTriangle;
   return (
-    <div className="flex items-center gap-2 rounded-sm border border-border bg-card px-3 py-2">
-      <Icon size={14} className={ok ? "text-secondary" : neutral ? "text-muted-foreground" : "text-primary"} />
+    <div className="flex items-center gap-2 rounded-sm border border-border bg-background px-3 py-2">
+      <Icon size={14} className={ok ? "text-secondary" : "text-primary"} />
       <span>{label}</span>
     </div>
   );
 }
 
-function RoadmapCard({ period, title, items }: { period: string; title: string; items: string[] }) {
+function RoadmapCard({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-sm border border-border bg-background p-5">
-      <div className="text-xs uppercase tracking-[0.18em] text-primary">{period}</div>
-      <div className="mt-2 font-medium">{title}</div>
+      <div className="font-medium">{title}</div>
       <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
         {items.map((item) => <li key={item}>• {item}</li>)}
       </ul>
@@ -1019,19 +718,9 @@ function RoadmapCard({ period, title, items }: { period: string; title: string; 
   );
 }
 
-function RiskCard({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
-  return (
-    <div className="rounded-sm border border-border bg-background p-5">
-      <Icon size={18} className="text-primary" />
-      <div className="mt-3 font-medium">{title}</div>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
-    </div>
-  );
-}
-
 const Dashboard = () => (
   <>
-    <SEO title={tr("CRM Dashboard | Eivitech Ibiza", "CRM Dashboard | Eivitech Ibiza", "CRM Dashboard | Eivitech Ibiza")} description={tr("Dashboard privada para gestión de solicitudes comerciales, clientes y colaboradores Eivitech Ibiza.", "Dashboard privata per gestione richieste commerciali, clienti e collaboratori Eivitech Ibiza.", "Private dashboard for managing commercial requests, clients and collaborators for Eivitech Ibiza.")} path="/dashboard" />
+    <SEO title="CRM Dashboard | Eivitech Ibiza" description={tr("Dashboard privada para gestión de clientes y partners profesionales Eivitech Ibiza.", "Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Private dashboard to manage Eivitech Ibiza clients and professional partners.")} path="/dashboard" />
     {!CLERK_ENABLED ? (
       <section className="container-x py-20">
         <div className="max-w-2xl rounded-sm border border-border bg-card p-8 shadow-card">
@@ -1040,11 +729,7 @@ const Dashboard = () => (
           </div>
           <h1 className="display-md mt-5">{tr("Clerk todavía no está configurado", "Clerk non è ancora configurato", "Clerk is not configured yet")}</h1>
           <p className="mt-4 text-muted-foreground leading-relaxed">
-            {tr(
-              "Añade la variable VITE_CLERK_PUBLISHABLE_KEY en GitHub Actions. No añadas nunca claves secretas al frontend.",
-              "Aggiungi la variabile VITE_CLERK_PUBLISHABLE_KEY in GitHub Actions. Non aggiungere mai chiavi segrete nel frontend.",
-              "Add the VITE_CLERK_PUBLISHABLE_KEY variable in GitHub Actions. Never add secret keys to the frontend."
-            )}
+            {tr("Añade la variable VITE_CLERK_PUBLISHABLE_KEY en GitHub Actions. No añadas nunca claves secretas al frontend.", "Aggiungi la variabile VITE_CLERK_PUBLISHABLE_KEY in GitHub Actions. Non aggiungere mai chiavi segrete nel frontend.", "Add the VITE_CLERK_PUBLISHABLE_KEY variable in GitHub Actions. Never add secret keys to the frontend.")}
           </p>
         </div>
       </section>
@@ -1058,11 +743,7 @@ const Dashboard = () => (
               </div>
               <h1 className="display-md mt-5">{tr("Acceso privado al CRM", "Accesso privato al CRM", "Private CRM access")}</h1>
               <p className="mt-4 text-muted-foreground leading-relaxed">
-                {tr(
-                  "Inicia sesión con una cuenta autorizada para acceder a la dashboard operativa de Eivitech.",
-                  "Accedi con un account autorizzato per entrare nella dashboard operativa di Eivitech.",
-                  "Sign in with an authorized account to access the Eivitech operational dashboard."
-                )}
+                {tr("Inicia sesión con una cuenta autorizada para acceder a la dashboard operativa de Eivitech.", "Accedi con un account autorizzato per entrare nella dashboard operativa di Eivitech.", "Sign in with an authorized account to access the Eivitech operational dashboard.")}
               </p>
               <SignInButton mode="modal">
                 <button className="mt-6 rounded-sm bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
