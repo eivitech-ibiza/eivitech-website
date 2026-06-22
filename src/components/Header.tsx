@@ -13,6 +13,10 @@ const NAV = [
   { to: "/contacto", label: tr("Contacto", "Contatto", "Contact") },
 ];
 
+const logoFilter = {
+  filter: "brightness(0) saturate(100%) invert(10%) sepia(14%) saturate(1100%) hue-rotate(345deg) brightness(94%) contrast(96%)",
+};
+
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -40,7 +44,8 @@ export function Header() {
           <img
             src={LOGO_EIVITECH}
             alt="Eivitech instalaciones y reformas"
-            className="logo-on-light block h-auto w-[165px] object-contain md:w-[210px]"
+            className="block h-auto w-[165px] object-contain md:w-[210px]"
+            style={logoFilter}
           />
         </Link>
 
