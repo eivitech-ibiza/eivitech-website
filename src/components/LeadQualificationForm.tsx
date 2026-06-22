@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
@@ -164,12 +164,12 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
       {mode === "cliente" ? (
         <form data-lead onSubmit={clientForm.handleSubmit(onClientSubmit, () => track("form_error", { source, mode: "cliente" }))} className="grid gap-5" noValidate>
           <ClientFields form={clientForm} />
-          <PrivacyAndSubmit errors={clientForm.formState.errors} submitting={submitting} submitError={submitError} buttonLabel={tr("Enviar solicitud", "Invia richiesta", "Send request")} loadingLabel={tr("Enviando…", "Invio…", "Sending…")} />
+          <PrivacyAndSubmit registerConsent={clientForm.register("consentimiento")} errors={clientForm.formState.errors} submitting={submitting} submitError={submitError} buttonLabel={tr("Enviar solicitud", "Invia richiesta", "Send request")} loadingLabel={tr("Enviando…", "Invio…", "Sending…")} />
         </form>
       ) : (
         <form data-lead onSubmit={partnerForm.handleSubmit(onPartnerSubmit, () => track("form_error", { source, mode: "partner" }))} className="grid gap-5" noValidate>
           <PartnerFields form={partnerForm} />
-          <PrivacyAndSubmit errors={partnerForm.formState.errors} submitting={submitting} submitError={submitError} buttonLabel={tr("Enviar candidatura", "Invia candidatura", "Send application")} loadingLabel={tr("Enviando…", "Invio…", "Sending…")} />
+          <PrivacyAndSubmit registerConsent={partnerForm.register("consentimiento")} errors={partnerForm.formState.errors} submitting={submitting} submitError={submitError} buttonLabel={tr("Enviar candidatura", "Invia candidatura", "Send application")} loadingLabel={tr("Enviando…", "Invio…", "Sending…")} />
         </form>
       )}
     </div>
@@ -335,7 +335,7 @@ function PartnerFields({ form }: { form: ReturnType<typeof useForm<PartnerFormDa
   );
 }
 
-function Input({ label: labelText, id, error, children }: { label: string; id: string; error?: string; children: React.ReactNode }) {
+function Input({ label: labelText, id, error, children }: { label: string; id: string; error?: string; children: ReactNode }) {
   return (
     <div>
       <label className={label} htmlFor={id}>{labelText}</label>
@@ -345,11 +345,11 @@ function Input({ label: labelText, id, error, children }: { label: string; id: s
   );
 }
 
-function PrivacyAndSubmit({ errors, submitting, submitError, buttonLabel, loadingLabel }: { errors: { consentimiento?: { message?: string } }; submitting: boolean; submitError: string | null; buttonLabel: string; loadingLabel: string }) {
+function PrivacyAndSubmit({ registerConsent, errors, submitting, submitError, buttonLabel, loadingLabel }: { registerConsent: UseFormRegisterReturn; errors: { consentimiento?: { message?: string } }; submitting: boolean; submitError: string | null; buttonLabel: string; loadingLabel: string }) {
   return (
     <>
       <label className="flex items-start gap-3 text-sm text-muted-foreground">
-        <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" name="consentimiento" />
+        <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" {...registerConsent} />
         <span>
           {tr("He leído y acepto la", "Ho letto e accetto la", "I have read and accept the")} <a href="/privacidad" className="underline hover:text-foreground">{tr("política de privacidad", "privacy policy", "privacy policy")}</a>.
           {" "}{tr("Acepto el tratamiento de mis datos para responder a la solicitud.", "Accetto il trattamento dei miei dati per rispondere alla richiesta.", "I accept the processing of my data to respond to the request.")}
