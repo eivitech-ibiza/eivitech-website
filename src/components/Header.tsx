@@ -2,6 +2,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { SITE } from "@/data/site";
+import { LOGO_EIVITECH } from "@/assets/logo-eivitech";
 import { tr } from "@/lib/i18n";
 
 const NAV = [
@@ -35,8 +36,8 @@ export function Header() {
       }`}
     >
       <div className="container-x flex h-16 md:h-20 items-center justify-between">
-        <Link to="/" className="font-display text-xl md:text-2xl tracking-tight">
-          Eivi<span className="text-primary">tech</span>
+        <Link to="/" className="inline-flex items-center rounded-sm bg-ink px-2.5 py-1.5 shadow-soft" aria-label="Eivitech home">
+          <img src={LOGO_EIVITECH} alt="Eivitech instalaciones y reformas" className="h-7 w-auto md:h-9" />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
