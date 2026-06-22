@@ -36,8 +36,12 @@ export function Header() {
       }`}
     >
       <div className="container-x flex h-16 md:h-20 items-center justify-between">
-        <Link to="/" className="inline-flex items-center rounded-sm bg-ink px-2.5 py-1.5 shadow-soft" aria-label="Eivitech home">
-          <img src={LOGO_EIVITECH} alt="Eivitech instalaciones y reformas" className="h-7 w-auto md:h-9" />
+        <Link to="/" className="inline-flex shrink-0 items-center" aria-label="Eivitech home">
+          <img
+            src={LOGO_EIVITECH}
+            alt="Eivitech instalaciones y reformas"
+            className="h-8 w-auto max-w-[165px] object-contain md:h-10 md:max-w-[210px]"
+          />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
