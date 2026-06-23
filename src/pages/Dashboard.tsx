@@ -77,12 +77,12 @@ type DashboardLead = {
   nextFollowUpAt?: string;
 };
 
-type QuickAction = {
+type StatusAction = {
   key: string;
   label: string;
   helper: string;
   payload: CrmLeadUpdatePayload;
-  title: string;
+  activityTitle: string;
   requireNote?: boolean;
   tone?: "primary" | "success" | "danger" | "neutral";
 };
@@ -116,85 +116,109 @@ const SERVICE_LABELS: Record<string, string> = {
   otro: tr("Otro", "Altro", "Other"),
 };
 
-const CLIENT_QUICK_ACTIONS: QuickAction[] = [
+const CLIENT_ACTIONS: StatusAction[] = [
   {
     key: "qualify",
-    label: tr("Qualifica cliente", "Qualifica cliente", "Qualify client"),
-    helper: tr("Sposta da richiesta a cliente qualificato", "Sposta da richiesta a cliente qualificato", "Move from request to qualified client"),
-    payload: { status: "first_contact", priority: "media", next_action: tr("Completare qualifica e fissare il prossimo passaggio.", "Completare qualifica e fissare il prossimo passaggio.", "Complete qualification and define next step.") },
-    title: tr("Cliente qualificato", "Cliente qualificato", "Client qualified"),
+    label: tr("Qualifica", "Qualifica", "Qualify"),
+    helper: tr("Cliente qualificato", "Cliente qualificato", "Qualified client"),
+    payload: {
+      status: "first_contact",
+      priority: "media",
+      next_action: tr("Completare la qualifica e fissare il prossimo passaggio.", "Completare la qualifica e fissare il prossimo passaggio.", "Complete qualification and define the next step."),
+    },
+    activityTitle: tr("Cliente qualificato", "Cliente qualificato", "Client qualified"),
     tone: "primary",
   },
   {
     key: "high-priority",
     label: tr("Alta priorità", "Alta priorità", "High priority"),
-    helper: tr("Evidenzia come opportunità calda", "Evidenzia come opportunità calda", "Mark as hot opportunity"),
-    payload: { priority: "alta", next_action: tr("Contattare velocemente e preparare valutazione prioritaria.", "Contattare velocemente e preparare valutazione prioritaria.", "Contact quickly and prepare priority assessment.") },
-    title: tr("Cliente segnato ad alta priorità", "Cliente segnato ad alta priorità", "Client marked high priority"),
+    helper: tr("Da seguire subito", "Da seguire subito", "Follow immediately"),
+    payload: {
+      priority: "alta",
+      next_action: tr("Contattare velocemente e preparare valutazione prioritaria.", "Contattare velocemente e preparare valutazione prioritaria.", "Contact quickly and prepare a priority assessment."),
+    },
+    activityTitle: tr("Cliente segnato ad alta priorità", "Cliente segnato ad alta priorità", "Client marked high priority"),
     tone: "danger",
   },
   {
     key: "visit",
-    label: tr("Porta a visita", "Porta a visita", "Move to visit"),
-    helper: tr("Serve sopralluogo o revisione tecnica", "Serve sopralluogo o revisione tecnica", "Needs site visit or technical review"),
-    payload: { status: "visit_review", next_action: tr("Organizzare sopralluogo o revisione tecnica.", "Organizzare sopralluogo o revisione tecnica.", "Schedule site visit or technical review.") },
-    title: tr("Cliente spostato a visita", "Cliente spostato a visita", "Client moved to visit"),
+    label: tr("Visita / sopralluogo", "Visita / sopralluogo", "Visit"),
+    helper: tr("Porta a revisione tecnica", "Porta a revisione tecnica", "Move to technical review"),
+    payload: {
+      status: "visit_review",
+      next_action: tr("Organizzare sopralluogo o revisione tecnica.", "Organizzare sopralluogo o revisione tecnica.", "Schedule site visit or technical review."),
+    },
+    activityTitle: tr("Cliente spostato a visita", "Cliente spostato a visita", "Client moved to visit"),
   },
   {
     key: "proposal",
-    label: tr("Porta a preventivo", "Porta a preventivo", "Move to proposal"),
-    helper: tr("Preventivo da preparare o già inviato", "Preventivo da preparare o già inviato", "Proposal to prepare or already sent"),
-    payload: { status: "proposal", next_action: tr("Preparare o inviare preventivo e definire follow-up.", "Preparare o inviare preventivo e definire follow-up.", "Prepare or send proposal and define follow-up.") },
-    title: tr("Cliente spostato a preventivo", "Cliente spostato a preventivo", "Client moved to proposal"),
+    label: tr("Preventivo", "Preventivo", "Proposal"),
+    helper: tr("Da preparare o inviato", "Da preparare o inviato", "To prepare or sent"),
+    payload: {
+      status: "proposal",
+      next_action: tr("Preparare o inviare preventivo e definire follow-up.", "Preparare o inviare preventivo e definire follow-up.", "Prepare or send proposal and define follow-up."),
+    },
+    activityTitle: tr("Cliente spostato a preventivo", "Cliente spostato a preventivo", "Client moved to proposal"),
   },
   {
     key: "follow-up",
     label: "Follow-up",
-    helper: tr("Offerta aperta da seguire", "Offerta aperta da seguire", "Open offer to follow up"),
-    payload: { status: "follow_up", next_action: tr("Fare follow-up e registrare risposta cliente.", "Fare follow-up e registrare risposta cliente.", "Follow up and record client response.") },
-    title: "Follow-up",
+    helper: tr("Offerta aperta", "Offerta aperta", "Open offer"),
+    payload: {
+      status: "follow_up",
+      next_action: tr("Fare follow-up e registrare risposta cliente.", "Fare follow-up e registrare risposta cliente.", "Follow up and record client response."),
+    },
+    activityTitle: "Follow-up",
   },
   {
     key: "won",
-    label: tr("Segna concluso", "Segna concluso", "Mark won"),
-    helper: tr("Trattativa chiusa positivamente", "Trattativa chiusa positivamente", "Deal closed positively"),
-    payload: { status: "won", priority: "media", next_action: tr("Preparare consegna, recensione e materiale portfolio.", "Preparare consegna, recensione e materiale portfolio.", "Prepare delivery, review and portfolio material.") },
-    title: tr("Trattativa conclusa", "Trattativa conclusa", "Deal won"),
+    label: tr("Concluso", "Concluso", "Won"),
+    helper: tr("Nota obbligatoria", "Nota obbligatoria", "Note required"),
+    payload: {
+      status: "won",
+      priority: "media",
+      next_action: tr("Preparare consegna, recensione e materiale portfolio.", "Preparare consegna, recensione e materiale portfolio.", "Prepare delivery, review and portfolio material."),
+    },
+    activityTitle: tr("Trattativa conclusa", "Trattativa conclusa", "Deal won"),
     requireNote: true,
     tone: "success",
   },
   {
     key: "lost",
-    label: tr("Segna fallito", "Segna fallito", "Mark lost"),
-    helper: tr("Richiede motivo nella nota", "Richiede motivo nella nota", "Requires reason in note"),
-    payload: { status: "lost", priority: "baja", next_action: tr("Registrare motivo perdita e possibile recupero futuro.", "Registrare motivo perdita e possibile recupero futuro.", "Record lost reason and possible future recovery.") },
-    title: tr("Trattativa fallita", "Trattativa fallita", "Deal lost"),
+    label: tr("Fallito", "Fallito", "Lost"),
+    helper: tr("Motivo obbligatorio", "Motivo obbligatorio", "Reason required"),
+    payload: {
+      status: "lost",
+      priority: "baja",
+      next_action: tr("Registrare motivo perdita e possibile recupero futuro.", "Registrare motivo perdita e possibile recupero futuro.", "Record lost reason and possible future recovery."),
+    },
+    activityTitle: tr("Trattativa fallita", "Trattativa fallita", "Deal lost"),
     requireNote: true,
     tone: "neutral",
   },
 ];
 
-const PARTNER_QUICK_ACTIONS: QuickAction[] = [
+const PARTNER_ACTIONS: StatusAction[] = [
   {
     key: "contacted",
     label: tr("Contattato", "Contattato", "Contacted"),
-    helper: tr("Primo contatto fatto", "Primo contatto fatto", "First contact done"),
+    helper: tr("Primo contatto", "Primo contatto", "First contact"),
     payload: { status: "first_contact", next_action: tr("Richiedere portfolio, prezzi indicativi e disponibilità.", "Richiedere portfolio, prezzi indicativi e disponibilità.", "Request portfolio, indicative prices and availability.") },
-    title: tr("Partner contattato", "Partner contattato", "Partner contacted"),
+    activityTitle: tr("Partner contattato", "Partner contattato", "Partner contacted"),
   },
   {
     key: "evaluation",
     label: tr("Valutazione", "Valutazione", "Evaluation"),
-    helper: tr("Da confrontare con altri fornitori", "Da confrontare con altri fornitori", "Compare with other suppliers"),
+    helper: tr("Confronto fornitori", "Confronto fornitori", "Supplier comparison"),
     payload: { status: "proposal", priority: "media", next_action: tr("Valutare con scorecard: qualità, prezzo, tempi, garanzie.", "Valutare con scorecard: qualità, prezzo, tempi, garanzie.", "Evaluate with scorecard: quality, price, timing, guarantees.") },
-    title: tr("Partner in valutazione", "Partner in valutazione", "Partner in evaluation"),
+    activityTitle: tr("Partner in valutazione", "Partner in valutazione", "Partner in evaluation"),
   },
   {
     key: "approved",
     label: tr("Approvato", "Approvato", "Approved"),
-    helper: tr("Collaboratore utilizzabile", "Collaboratore utilizzabile", "Usable collaborator"),
+    helper: tr("Nota obbligatoria", "Nota obbligatoria", "Note required"),
     payload: { status: "won", priority: "alta", next_action: tr("Inserire tra i collaboratori approvati e definire regole operative.", "Inserire tra i collaboratori approvati e definire regole operative.", "Add to approved collaborators and define operating rules.") },
-    title: tr("Partner approvato", "Partner approvato", "Partner approved"),
+    activityTitle: tr("Partner approvato", "Partner approvato", "Partner approved"),
     requireNote: true,
     tone: "success",
   },
@@ -203,14 +227,14 @@ const PARTNER_QUICK_ACTIONS: QuickAction[] = [
     label: "Backup",
     helper: tr("Opzione secondaria", "Opzione secondaria", "Secondary option"),
     payload: { status: "review_portfolio", priority: "media", next_action: tr("Tenere come backup e rivalutare su progetti compatibili.", "Tenere come backup e rivalutare su progetti compatibili.", "Keep as backup and reassess for compatible projects.") },
-    title: tr("Partner in backup", "Partner in backup", "Partner as backup"),
+    activityTitle: tr("Partner in backup", "Partner in backup", "Partner as backup"),
   },
   {
     key: "rejected",
     label: tr("Scartato", "Scartato", "Rejected"),
-    helper: tr("Richiede motivo nella nota", "Richiede motivo nella nota", "Requires reason in note"),
+    helper: tr("Motivo obbligatorio", "Motivo obbligatorio", "Reason required"),
     payload: { status: "lost", priority: "baja", next_action: tr("Registrare motivo esclusione.", "Registrare motivo esclusione.", "Record rejection reason.") },
-    title: tr("Partner scartato", "Partner scartato", "Partner rejected"),
+    activityTitle: tr("Partner scartato", "Partner scartato", "Partner rejected"),
     requireNote: true,
     tone: "neutral",
   },
@@ -224,7 +248,7 @@ function mapLead(lead: ApiLead): DashboardLead {
     status: lead.status || "new",
     priority: lead.priority || "media",
     score: typeof lead.score === "number" ? lead.score : 0,
-    nombre: lead.nombre || tr("Senza nome", "Senza nome", "Without name"),
+    nombre: lead.nombre || tr("Sin nombre", "Senza nome", "Without name"),
     email: lead.email,
     telefono: lead.telefono,
     tipoCliente: lead.tipo_cliente,
@@ -322,11 +346,11 @@ function DashboardShell() {
     }
   }
 
-  async function applyLeadUpdate(lead: DashboardLead, payload: CrmLeadUpdatePayload, title: string, note: string, requireNote = false) {
+  async function updateLeadStatus(lead: DashboardLead, action: StatusAction, note: string) {
     const cleanNote = note.trim();
-    if (requireNote && !cleanNote) {
+    if (action.requireNote && !cleanNote) {
       setError(tr("Per questa azione devi aggiungere una nota interna o un motivo.", "Per questa azione devi aggiungere una nota interna o un motivo.", "This action requires an internal note or reason."));
-      return;
+      return false;
     }
 
     setSavingId(lead.id);
@@ -335,19 +359,21 @@ function DashboardShell() {
     try {
       const token = await getToken();
       if (!token) throw new Error("Missing Clerk token");
-      const result = await updateCrmLead(token, lead.id, payload);
 
+      const result = await updateCrmLead(token, lead.id, action.payload);
       await addCrmLeadActivity(token, lead.id, {
-        type: payload.status ? "status_change" : "note",
-        title,
-        notes: cleanNote || title,
+        type: action.payload.status ? "status_change" : "note",
+        title: action.activityTitle,
+        notes: cleanNote || action.helper,
       });
 
       const updated = mapLead(result.lead as ApiLead);
       setLeads((current) => current.map((item) => (item.id === lead.id ? updated : item)));
+      return true;
     } catch (err) {
       console.error("[dashboard] failed to update lead", err);
       setError(tr("Non è stato possibile aggiornare il cliente. Controlla i log Railway o riprova.", "Non è stato possibile aggiornare il cliente. Controlla i log Railway o riprova.", "Could not update the client. Check Railway logs or try again."));
+      return false;
     } finally {
       setSavingId(null);
     }
@@ -402,10 +428,10 @@ function DashboardShell() {
       <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
         <div>
           <div className="eyebrow">Eivitech Ops Partner</div>
-          <h1 className="display-lg mt-4">{tr("CRM clienti e partner", "CRM clienti e partner", "Clients and partners CRM")}</h1>
+          <h1 className="display-lg mt-4">{tr("CRM clientes y partners", "CRM clienti e partner", "Clients and partners CRM")}</h1>
           <p className="mt-4 max-w-3xl text-muted-foreground leading-relaxed">
             {tr(
-              "Gestisci richieste, collaboratori professionali, stati di avanzamento, priorità e note operative da una sola dashboard.",
+              "Gestiona solicitudes, colaboradores profesionales, estados de avance, prioridades y notas operativas desde una sola dashboard.",
               "Gestisci richieste, collaboratori professionali, stati di avanzamento, priorità e note operative da una sola dashboard.",
               "Manage requests, professional partners, progress statuses, priorities and operational notes from one dashboard."
             )}
@@ -415,12 +441,12 @@ function DashboardShell() {
         <div className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card px-4 py-3 shadow-soft">
           <UserButton />
           <div className="text-sm">
-            <div className="font-medium">{tr("Utente autorizzato", "Utente autorizzato", "Authorized user")}</div>
+            <div className="font-medium">{tr("Usuario autorizado", "Utente autorizzato", "Authorized user")}</div>
             <div className="text-muted-foreground">{email}</div>
           </div>
           <SignOutButton redirectUrl={LOGOUT_REDIRECT_URL}>
             <button className="rounded-sm border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
-              {tr("Esci", "Esci", "Sign out")}
+              {tr("Cerrar sesión", "Esci", "Sign out")}
             </button>
           </SignOutButton>
         </div>
@@ -429,21 +455,21 @@ function DashboardShell() {
       {error && <div className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
       <div className="grid gap-4 md:grid-cols-7">
-        <Metric icon={Users} label={tr("Clienti", "Clienti", "Clients")} value={stats.clients} helper={tr("Richieste commerciali", "Richieste commerciali", "Commercial requests")} />
-        <Metric icon={ShieldCheck} label={tr("Qualificati", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("Non più nuovi", "Non più nuovi", "No longer new")} />
-        <Metric icon={AlertTriangle} label={tr("Alta priorità", "Alta priorità", "High priority")} value={stats.high} helper={tr("Da seguire subito", "Da seguire subito", "Follow immediately")} />
-        <Metric icon={CheckCircle2} label={tr("Conclusi", "Conclusi", "Won")} value={stats.won} helper={tr("Trattative chiuse", "Trattative chiuse", "Closed deals")} />
-        <Metric icon={Clock} label={tr("Falliti", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo registrato", "Con motivo registrato", "With recorded reason")} />
-        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidature", "Candidature", "Applications")} />
-        <Metric icon={Wrench} label={tr("Approvati", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Collaboratori validati", "Collaboratori validati", "Validated partners")} />
+        <Metric icon={Users} label={tr("Clientes", "Clienti", "Clients")} value={stats.clients} helper={tr("Solicitudes comerciales", "Richieste commerciali", "Commercial requests")} />
+        <Metric icon={ShieldCheck} label={tr("Cualificados", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("No son nuevos", "Non più nuovi", "No longer new")} />
+        <Metric icon={AlertTriangle} label={tr("Alta prioridad", "Alta priorità", "High priority")} value={stats.high} helper={tr("Seguir de inmediato", "Da seguire subito", "Follow immediately")} />
+        <Metric icon={CheckCircle2} label={tr("Concluidos", "Conclusi", "Won")} value={stats.won} helper={tr("Tratos cerrados", "Trattative chiuse", "Closed deals")} />
+        <Metric icon={Clock} label={tr("Fallidos", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo registrado", "Con motivo registrato", "With recorded reason")} />
+        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidaturas", "Candidature", "Applications")} />
+        <Metric icon={Wrench} label={tr("Aprobados", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Colaboradores validados", "Collaboratori validati", "Validated partners")} />
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 rounded-sm border border-border bg-card p-2 shadow-soft">
-        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clienti", "Clienti", "Clients")} onClick={() => setActiveTab("clientes")} />
-        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partner professionali", "Partner professionali", "Professional partners")} onClick={() => setActiveTab("partners")} />
-        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Controllo operativo", "Controllo operativo", "Operational control")} onClick={() => setActiveTab("control")} />
+        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clientes", "Clienti", "Clients")} onClick={() => setActiveTab("clientes")} />
+        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partners profesionales", "Partner professionali", "Professional partners")} onClick={() => setActiveTab("partners")} />
+        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Control operativo", "Controllo operativo", "Operational control")} onClick={() => setActiveTab("control")} />
         <button onClick={() => void loadLeads()} disabled={loading} className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60">
-          <RefreshCw size={15} /> {loading ? tr("Caricamento…", "Caricamento…", "Loading…") : tr("Aggiorna", "Aggiorna", "Refresh")}
+          <RefreshCw size={15} /> {loading ? tr("Cargando…", "Caricamento…", "Loading…") : tr("Actualizar", "Aggiorna", "Refresh")}
         </button>
       </div>
 
@@ -451,10 +477,10 @@ function DashboardShell() {
         <LeadsBoard
           type="client"
           leads={sortedClients}
-          actions={CLIENT_QUICK_ACTIONS}
+          actions={CLIENT_ACTIONS}
           loading={loading}
           savingId={savingId}
-          onUpdate={applyLeadUpdate}
+          onUpdate={updateLeadStatus}
         />
       )}
 
@@ -462,18 +488,18 @@ function DashboardShell() {
         <LeadsBoard
           type="partner"
           leads={sortedPartners}
-          actions={PARTNER_QUICK_ACTIONS}
+          actions={PARTNER_ACTIONS}
           loading={loading}
           savingId={savingId}
-          onUpdate={applyLeadUpdate}
+          onUpdate={updateLeadStatus}
         />
       )}
 
       {activeTab === "control" && <ControlPanel />}
 
       <div className="mt-8 rounded-sm border border-border bg-card p-6 text-sm text-muted-foreground shadow-soft">
-        <div className="font-medium text-foreground">{tr("Utenti frontend autorizzati", "Utenti frontend autorizzati", "Authorized frontend users")}</div>
-        <div className="mt-2">{ALLOWED_ADMIN_EMAILS.length > 0 ? ALLOWED_ADMIN_EMAILS.join(", ") : tr("Nessuna allowlist frontend configurata.", "Nessuna allowlist frontend configurata.", "No frontend allowlist configured.")}</div>
+        <div className="font-medium text-foreground">{tr("Usuarios frontend autorizados", "Utenti frontend autorizzati", "Authorized frontend users")}</div>
+        <div className="mt-2">{ALLOWED_ADMIN_EMAILS.length > 0 ? ALLOWED_ADMIN_EMAILS.join(", ") : tr("No hay allowlist frontend configurada.", "Nessuna allowlist frontend configurata.", "No frontend allowlist configured.")}</div>
       </div>
     </section>
   );
@@ -482,29 +508,33 @@ function DashboardShell() {
 function LeadsBoard({ type, leads, actions, loading, savingId, onUpdate }: {
   type: "client" | "partner";
   leads: DashboardLead[];
-  actions: QuickAction[];
+  actions: StatusAction[];
   loading: boolean;
   savingId: string | null;
-  onUpdate: (lead: DashboardLead, payload: CrmLeadUpdatePayload, title: string, note: string, requireNote?: boolean) => Promise<void>;
+  onUpdate: (lead: DashboardLead, action: StatusAction, note: string) => Promise<boolean>;
 }) {
   const emptyText = type === "partner"
-    ? tr("Non ci sono ancora candidature partner.", "Non ci sono ancora candidature partner.", "There are no partner applications yet.")
-    : tr("Non ci sono ancora richieste cliente.", "Non ci sono ancora richieste cliente.", "There are no client requests yet.");
+    ? tr("No hay candidaturas partner todavía.", "Non ci sono ancora candidature partner.", "There are no partner applications yet.")
+    : tr("No hay solicitudes cliente todavía.", "Non ci sono ancora richieste cliente.", "There are no client requests yet.");
 
   return (
     <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.35fr]">
       <div className="space-y-5">
         {type === "client" && (
-          <div className="rounded-sm border border-primary/25 bg-primary/10 p-5 text-sm shadow-soft">
-            <div className="font-medium text-foreground">{tr("Comandi cliente ora visibili", "Comandi cliente ora visibili", "Client controls now visible")}</div>
+          <div className="rounded-sm border-2 border-primary bg-primary/10 p-5 text-sm shadow-soft">
+            <div className="font-display text-xl text-foreground">{tr("Gestión de estados cliente activada", "Gestione stati cliente attivata", "Client status management enabled")}</div>
             <p className="mt-2 leading-relaxed text-muted-foreground">
-              {tr("Dentro ogni scheda cliente trovi una sezione grande chiamata Cambio rapido stato cliente. Da lì puoi qualificare, mettere alta priorità, portare a visita, preventivo, follow-up, concluso o fallito.", "Dentro ogni scheda cliente trovi una sezione grande chiamata Cambio rapido stato cliente. Da lì puoi qualificare, mettere alta priorità, portare a visita, preventivo, follow-up, concluso o fallito.", "Inside each client card there is a large section called Quick client status change. From there you can qualify, set high priority, move to visit, proposal, follow-up, won or lost.")}
+              {tr(
+                "Dentro de cada ficha cliente verás botones grandes para Qualifica, Alta prioridad, Visita, Preventivo, Follow-up, Concluido y Fallido. Concluido y Fallido requieren nota.",
+                "Dentro ogni scheda cliente vedrai pulsanti grandi per Qualifica, Alta priorità, Visita, Preventivo, Follow-up, Concluso e Fallito. Concluso e Fallito richiedono una nota.",
+                "Inside each client card you will see large buttons for Qualify, High priority, Visit, Proposal, Follow-up, Won and Lost. Won and Lost require a note."
+              )}
             </p>
           </div>
         )}
 
         {loading ? (
-          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{tr("Caricamento dati da PostgreSQL…", "Caricamento dati da PostgreSQL…", "Loading data from PostgreSQL…")}</div>
+          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{tr("Cargando datos desde PostgreSQL…", "Caricamento dati da PostgreSQL…", "Loading data from PostgreSQL…")}</div>
         ) : leads.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{emptyText}</div>
         ) : (
@@ -524,11 +554,11 @@ function LeadsBoard({ type, leads, actions, loading, savingId, onUpdate }: {
       <aside className="space-y-4">
         <PipelineSummary leads={leads} />
         <div className="rounded-sm border border-border bg-card p-5 text-sm shadow-soft">
-          <div className="font-medium text-foreground">{type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}</div>
+          <div className="font-medium text-foreground">{type === "partner" ? tr("Método partner", "Metodo partner", "Partner method") : tr("Método cliente", "Metodo cliente", "Client method")}</div>
           <p className="mt-2 leading-relaxed text-muted-foreground">
             {type === "partner"
-              ? tr("Approva un partner solo con evidenze: portfolio, prezzi, tempi, garanzie e prova o referenza.", "Approva un partner solo con evidenze: portfolio, prezzi, tempi, garanzie e prova o referenza.", "Approve a partner only with evidence: portfolio, prices, timing, guarantees and test or reference.")
-              : tr("Ogni cliente deve avere uno stato chiaro e una prossima azione. Per Concluso o Fallito aggiungi sempre una nota.", "Ogni cliente deve avere uno stato chiaro e una prossima azione. Per Concluso o Fallito aggiungi sempre una nota.", "Every client must have a clear status and next action. For Won or Lost always add a note.")}
+              ? tr("Aprueba un partner solo con evidencias: portfolio, precios, tiempos, garantías y prueba o referencia.", "Approva un partner solo con evidenze: portfolio, prezzi, tempi, garanzie e prova o referenza.", "Approve a partner only with evidence: portfolio, prices, timing, guarantees and test or reference.")
+              : tr("Cada cliente debe tener estado, prioridad, próxima acción y nota cuando se cierra como Concluido o Fallido.", "Ogni cliente deve avere stato, priorità, prossima azione e nota quando viene chiuso come Concluso o Fallito.", "Every client must have status, priority, next action and note when closed as Won or Lost.")}
           </p>
         </div>
       </aside>
@@ -539,30 +569,41 @@ function LeadsBoard({ type, leads, actions, loading, savingId, onUpdate }: {
 function LeadCard({ type, lead, actions, saving, onUpdate }: {
   type: "client" | "partner";
   lead: DashboardLead;
-  actions: QuickAction[];
+  actions: StatusAction[];
   saving: boolean;
-  onUpdate: (lead: DashboardLead, payload: CrmLeadUpdatePayload, title: string, note: string, requireNote?: boolean) => Promise<void>;
+  onUpdate: (lead: DashboardLead, action: StatusAction, note: string) => Promise<boolean>;
 }) {
   const partner = type === "partner";
-  const [manualStatus, setManualStatus] = useState<LeadStatus>(lead.status);
-  const [manualPriority, setManualPriority] = useState<LeadPriority>(lead.priority);
-  const [manualNextAction, setManualNextAction] = useState(lead.nextAction || "");
   const [note, setNote] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    setManualStatus(lead.status);
-    setManualPriority(lead.priority);
-    setManualNextAction(lead.nextAction || "");
     setNote("");
-  }, [lead.id, lead.status, lead.priority, lead.nextAction]);
+    setLocalError(null);
+    setSuccess(null);
+  }, [lead.id, lead.status, lead.priority]);
 
-  const controlsTitle = partner
-    ? tr("Cambio rapido stato partner", "Cambio rapido stato partner", "Quick partner status change")
-    : tr("Cambio rapido stato cliente", "Cambio rapido stato cliente", "Quick client status change");
+  async function handleAction(action: StatusAction) {
+    const cleanNote = note.trim();
+    if (action.requireNote && !cleanNote) {
+      setLocalError(tr("Aggiungi una nota prima di usare questa azione.", "Aggiungi una nota prima di usare questa azione.", "Add a note before using this action."));
+      setSuccess(null);
+      return;
+    }
 
-  const controlsSubtitle = partner
-    ? tr("Usa questi comandi per contattare, valutare, approvare, mettere in backup o scartare il collaboratore.", "Usa questi comandi per contattare, valutare, approvare, mettere in backup o scartare il collaboratore.", "Use these controls to contact, evaluate, approve, back up or reject the partner.")
-    : tr("Usa questi comandi per spostare il cliente da richiesta a qualificato, alta priorità, visita, preventivo, follow-up, concluso o fallito.", "Usa questi comandi per spostare il cliente da richiesta a qualificato, alta priorità, visita, preventivo, follow-up, concluso o fallito.", "Use these controls to move the client from request to qualified, high priority, visit, proposal, follow-up, won or lost.");
+    setLocalError(null);
+    setSuccess(null);
+    const ok = await onUpdate(lead, action, cleanNote);
+    if (ok) {
+      setSuccess(tr("Stato aggiornato e salvato nel CRM.", "Stato aggiornato e salvato nel CRM.", "Status updated and saved in the CRM."));
+      setNote("");
+    }
+  }
+
+  const sectionTitle = partner
+    ? tr("Gestione stato partner", "Gestione stato partner", "Partner status management")
+    : tr("Gestione stato cliente", "Gestione stato cliente", "Client status management");
 
   return (
     <article className="rounded-sm border border-border bg-card p-5 shadow-soft">
@@ -571,7 +612,7 @@ function LeadCard({ type, lead, actions, saving, onUpdate }: {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-display text-xl">{lead.nombre}</h3>
             <span className={`rounded-full border px-2.5 py-1 text-xs ${getStatusTone(lead.status)}`}>{STATUS_LABELS[lead.status]}</span>
-            <span className={`rounded-full border px-2.5 py-1 text-xs ${getPriorityTone(lead.priority)}`}>{tr("Priorità", "Priorità", "Priority")} {PRIORITY_LABELS[lead.priority]}</span>
+            <span className={`rounded-full border px-2.5 py-1 text-xs ${getPriorityTone(lead.priority)}`}>{tr("Prioridad", "Priorità", "Priority")} {PRIORITY_LABELS[lead.priority]}</span>
             <span className="rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">Score {lead.score}/100</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -596,15 +637,15 @@ function LeadCard({ type, lead, actions, saving, onUpdate }: {
       <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
         {partner ? (
           <>
-            <Info label={tr("Categoria", "Categoria", "Category")} value={getPartnerInfo(lead, "Categoría")} />
-            <Info label={tr("Azienda", "Azienda", "Company")} value={getPartnerInfo(lead, "Empresa/marca")} />
-            <Info label={tr("Esperienza", "Esperienza", "Experience")} value={getPartnerInfo(lead, "Experiencia")} />
-            <Info label={tr("Disponibilità", "Disponibilità", "Availability")} value={getPartnerInfo(lead, "Disponibilidad")} />
+            <Info label={tr("Categoría", "Categoria", "Category")} value={getPartnerInfo(lead, "Categoría")} />
+            <Info label={tr("Empresa", "Azienda", "Company")} value={getPartnerInfo(lead, "Empresa/marca")} />
+            <Info label={tr("Experiencia", "Esperienza", "Experience")} value={getPartnerInfo(lead, "Experiencia")} />
+            <Info label={tr("Disponibilidad", "Disponibilità", "Availability")} value={getPartnerInfo(lead, "Disponibilidad")} />
           </>
         ) : (
           <>
             <Info label="Authority" value={normalise(lead.tipoCliente)} />
-            <Info label={tr("Proprietà", "Proprietà", "Property")} value={normalise(lead.tipoPropiedad)} />
+            <Info label={tr("Propiedad", "Proprietà", "Property")} value={normalise(lead.tipoPropiedad)} />
             <Info label="Need" value={normalise(lead.intervencion, SERVICE_LABELS)} />
             <Info label="Timing" value={normalise(lead.plazo)} />
           </>
@@ -613,37 +654,27 @@ function LeadCard({ type, lead, actions, saving, onUpdate }: {
 
       {lead.nextAction && (
         <div className="mt-4 rounded-sm bg-accent/50 p-4 text-sm">
-          <div className="font-medium">{tr("Prossima azione", "Prossima azione", "Next action")}</div>
+          <div className="font-medium">{tr("Próxima acción", "Prossima azione", "Next action")}</div>
           <p className="mt-1 text-muted-foreground">{lead.nextAction}</p>
         </div>
       )}
 
-      <div className="mt-5 rounded-sm border-2 border-primary/30 bg-primary/5 p-5">
+      <div className="mt-5 rounded-sm border-2 border-primary bg-primary/5 p-5 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-primary">{controlsTitle}</div>
-            <p className="mt-1 text-sm text-muted-foreground">{controlsSubtitle}</p>
+            <div className="text-xs uppercase tracking-[0.18em] text-primary">{sectionTitle}</div>
+            <h4 className="mt-1 font-display text-2xl text-foreground">
+              {partner
+                ? tr("Cambia stato partner", "Cambia stato partner", "Change partner status")
+                : tr("Cambia stato cliente", "Cambia stato cliente", "Change client status")}
+            </h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {partner
+                ? tr("Usa i pulsanti qui sotto per avanzare la candidatura partner.", "Usa i pulsanti qui sotto per avanzare la candidatura partner.", "Use the buttons below to advance the partner application.")
+                : tr("Usa i pulsanti qui sotto per spostare il cliente da uno stato all’altro.", "Usa i pulsanti qui sotto per spostare il cliente da uno stato all’altro.", "Use the buttons below to move the client from one status to another.")}
+            </p>
           </div>
           {saving && <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-primary">{tr("Salvataggio…", "Salvataggio…", "Saving…")}</span>}
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">{tr("Stato", "Stato", "Status")}</label>
-            <select value={manualStatus} onChange={(event) => setManualStatus(event.target.value as LeadStatus)} className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm">
-              {(Object.keys(STATUS_LABELS) as LeadStatus[]).map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">{tr("Priorità", "Priorità", "Priority")}</label>
-            <select value={manualPriority} onChange={(event) => setManualPriority(event.target.value as LeadPriority)} className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm">
-              {(Object.keys(PRIORITY_LABELS) as LeadPriority[]).map((priority) => <option key={priority} value={priority}>{PRIORITY_LABELS[priority]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">{tr("Prossima azione", "Prossima azione", "Next action")}</label>
-            <input value={manualNextAction} onChange={(event) => setManualNextAction(event.target.value)} className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm" placeholder={tr("Es. richiamare domani", "Es. richiamare domani", "Ex. call tomorrow")} />
-          </div>
         </div>
 
         <div className="mt-4">
@@ -657,26 +688,39 @@ function LeadCard({ type, lead, actions, saving, onUpdate }: {
           />
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <ActionButton
-            action={{
-              key: "manual-save",
-              label: tr("Salva stato manuale", "Salva stato manuale", "Save manual status"),
-              helper: tr("Usa stato, priorità e prossima azione selezionati", "Usa stato, priorità e prossima azione selezionati", "Use selected status, priority and next action"),
-              payload: { status: manualStatus, priority: manualPriority, next_action: manualNextAction || null },
-              title: tr("Aggiornamento manuale", "Aggiornamento manuale", "Manual update"),
-              requireNote: manualStatus === "won" || manualStatus === "lost",
-              tone: manualStatus === "won" ? "success" : manualStatus === "lost" ? "neutral" : "primary",
-            }}
-            disabled={saving}
-            onClick={(action) => void onUpdate(lead, action.payload, action.title, note, action.requireNote)}
-          />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {actions.map((action) => (
-            <ActionButton key={`${lead.id}-${action.key}`} action={action} disabled={saving} onClick={(clicked) => void onUpdate(lead, clicked.payload, clicked.title, note, clicked.requireNote)} />
+            <StatusButton key={`${lead.id}-${action.key}`} action={action} disabled={saving} onClick={() => void handleAction(action)} />
           ))}
         </div>
+
+        {localError && <p className="mt-4 rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{localError}</p>}
+        {success && <p className="mt-4 rounded-sm border border-secondary/30 bg-secondary/10 p-3 text-sm text-secondary">{success}</p>}
       </div>
     </article>
+  );
+}
+
+function StatusButton({ action, disabled, onClick }: { action: StatusAction; disabled: boolean; onClick: () => void }) {
+  const tone = action.tone || "primary";
+  const toneClass = tone === "success"
+    ? "border-secondary/40 bg-secondary/15 text-secondary hover:bg-secondary/20"
+    : tone === "danger"
+      ? "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/20"
+      : tone === "neutral"
+        ? "border-border bg-background text-foreground hover:bg-accent"
+        : "border-primary/40 bg-primary/15 text-primary hover:bg-primary/20";
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`min-h-[76px] rounded-sm border-2 px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${toneClass}`}
+    >
+      <span className="block text-base font-semibold">{disabled ? tr("Salvataggio…", "Salvataggio…", "Saving…") : action.label}</span>
+      <span className="mt-1 block text-xs opacity-80">{action.helper}</span>
+    </button>
   );
 }
 
@@ -698,24 +742,6 @@ function PipelineSummary({ leads }: { leads: DashboardLead[] }) {
   );
 }
 
-function ActionButton({ action, disabled, onClick }: { action: QuickAction; disabled: boolean; onClick: (action: QuickAction) => void }) {
-  const tone = action.tone || "primary";
-  const toneClass = tone === "success"
-    ? "border-secondary/30 bg-secondary/10 text-secondary hover:bg-secondary/15"
-    : tone === "danger"
-      ? "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15"
-      : tone === "neutral"
-        ? "border-border bg-background text-muted-foreground hover:bg-accent"
-        : "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15";
-
-  return (
-    <button type="button" disabled={disabled} onClick={() => onClick(action)} className={`rounded-sm border px-3 py-2 text-left text-xs transition disabled:opacity-50 ${toneClass}`}>
-      <span className="block font-medium">{disabled ? tr("Salvataggio…", "Salvataggio…", "Saving…") : action.label}</span>
-      <span className="mt-0.5 block text-[11px] opacity-80">{action.helper}</span>
-    </button>
-  );
-}
-
 function ControlPanel() {
   return (
     <div className="mt-8 grid gap-8 lg:grid-cols-3">
@@ -723,14 +749,14 @@ function ControlPanel() {
         <h2 className="font-display text-2xl">{tr("Logica operativa", "Logica operativa", "Operational logic")}</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {tr(
-            "Il CRM ora rende visibili i controlli cliente dentro ogni scheda: stato, priorità, prossima azione, nota interna e pulsanti rapidi. Le azioni Concluso e Fallito richiedono una nota.",
-            "Il CRM ora rende visibili i controlli cliente dentro ogni scheda: stato, priorità, prossima azione, nota interna e pulsanti rapidi. Le azioni Concluso e Fallito richiedono una nota.",
-            "The CRM now makes client controls visible inside each card: status, priority, next action, internal note and quick buttons. Won and Lost actions require a note."
+            "Ogni scheda cliente contiene adesso un blocco visibile di gestione stato con pulsanti grandi. Le azioni Concluso e Fallito richiedono una nota interna.",
+            "Ogni scheda cliente contiene adesso un blocco visibile di gestione stato con pulsanti grandi. Le azioni Concluso e Fallito richiedono una nota interna.",
+            "Each client card now contains a visible status management block with large buttons. Won and Lost actions require an internal note."
           )}
         </p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           <RoadmapCard title="1. Intake" items={[tr("Cliente o partner sceglie il form corretto", "Cliente o partner sceglie il form corretto", "Client or partner chooses the right form"), tr("Dati minimi obbligatori", "Dati minimi obbligatori", "Required minimum data"), tr("Salvataggio in PostgreSQL", "Salvataggio in PostgreSQL", "Saved in PostgreSQL")]} />
-          <RoadmapCard title="2. Avanzamento" items={[tr("Stato manuale visibile", "Stato manuale visibile", "Visible manual status"), tr("Priorità alta/media/bassa", "Priorità alta/media/bassa", "High/medium/low priority"), tr("Nota obbligatoria per concluso/fallito", "Nota obbligatoria per concluso/fallito", "Required note for won/lost")]} />
+          <RoadmapCard title="2. Avanzamento" items={[tr("Pulsanti stato visibili", "Pulsanti stato visibili", "Visible status buttons"), tr("Priorità alta/media/bassa", "Priorità alta/media/bassa", "High/medium/low priority"), tr("Nota obbligatoria per concluso/fallito", "Nota obbligatoria per concluso/fallito", "Required note for won/lost")]} />
           <RoadmapCard title="3. Chiusura" items={["Follow-up", tr("Preventivo o valutazione", "Preventivo o valutazione", "Proposal or evaluation"), tr("Concluso o fallito con motivo", "Concluso o fallito con motivo", "Won or lost with reason")]} />
         </div>
       </div>
@@ -798,7 +824,7 @@ function RoadmapCard({ title, items }: { title: string; items: string[] }) {
 
 const Dashboard = () => (
   <>
-    <SEO title="CRM Dashboard | Eivitech Ibiza" description={tr("Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Private dashboard to manage Eivitech Ibiza clients and professional partners.")} path="/dashboard" />
+    <SEO title="CRM Dashboard | Eivitech Ibiza" description={tr("Dashboard privada para gestión de clientes y partners profesionales Eivitech Ibiza.", "Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Private dashboard to manage Eivitech Ibiza clients and professional partners.")} path="/dashboard" />
     {!CLERK_ENABLED ? (
       <section className="container-x py-20">
         <div className="max-w-2xl rounded-sm border border-border bg-card p-8 shadow-card">
