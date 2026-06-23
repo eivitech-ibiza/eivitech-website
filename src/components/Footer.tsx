@@ -62,7 +62,17 @@ export function Footer() {
       <div className="border-t border-border">
         <div className="container-x py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-2 text-xs text-muted-foreground">
           <div>© {new Date().getFullYear()} {SITE.name}. {tr("Todos los derechos reservados.", "Tutti i diritti riservati.", "All rights reserved.")}</div>
-          <div>{SITE.tagline}</div>
+          <div className="flex flex-col gap-1 md:items-end">
+            <div>{SITE.tagline}</div>
+            <a
+              href="https://www.lucianonovello.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              Powered by Digitalempower
+            </a>
+          </div>
         </div>
       </div>
     </footer>
