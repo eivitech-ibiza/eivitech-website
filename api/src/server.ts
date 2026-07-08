@@ -9,6 +9,7 @@ import { query } from "./db.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { requireCrmUser } from "./auth.js";
+import { notifyLeadByEmail } from "./email.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -161,6 +162,7 @@ app.post("/api/leads", publicLeadLimiter, async (req, res) => {
     );
 
     await notifyN8n("lead.created", lead.id, { leadId: lead.id, source: data.source || "web", score, priority });
+    await notifyLeadByEmail({ leadId: lead.id, ...data, email: data.email.toLowerCase(), score, priority });
 
     return res.status(201).json({ ok: true, leadId: lead.id, score, priority, nextAction });
   } catch (error) {
