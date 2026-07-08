@@ -12,9 +12,9 @@ const Proyectos = () => (
       path="/transformations"
     />
     <section className="container-x pt-16 pb-12 md:pt-24">
-      <div className="eyebrow">{tr("Transformations", "Trasformazioni", "Transformations")}</div>
+      <div className="eyebrow">{tr("Transformaciones", "Trasformazioni", "Transformations")}</div>
       <h1 className="display-xl mt-4 max-w-4xl">
-        {tr("Selected property transformations in Ibiza", "Trasformazioni immobiliari selezionate a Ibiza", "Selected property transformations in Ibiza")}
+        {tr("Transformaciones inmobiliarias seleccionadas en Ibiza", "Trasformazioni immobiliari selezionate a Ibiza", "Selected property transformations in Ibiza")}
       </h1>
       <p className="body-lg mt-5 max-w-2xl">
         {tr(
@@ -29,7 +29,7 @@ const Proyectos = () => (
         <ProjectCard key={p.slug} project={p} priority={i === 0} />
       ))}
     </section>
-    <CTASection title={tr("Let's talk about your property.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
+    <CTASection title={tr("Hablemos de tu propiedad.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
   </>
 );
 
