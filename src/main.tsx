@@ -5,10 +5,8 @@ import App from "./App.tsx";
 import "./index.css";
 import { CLERK_ENABLED, CLERK_PUBLISHABLE_KEY } from "./lib/config";
 import { initLanguage } from "./lib/i18n";
-import { initAutoTranslate } from "./lib/autoTranslate";
 
 initLanguage();
-initAutoTranslate();
 
 const app = (
   <HelmetProvider>
