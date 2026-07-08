@@ -4,27 +4,27 @@ import { tr } from "@/lib/i18n";
 
 const steps = [
   {
-    title: "Discover",
+    title: tr("Descubrir", "Scoprire", "Discover"),
     text: tr("Escuchamos objetivos, estilo de vida, estado del inmueble, timing, presupuesto orientativo y prioridades reales.", "Ascoltiamo obiettivi, stile di vita, stato dell'immobile, timing, budget orientativo e priorità reali.", "We listen to goals, lifestyle, property condition, timing, indicative budget and real priorities."),
   },
   {
-    title: "Design",
+    title: tr("Diseñar", "Progettare", "Design"),
     text: tr("Definimos dirección estética, materiales, distribución, atmósfera y soluciones personalizadas.", "Definiamo direzione estetica, materiali, distribuzione, atmosfera e soluzioni personalizzate.", "We define aesthetic direction, materials, layout, atmosphere and tailored solutions."),
   },
   {
-    title: "Plan",
+    title: tr("Planificar", "Pianificare", "Plan"),
     text: tr("Ordenamos decisiones, proveedores, fases, visitas, presupuesto y próximos pasos antes de entrar en obra.", "Ordiniamo decisioni, fornitori, fasi, visite, preventivo e prossimi passi prima di entrare in cantiere.", "We organise decisions, suppliers, phases, visits, proposal and next steps before construction starts."),
   },
   {
-    title: "Build",
+    title: tr("Construir", "Costruire", "Build"),
     text: tr("Coordinamos albañilería, instalaciones, climatización, carpintería, acabados y profesionales externos.", "Coordiniamo muratura, impianti, climatizzazione, falegnameria, finiture e professionisti esterni.", "We coordinate masonry, installations, HVAC, carpentry, finishes and external professionals."),
   },
   {
-    title: "Refine",
+    title: tr("Refinar", "Rifinire", "Refine"),
     text: tr("Revisamos detalles, luz, encuentros, texturas, carpintería y acabados para que el resultado sea coherente.", "Revisioniamo dettagli, luce, giunti, texture, falegnameria e finiture perché il risultato sia coerente.", "We refine details, lighting, junctions, textures, carpentry and finishes so the result feels coherent."),
   },
   {
-    title: "Deliver",
+    title: tr("Entregar", "Consegnare", "Deliver"),
     text: tr("Cerramos el proyecto con control final, notas, documentación y acompañamiento post-entrega cuando corresponde.", "Chiudiamo il progetto con controllo finale, note, documentazione e accompagnamento post-consegna quando previsto.", "We close the project with final checks, notes, documentation and post-handover support where appropriate."),
   },
 ];
@@ -32,14 +32,14 @@ const steps = [
 const TheEivitechWay = () => (
   <>
     <SEO
-      title={tr("The Eivitech Way | One partner for your renovation in Ibiza", "The Eivitech Way | Un referente per la tua ristrutturazione a Ibiza", "The Eivitech Way | One partner for your renovation in Ibiza")}
+      title={tr("The Eivitech Way | Un referente para tu reforma en Ibiza", "The Eivitech Way | Un referente per la tua ristrutturazione a Ibiza", "The Eivitech Way | One partner for your renovation in Ibiza")}
       description={tr("El método Eivitech para reformas en Ibiza: descubrimiento, diseño, planificación, obra, detalles y entrega.", "Il metodo Eivitech per ristrutturazioni a Ibiza: scoperta, design, pianificazione, cantiere, dettagli e consegna.", "The Eivitech method for renovations in Ibiza: discovery, design, planning, construction, refinement and delivery.")}
       path="/the-eivitech-way"
     />
 
     <section className="container-x pt-16 pb-12 md:pt-24">
       <div className="eyebrow">The Eivitech Way</div>
-      <h1 className="display-xl mt-4 max-w-4xl">One partner. Every detail.</h1>
+      <h1 className="display-xl mt-4 max-w-4xl">{tr("Un referente. Cada detalle.", "Un partner. Ogni dettaglio.", "One partner. Every detail.")}</h1>
       <p className="body-lg mt-5 max-w-2xl">
         {tr(
           "Una reforma en Ibiza no debería obligarte a coordinar diez profesionales distintos. Eivitech acompaña cada fase con un método claro y un único referente.",
@@ -77,7 +77,7 @@ const TheEivitechWay = () => (
       </div>
     </section>
 
-    <CTASection title={tr("Let's talk about your property.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
+    <CTASection title={tr("Hablemos de tu propiedad.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
   </>
 );
 
