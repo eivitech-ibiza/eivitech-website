@@ -8,10 +8,17 @@ import { track } from "@/lib/tracking";
 import { submitLeadToCrm, submitPartnerToCrm } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
+const validationMessages = {
+  name: tr("Indica tu nombre", "Indica il tuo nome", "Enter your name"),
+  email: tr("Email no válido", "Email non valida", "Invalid email"),
+  phone: tr("Indica un teléfono o WhatsApp", "Indica un telefono o WhatsApp", "Enter a phone number or WhatsApp"),
+  consent: tr("Debes aceptar la política de privacidad", "Devi accettare la privacy policy", "You must accept the privacy policy"),
+};
+
 const clientSchema = z.object({
-  nombre: z.string().trim().min(2, "Indica tu nombre").max(80),
-  email: z.string().trim().email("Email no válido").max(120),
-  telefono: z.string().trim().min(6, "Indica un teléfono o WhatsApp").max(40),
+  nombre: z.string().trim().min(2, validationMessages.name).max(80),
+  email: z.string().trim().email(validationMessages.email).max(120),
+  telefono: z.string().trim().min(6, validationMessages.phone).max(40),
   tipoCliente: z.enum(["propietario", "comprador", "inversor", "agencia", "empresa", "otro"]),
   tipoPropiedad: z.enum(["villa", "apartamento", "casa", "local-comercial", "otro"]),
   zona: z.string().trim().max(80).optional().or(z.literal("")),
@@ -21,13 +28,13 @@ const clientSchema = z.object({
   plazo: z.enum(["urgente", "1-3-meses", "3-6-meses", "sin-fecha"]),
   presupuesto: z.string().trim().max(60).optional().or(z.literal("")),
   mensaje: z.string().trim().max(1500).optional().or(z.literal("")),
-  consentimiento: z.literal(true, { message: "Debes aceptar la política de privacidad" }),
+  consentimiento: z.literal(true, { message: validationMessages.consent }),
 });
 
 const partnerSchema = z.object({
-  nombre: z.string().trim().min(2, "Indica tu nombre").max(80),
-  email: z.string().trim().email("Email no válido").max(120),
-  telefono: z.string().trim().min(6, "Indica un teléfono o WhatsApp").max(40),
+  nombre: z.string().trim().min(2, validationMessages.name).max(80),
+  email: z.string().trim().email(validationMessages.email).max(120),
+  telefono: z.string().trim().min(6, validationMessages.phone).max(40),
   empresa: z.string().trim().max(120).optional().or(z.literal("")),
   categoria: z.enum(["carpinteria", "aluminio", "cristaleria", "marmol-piedra", "herreria", "electricidad", "fontaneria", "pladur", "pintura", "arquitectura", "jardineria", "otro"]),
   zona: z.string().trim().max(120).optional().or(z.literal("")),
@@ -35,7 +42,7 @@ const partnerSchema = z.object({
   disponibilidad: z.enum(["inmediata", "1-2-semanas", "proyectos-programados", "solo-urgencias"]),
   website: z.string().trim().max(250).optional().or(z.literal("")),
   mensaje: z.string().trim().max(1500).optional().or(z.literal("")),
-  consentimiento: z.literal(true, { message: "Debes aceptar la política de privacidad" }),
+  consentimiento: z.literal(true, { message: validationMessages.consent }),
 });
 
 export type LeadFormData = z.infer<typeof clientSchema>;
@@ -219,7 +226,7 @@ function ClientFields({ form }: { form: ReturnType<typeof useForm<LeadFormData>>
           <select id="tipoPropiedad" className={field} {...register("tipoPropiedad")}>
             <option value="villa">Villa</option>
             <option value="apartamento">{tr("Apartamento", "Appartamento", "Apartment")}</option>
-            <option value="casa">Casa</option>
+            <option value="casa">{tr("Casa", "Casa", "House")}</option>
             <option value="local-comercial">{tr("Local comercial", "Locale commerciale", "Commercial premises")}</option>
             <option value="otro">{tr("Otro", "Altro", "Other")}</option>
           </select>
