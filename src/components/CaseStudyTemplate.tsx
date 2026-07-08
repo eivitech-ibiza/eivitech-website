@@ -178,18 +178,6 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
           </div>
         </section>
 
-        <section className="container-x mt-6">
-          <div className="rounded-sm border border-dashed border-primary/40 bg-primary-soft/40 p-5 text-sm leading-relaxed">
-            <strong>{tr("Nota operativa", "Nota operativa", "Operational note")}:</strong>{" "}
-            {tr(
-              "Las imágenes finales deben cargarse manualmente en la carpeta indicada para este proyecto. Verificar autorización de uso antes de publicar.",
-              "Le immagini finali devono essere caricate manualmente nella cartella indicata per questo progetto. Verificare l'autorizzazione d'uso prima della pubblicazione.",
-              "Final images must be uploaded manually in the folder indicated for this project. Check usage authorization before publishing."
-            )}
-            <div className="mt-2 font-mono text-xs">{project.folderHint}</div>
-          </div>
-        </section>
-
         <section className="section-tight">
           <div className="container-x">
             <div className="eyebrow">{tr("Otros proyectos", "Altri progetti", "Other projects")}</div>
