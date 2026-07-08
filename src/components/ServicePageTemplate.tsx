@@ -9,7 +9,7 @@ import { PROJECTS } from "@/data/projects";
 import { SERVICES } from "@/data/services";
 import { serviceJsonLd, faqJsonLd } from "@/lib/seo";
 import { Check } from "lucide-react";
-import heroImg from "@/assets/reformas.jpg";
+const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-mediterraneo/cover.jpg`;
 
 export function ServicePageTemplate({ service }: { service: Service }) {
   const related = (service.relatedProjects || [])

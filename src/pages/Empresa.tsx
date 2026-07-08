@@ -1,8 +1,9 @@
 import { SEO } from "@/components/SEO";
 import { CTASection } from "@/components/CTASection";
 import { ProcessSteps } from "@/components/ProcessSteps";
-import casaImg from "@/assets/hero-home.jpg";
 import { tr } from "@/lib/i18n";
+
+const casaImg = `${import.meta.env.BASE_URL}media/projects/casa-vadella/cover.jpg`;
 
 const Empresa = () => (
   <>

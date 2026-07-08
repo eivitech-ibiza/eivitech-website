@@ -11,9 +11,10 @@ import { GENERAL_FAQS } from "@/data/faqs";
 import { orgJsonLd, faqJsonLd } from "@/lib/seo";
 import { SITE } from "@/data/site";
 import { ArrowRight, Home, Building2, Store, Wrench, Lightbulb, TreePine } from "lucide-react";
-import heroImg from "@/assets/hero-home.jpg";
-import materiales from "@/assets/materiales.jpg";
 import { tr } from "@/lib/i18n";
+
+const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-vadella/cover.jpg`;
+const materiales = `${import.meta.env.BASE_URL}media/projects/casa-vinya/cover.jpg`;
 
 const homeServices = [
   { slug: "reformas-integrales", icon: Home },

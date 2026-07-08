@@ -6,9 +6,10 @@ import { PROJECTS } from "@/data/projects";
 import { whatsappUrl } from "@/data/site";
 import { track } from "@/lib/tracking";
 import { MessageCircle } from "lucide-react";
-import materiales from "@/assets/materiales.jpg";
-import apartamento from "@/assets/apartamento.jpg";
 import { tr } from "@/lib/i18n";
+
+const materiales = `${import.meta.env.BASE_URL}media/projects/casa-vinya/cover.jpg`;
+const apartamento = `${import.meta.env.BASE_URL}media/projects/casa-boas/cover.jpg`;
 
 const LandingMeta = () => (
   <>

@@ -10,7 +10,7 @@ import { whatsappUrl, SITE } from "@/data/site";
 import { track } from "@/lib/tracking";
 import { Phone, MessageCircle, Check } from "lucide-react";
 import { serviceJsonLd, faqJsonLd } from "@/lib/seo";
-import heroImg from "@/assets/hero-home.jpg";
+const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-vadella/cover.jpg`;
 
 const LandingGoogle = () => {
   return (
