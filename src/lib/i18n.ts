@@ -1,20 +1,27 @@
 export type Language = "es" | "it" | "en";
+export type LanguageSelection = Language | "auto";
 
 const FALLBACK_LANGUAGE: Language = "es";
+const STORAGE_KEY = "eivitech_language";
 const SUPPORTED_LANGUAGES: Language[] = ["es", "it", "en"];
 
-function normaliseLanguage(value?: string | null): Language | null {
+export function normaliseLanguage(value?: string | null): Language | null {
   if (!value) return null;
   const code = value.toLowerCase().split("-")[0];
   if (SUPPORTED_LANGUAGES.includes(code as Language)) return code as Language;
   return null;
 }
 
-function readLanguageFromUrl(): Language | "auto" | null {
+function readLanguageFromUrl(): LanguageSelection | null {
   if (typeof window === "undefined") return null;
   const value = new URLSearchParams(window.location.search).get("lang");
   if (value === "auto") return "auto";
   return normaliseLanguage(value);
+}
+
+export function getStoredLanguage(): Language | null {
+  if (typeof window === "undefined") return null;
+  return normaliseLanguage(window.localStorage.getItem(STORAGE_KEY));
 }
 
 export function detectLanguage(): Language {
@@ -22,13 +29,13 @@ export function detectLanguage(): Language {
 
   const urlLanguage = readLanguageFromUrl();
   if (urlLanguage === "auto") {
-    window.localStorage.removeItem("eivitech_language");
+    window.localStorage.removeItem(STORAGE_KEY);
   } else if (urlLanguage) {
-    window.localStorage.setItem("eivitech_language", urlLanguage);
+    window.localStorage.setItem(STORAGE_KEY, urlLanguage);
     return urlLanguage;
   }
 
-  const stored = normaliseLanguage(window.localStorage.getItem("eivitech_language"));
+  const stored = getStoredLanguage();
   if (stored) return stored;
 
   for (const candidate of window.navigator.languages || [window.navigator.language]) {
@@ -46,10 +53,32 @@ export function initLanguage() {
   document.documentElement.lang = CURRENT_LANGUAGE === "es" ? "es-ES" : CURRENT_LANGUAGE === "it" ? "it-IT" : "en-GB";
 }
 
+export function persistLanguageSelection(selection: LanguageSelection) {
+  if (typeof window === "undefined") return;
+  if (selection === "auto") {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } else {
+    window.localStorage.setItem(STORAGE_KEY, selection);
+  }
+}
+
+export function languageSelectionHref(selection: LanguageSelection) {
+  if (typeof window === "undefined") return `?lang=${selection}`;
+  const url = new URL(window.location.href);
+  url.searchParams.set("lang", selection);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function changeLanguage(selection: LanguageSelection) {
+  if (typeof window === "undefined") return;
+  persistLanguageSelection(selection);
+  window.location.assign(languageSelectionHref(selection));
+}
+
 export function tr(es: string, it: string, en: string) {
-  if (CURRENT_LANGUAGE === "it") return it;
-  if (CURRENT_LANGUAGE === "en") return en;
-  return es;
+  if (CURRENT_LANGUAGE === "it") return it || es || en;
+  if (CURRENT_LANGUAGE === "en") return en || es || it;
+  return es || en || it;
 }
 
 export const languageLabels: Record<Language, string> = {

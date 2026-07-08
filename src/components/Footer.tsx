@@ -2,14 +2,21 @@ import { Link } from "react-router-dom";
 import { SITE } from "@/data/site";
 import { SERVICES } from "@/data/services";
 import { EivitechLogo } from "@/components/EivitechLogo";
-import { tr } from "@/lib/i18n";
+import { CURRENT_LANGUAGE, changeLanguage, languageSelectionHref, tr, type LanguageSelection } from "@/lib/i18n";
+
+const LANGUAGE_OPTIONS: { value: LanguageSelection; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "es", label: "ES" },
+  { value: "it", label: "IT" },
+  { value: "en", label: "EN" },
+];
 
 export function Footer() {
   return (
     <footer className="mt-24 border-t border-border bg-accent/40">
       <div className="container-x py-16 grid gap-12 md:grid-cols-4">
         <div className="md:col-span-2">
-          <Link to="/" className="inline-flex shrink-0 items-center" aria-label="Eivitech home">
+          <Link to="/" className="inline-flex shrink-0 items-center" aria-label={tr("Inicio de Eivitech", "Home Eivitech", "Eivitech home")}>
             <EivitechLogo className="h-auto w-[230px] md:w-[280px]" />
           </Link>
           <p className="mt-4 max-w-md text-sm text-muted-foreground leading-relaxed">
@@ -22,10 +29,27 @@ export function Footer() {
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{tr("Idioma", "Lingua", "Language")}</span>
-            <a href="?lang=auto" className="rounded-sm border border-border px-2 py-1 hover:bg-background">Auto</a>
-            <a href="?lang=es" className="rounded-sm border border-border px-2 py-1 hover:bg-background">ES</a>
-            <a href="?lang=it" className="rounded-sm border border-border px-2 py-1 hover:bg-background">IT</a>
-            <a href="?lang=en" className="rounded-sm border border-border px-2 py-1 hover:bg-background">EN</a>
+            {LANGUAGE_OPTIONS.map((option) => {
+              const active = option.value !== "auto" && option.value === CURRENT_LANGUAGE;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => changeLanguage(option.value)}
+                  className={`rounded-sm border border-border px-2 py-1 hover:bg-background ${active ? "bg-background text-foreground" : ""}`}
+                  aria-label={tr(`Cambiar idioma a ${option.label}`, `Cambia lingua in ${option.label}`, `Change language to ${option.label}`)}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+            <noscript>
+              {LANGUAGE_OPTIONS.map((option) => (
+                <a key={option.value} href={languageSelectionHref(option.value)} className="rounded-sm border border-border px-2 py-1 hover:bg-background">
+                  {option.label}
+                </a>
+              ))}
+            </noscript>
           </div>
         </div>
 
