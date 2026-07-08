@@ -10,6 +10,12 @@ function withBase(path: string) {
   return `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 }
 
+function projectCategoryLabel(category: string) {
+  if (category === "Apartment") return tr("Apartamento", "Appartamento", "Apartment");
+  if (category === "Outdoor") return tr("Exterior", "Esterno", "Outdoor");
+  return category;
+}
+
 export function getProjectPath(project: Project) {
   return `/transformations/${project.slug}`;
 }
@@ -31,7 +37,7 @@ export function ProjectCard({ project, priority = false }: { project: Project; p
         />
         <div className="absolute inset-0 bg-gradient-hero opacity-90" />
         <div className="absolute left-5 top-5 rounded-sm bg-background/90 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground">
-          {project.category}
+          {projectCategoryLabel(project.category)}
         </div>
         <div className="absolute inset-x-0 bottom-0 p-6 text-white">
           <div className="text-[10px] uppercase tracking-[0.2em] opacity-80">
