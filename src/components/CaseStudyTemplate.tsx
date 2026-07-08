@@ -27,8 +27,18 @@ function ProjectImage({ src, alt, priority = false, className = "" }: { src: str
   );
 }
 
+function DetailBlock({ label, title, body }: { label: string; title: string; body: string }) {
+  return (
+    <div className="border-t border-border pt-7">
+      <div className="eyebrow">{label}</div>
+      <h2 className="display-sm mt-3">{title}</h2>
+      <p className="mt-4 text-lg leading-relaxed text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
 function getProjectPath(project: Project) {
-  return `/proyectos/${project.slug}`;
+  return `/transformations/${project.slug}`;
 }
 
 export function CaseStudyTemplate({ project }: { project: Project }) {
@@ -43,14 +53,14 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         description={project.metaDescription}
         path={path}
         trackAs="project_view"
-        trackPayload={{ project: project.slug }}
+        trackPayload={{ project: project.slug, interest: project.crmInterest }}
         ogImage={withBase(project.cover)}
       />
 
       <article>
         <section className="container-x pt-12 md:pt-20">
-          <Link to="/proyectos" className="text-sm text-muted-foreground hover:text-foreground">
-            ← {tr("Todos los proyectos", "Tutti i progetti", "All projects")}
+          <Link to="/transformations" className="text-sm text-muted-foreground hover:text-foreground">
+            ← {tr("Todas las transformaciones", "Tutte le trasformazioni", "All transformations")}
           </Link>
 
           <div className="mt-6 grid gap-8 md:grid-cols-[2fr_1fr] md:items-end">
@@ -78,11 +88,69 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
           <div className="relative aspect-[16/10] overflow-hidden rounded-sm bg-muted md:aspect-[16/8]">
             <ProjectImage src={project.cover} alt={project.name} priority className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6 max-w-2xl text-white">
+            <div className="absolute bottom-6 left-6 right-6 max-w-3xl text-white">
               <div className="text-xs uppercase tracking-[0.25em] text-white/75">
-                {tr("Proyecto seleccionado", "Progetto selezionato", "Selected project")}
+                {tr("Property transformation", "Property transformation", "Property transformation")}
               </div>
-              <p className="mt-3 text-xl font-medium leading-snug md:text-3xl">{project.short}</p>
+              <p className="mt-3 text-xl font-medium leading-snug md:text-4xl">{project.short}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="section-tight">
+          <div className="container-x grid gap-14 lg:grid-cols-[0.9fr_1.7fr]">
+            <div>
+              <div className="eyebrow">{tr("Story", "Storia", "Story")}</div>
+              <h2 className="display-md mt-3">
+                {tr("From problem to living experience", "Dal problema all'esperienza abitativa", "From problem to living experience")}
+              </h2>
+            </div>
+            <div className="space-y-10">
+              <DetailBlock label="01 Challenge" title={tr("El punto de partida", "Il punto di partenza", "The starting point")} body={project.challenge || project.situation} />
+              <DetailBlock label="02 Client vision" title={tr("Lo que buscaba el cliente", "Cosa cercava il cliente", "What the client wanted")} body={project.vision || project.goal} />
+              <DetailBlock label="03 Eivitech solution" title={tr("Cómo lo resolvimos", "Come lo abbiamo risolto", "How we solved it")} body={project.solution} />
+            </div>
+          </div>
+        </section>
+
+        <section className="section-tight bg-accent/40">
+          <div className="container-x grid gap-14 lg:grid-cols-2">
+            <div>
+              <div className="eyebrow">{tr("Intervenciones", "Interventi", "Works")}</div>
+              <h2 className="display-md mt-3 mb-6">{tr("What we delivered", "Cosa abbiamo realizzato", "What we delivered")}</h2>
+              <ul className="space-y-3">
+                {project.works.map((w, i) => (
+                  <li key={i} className="flex gap-4 border-b border-border pb-3">
+                    <span className="font-display text-primary">{String(i + 1).padStart(2, "0")}</span>
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <div className="eyebrow">{tr("Materiales y detalles", "Materiali e dettagli", "Materials and details")}</div>
+              <h2 className="display-md mt-3 mb-6">{tr("Materials that shape the feeling", "Materiali che modellano la sensazione", "Materials that shape the feeling")}</h2>
+              <div className="flex flex-wrap gap-2">
+                {project.materials.map((m) => (
+                  <span key={m} className="rounded-sm border border-border bg-background px-4 py-2 text-sm">
+                    {m}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-10 grid gap-8">
+                <div>
+                  <div className="text-sm uppercase tracking-widest text-muted-foreground">Lighting / Atmosphere</div>
+                  <p className="mt-2 text-lg leading-relaxed">{project.lighting}</p>
+                </div>
+                <div>
+                  <div className="text-sm uppercase tracking-widest text-muted-foreground">Craftsmanship</div>
+                  <p className="mt-2 text-lg leading-relaxed">{project.craftsmanship}</p>
+                </div>
+                <div>
+                  <div className="text-sm uppercase tracking-widest text-muted-foreground">Final result</div>
+                  <p className="mt-2 text-lg leading-relaxed">{project.result}</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -110,63 +178,6 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
           </div>
         </section>
 
-        <section className="section-tight">
-          <div className="container-x grid gap-14 lg:grid-cols-[1fr_2fr]">
-            <div>
-              <div className="eyebrow">{tr("Caso", "Caso", "Case")}</div>
-              <h2 className="display-md mt-3">{tr("Situación y objetivo", "Situazione e obiettivo", "Situation and goal")}</h2>
-            </div>
-            <div className="space-y-8 text-lg leading-relaxed">
-              <div>
-                <div className="text-sm uppercase tracking-widest text-muted-foreground">
-                  {tr("Situación inicial", "Situazione iniziale", "Initial situation")}
-                </div>
-                <p className="mt-2">{project.situation}</p>
-              </div>
-              <div>
-                <div className="text-sm uppercase tracking-widest text-muted-foreground">
-                  {tr("Objetivo del cliente", "Obiettivo del cliente", "Client goal")}
-                </div>
-                <p className="mt-2">{project.goal}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section-tight bg-accent/40">
-          <div className="container-x grid gap-14 lg:grid-cols-2">
-            <div>
-              <div className="eyebrow">{tr("Intervenciones", "Interventi", "Works")}</div>
-              <h2 className="display-md mt-3 mb-6">{tr("Lo que realizamos", "Cosa abbiamo realizzato", "What we delivered")}</h2>
-              <ul className="space-y-3">
-                {project.works.map((w, i) => (
-                  <li key={i} className="flex gap-4 border-b border-border pb-3">
-                    <span className="font-display text-primary">{String(i + 1).padStart(2, "0")}</span>
-                    <span>{w}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <div className="eyebrow">{tr("Materiales y detalles", "Materiali e dettagli", "Materials and details")}</div>
-              <h2 className="display-md mt-3 mb-6">{tr("Acabados", "Finiture", "Finishes")}</h2>
-              <div className="flex flex-wrap gap-2">
-                {project.materials.map((m) => (
-                  <span key={m} className="rounded-sm border border-border bg-background px-4 py-2 text-sm">
-                    {m}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-10">
-                <div className="text-sm uppercase tracking-widest text-muted-foreground">
-                  {tr("Resultado", "Risultato", "Result")}
-                </div>
-                <p className="mt-2 text-lg leading-relaxed">{project.result}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section className="container-x mt-6">
           <div className="rounded-sm border border-dashed border-primary/40 bg-primary-soft/40 p-5 text-sm leading-relaxed">
             <strong>{tr("Nota operativa", "Nota operativa", "Operational note")}:</strong>{" "}
@@ -191,7 +202,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         </section>
       </article>
 
-      <CTASection title={tr("¿Tienes una propiedad parecida en Ibiza?", "Hai una proprietà simile a Ibiza?", "Do you have a similar property in Ibiza?")} />
+      <CTASection title={tr("Let's talk about your property.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
     </>
   );
 }

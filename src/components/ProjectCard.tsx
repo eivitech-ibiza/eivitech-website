@@ -11,7 +11,7 @@ function withBase(path: string) {
 }
 
 export function getProjectPath(project: Project) {
-  return `/proyectos/${project.slug}`;
+  return `/transformations/${project.slug}`;
 }
 
 export function ProjectCard({ project, priority = false }: { project: Project; priority?: boolean }) {
@@ -39,7 +39,7 @@ export function ProjectCard({ project, priority = false }: { project: Project; p
           </div>
           <h3 className="mt-2 font-display text-2xl leading-tight md:text-3xl">{project.name}</h3>
           {project.zone && <div className="mt-1 text-xs opacity-80">{project.zone}</div>}
-          <div className="mt-3 text-xs opacity-85">{tr("Ver caso real", "Vedi caso reale", "View real case")}</div>
+          <div className="mt-3 text-xs opacity-85">{tr("Ver transformación", "Vedi trasformazione", "View transformation")}</div>
         </div>
         <div className="absolute right-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-foreground transition-transform group-hover:rotate-45">
           <ArrowUpRight size={16} />

@@ -7,9 +7,9 @@ import { tr } from "@/lib/i18n";
 
 const NAV = [
   { to: "/", label: tr("Inicio", "Home", "Home") },
-  { to: "/servicios", label: tr("Servicios", "Servizi", "Services") },
-  { to: "/proyectos", label: tr("Proyectos", "Progetti", "Projects") },
-  { to: "/empresa", label: tr("Empresa", "Azienda", "Company") },
+  { to: "/transformations", label: tr("Transformaciones", "Trasformazioni", "Transformations") },
+  { to: "/the-eivitech-way", label: tr("Método", "Metodo", "Method") },
+  { to: "/materials-atmosphere", label: tr("Materiales", "Materiali", "Materials") },
   { to: "/contacto", label: tr("Contacto", "Contatto", "Contact") },
 ];
 
@@ -27,7 +27,7 @@ export function Header() {
 
   useEffect(() => setOpen(false), [pathname]);
 
-  const ctaLabel = tr("Solicitar valoración", "Richiedi una valutazione", "Request an assessment");
+  const ctaLabel = tr("Hablemos de tu propiedad", "Parliamo della tua proprietà", "Let’s talk about your property");
 
   return (
     <header

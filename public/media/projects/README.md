@@ -1,17 +1,16 @@
-# Media progetti Eivitech
+# Media progetti Eivitech V2
 
-Caricare manualmente le foto finali in queste cartelle mantenendo i nomi indicati in `src/data/projects.ts`.
+Caricare manualmente foto e video nelle cartelle sotto, mantenendo i nomi indicati in `src/data/projects.ts`.
 
-Regola consigliata:
+Progetti:
+- `casa-boas/` -> Modern Minimal Apartment – Marina Botafoch
+- `casa-vinya/` -> Luxury Mediterranean Villa Renovation
+- `casa-mediterraneo/` -> Warm Contemporary Apartment Transformation
+- `casa-charlie/` -> Authentic Ibiza Finca Restoration
+- `proyecto-paisajismo-exterior/` -> Low-Maintenance Mediterranean Landscape
+- `casa-vadella/` -> Investment-Oriented Villa Makeover
+
+Regole:
 - `cover.jpg` = immagine principale del progetto.
-- altre immagini = gallery dello stesso progetto.
-- ottimizzare prima del deploy: JPG/WebP, lato lungo 1600-2200 px, peso indicativo < 500 KB se possibile.
-- verificare autorizzazioni/privacy/GDPR prima di pubblicare immagini di immobili, persone o dettagli identificabili.
-
-Cartelle:
-- casa-vinya
-- casa-vadella
-- casa-mediterraneo
-- casa-charlie
-- casa-boas
-- proyecto-paisajismo-exterior
+- ottimizzare immagini prima del deploy.
+- verificare autorizzazioni/privacy/GDPR prima della pubblicazione.

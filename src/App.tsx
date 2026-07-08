@@ -11,6 +11,8 @@ import Servicios from "./pages/Servicios.tsx";
 import Servicio from "./pages/Servicio.tsx";
 import Proyectos from "./pages/Proyectos.tsx";
 import Proyecto from "./pages/Proyecto.tsx";
+import TheEivitechWay from "./pages/TheEivitechWay.tsx";
+import MaterialsAtmosphere from "./pages/MaterialsAtmosphere.tsx";
 import Contacto from "./pages/Contacto.tsx";
 import Gracias from "./pages/Gracias.tsx";
 import LandingGoogle from "./pages/LandingGoogle.tsx";
@@ -31,8 +33,12 @@ const router = createBrowserRouter([
       { path: "/empresa", element: <Empresa /> },
       { path: "/servicios", element: <Servicios /> },
       { path: "/servicios/:slug", element: <Servicio /> },
+      { path: "/transformations", element: <Proyectos /> },
+      { path: "/transformations/:slug", element: <Proyecto /> },
       { path: "/proyectos", element: <Proyectos /> },
       { path: "/proyectos/:slug", element: <Proyecto /> },
+      { path: "/the-eivitech-way", element: <TheEivitechWay /> },
+      { path: "/materials-atmosphere", element: <MaterialsAtmosphere /> },
       { path: "/contacto", element: <Contacto /> },
       { path: "/gracias", element: <Gracias /> },
       { path: "/reformas-ibiza", element: <LandingGoogle /> },
