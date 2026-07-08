@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting…</title>
+    <script>
+      (function () {
+        var base = "/ibiza-project-accelerator/";
+        var redirectKey = "eivitech_github_pages_redirect";
+        var fullPath = window.location.pathname + window.location.search + window.location.hash;
+        window.sessionStorage.setItem(redirectKey, fullPath);
+        window.location.replace(base);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting…</p>
+  </body>
+</html>
