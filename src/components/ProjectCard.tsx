@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import type { Project } from "@/data/projects";
 import { tr } from "@/lib/i18n";
+import { resolveProjectMediaPath } from "@/lib/projectMedia";
 
 const fallbackImage = `${import.meta.env.BASE_URL}placeholder.svg`;
 
 function withBase(path: string) {
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+  const resolvedPath = resolveProjectMediaPath(path);
+  if (/^https?:\/\//i.test(resolvedPath)) return resolvedPath;
+  return `${import.meta.env.BASE_URL}${resolvedPath.replace(/^\//, "")}`;
 }
 
 function projectCategoryLabel(category: string) {
