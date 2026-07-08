@@ -4,7 +4,7 @@ import { tr } from "@/lib/i18n";
 
 const items = [
   {
-    title: "Natural wood",
+    title: tr("Madera natural", "Legno naturale", "Natural wood"),
     text: tr("Aporta calidez, textura y una sensación más humana en cocinas, armarios, puertas y detalles.", "Porta calore, texture e una sensazione più umana in cucine, armadi, porte e dettagli.", "It brings warmth, texture and a more human feeling to kitchens, wardrobes, doors and details."),
   },
   {
@@ -16,15 +16,15 @@ const items = [
     text: tr("Superficies continuas, limpias y sin juntas para interiores, baños, suelos y zonas exteriores.", "Superfici continue, pulite e senza fughe per interni, bagni, pavimenti e zone esterne.", "Continuous, clean joint-free surfaces for interiors, bathrooms, floors and outdoor areas."),
   },
   {
-    title: "Natural lime mortar",
+    title: tr("Mortero de cal natural", "Malta di calce naturale", "Natural lime mortar"),
     text: tr("Permite que los muros antiguos respiren y ayuda a gestionar la humedad en fincas tradicionales.", "Permette ai muri antichi di respirare e aiuta a gestire l'umidità nelle fincas tradizionali.", "It allows old walls to breathe and helps manage moisture in traditional fincas."),
   },
   {
-    title: "Stone",
+    title: tr("Piedra", "Pietra", "Stone"),
     text: tr("Ordena exteriores, refuerza el carácter ibicenco y crea una relación natural con el paisaje.", "Ordina gli esterni, rafforza il carattere ibizenco e crea una relazione naturale con il paesaggio.", "It structures outdoor spaces, reinforces Ibizan character and creates a natural connection with the landscape."),
   },
   {
-    title: "Warm lighting",
+    title: tr("Iluminación cálida", "Illuminazione calda", "Warm lighting"),
     text: tr("La luz define la atmósfera: cambia cómo se siente un salón, un baño o un dormitorio.", "La luce definisce l'atmosfera: cambia come si percepisce un soggiorno, un bagno o una camera.", "Light defines atmosphere: it changes how a living room, bathroom or bedroom feels."),
   },
 ];
@@ -32,14 +32,14 @@ const items = [
 const MaterialsAtmosphere = () => (
   <>
     <SEO
-      title={tr("Materials & Atmosphere | Eivitech Ibiza", "Materials & Atmosphere | Eivitech Ibiza", "Materials & Atmosphere | Eivitech Ibiza")}
+      title={tr("Materiales y atmósfera | Eivitech Ibiza", "Materiali e atmosfera | Eivitech Ibiza", "Materials & Atmosphere | Eivitech Ibiza")}
       description={tr("Materiales naturales, luz cálida y soluciones saludables para reformas premium en Ibiza.", "Materiali naturali, luce calda e soluzioni sane per ristrutturazioni premium a Ibiza.", "Natural materials, warm lighting and healthy solutions for premium renovations in Ibiza.")}
       path="/materials-atmosphere"
     />
 
     <section className="container-x pt-16 pb-12 md:pt-24">
-      <div className="eyebrow">Materials & Atmosphere</div>
-      <h1 className="display-xl mt-4 max-w-4xl">Materials that shape the way a home feels.</h1>
+      <div className="eyebrow">{tr("Materiales y atmósfera", "Materiali e atmosfera", "Materials & Atmosphere")}</div>
+      <h1 className="display-xl mt-4 max-w-4xl">{tr("Materiales que cambian cómo se siente una casa.", "Materiali che modellano il modo in cui una casa si sente.", "Materials that shape the way a home feels.")}</h1>
       <p className="body-lg mt-5 max-w-2xl">
         {tr(
           "La diferencia entre una casa reformada y una casa que se vive bien está en los detalles: texturas, luz, temperatura visual, materiales que respiran y acabados que envejecen con naturalidad.",
@@ -62,7 +62,7 @@ const MaterialsAtmosphere = () => (
 
     <section className="section-tight bg-accent/40">
       <div className="container-x max-w-4xl">
-        <div className="eyebrow">Healthy living</div>
+        <div className="eyebrow">{tr("Viviendas más sanas", "Benessere abitativo", "Healthy living")}</div>
         <h2 className="display-md mt-3">
           {tr("Una casa también debe sentirse sana.", "Una casa deve anche sentirsi sana.", "A home should also feel healthy.")}
         </h2>
@@ -76,7 +76,7 @@ const MaterialsAtmosphere = () => (
       </div>
     </section>
 
-    <CTASection title={tr("Let's talk about your property.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
+    <CTASection title={tr("Hablemos de tu propiedad.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
   </>
 );
 
