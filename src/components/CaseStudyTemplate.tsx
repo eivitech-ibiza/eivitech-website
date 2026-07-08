@@ -72,7 +72,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
             <div className="space-y-4 text-muted-foreground md:text-right">
               {project.zone && (
                 <div>
-                  <div className="eyebrow">Zona</div>
+                  <div className="eyebrow">{tr("Zona", "Zona", "Area")}</div>
                   <div className="mt-1">{project.zone}</div>
                 </div>
               )}
@@ -90,7 +90,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 max-w-3xl text-white">
               <div className="text-xs uppercase tracking-[0.25em] text-white/75">
-                {tr("Property transformation", "Property transformation", "Property transformation")}
+                {tr("Transformación de propiedad", "Trasformazione immobiliare", "Property transformation")}
               </div>
               <p className="mt-3 text-xl font-medium leading-snug md:text-4xl">{project.short}</p>
             </div>
@@ -100,15 +100,15 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         <section className="section-tight">
           <div className="container-x grid gap-14 lg:grid-cols-[0.9fr_1.7fr]">
             <div>
-              <div className="eyebrow">{tr("Story", "Storia", "Story")}</div>
+              <div className="eyebrow">{tr("Historia", "Storia", "Story")}</div>
               <h2 className="display-md mt-3">
-                {tr("From problem to living experience", "Dal problema all'esperienza abitativa", "From problem to living experience")}
+                {tr("Del problema a la experiencia de vivir", "Dal problema all'esperienza abitativa", "From problem to living experience")}
               </h2>
             </div>
             <div className="space-y-10">
-              <DetailBlock label="01 Challenge" title={tr("El punto de partida", "Il punto di partenza", "The starting point")} body={project.challenge || project.situation} />
-              <DetailBlock label="02 Client vision" title={tr("Lo que buscaba el cliente", "Cosa cercava il cliente", "What the client wanted")} body={project.vision || project.goal} />
-              <DetailBlock label="03 Eivitech solution" title={tr("Cómo lo resolvimos", "Come lo abbiamo risolto", "How we solved it")} body={project.solution} />
+              <DetailBlock label={tr("01 Desafío", "01 Sfida", "01 Challenge")} title={tr("El punto de partida", "Il punto di partenza", "The starting point")} body={project.challenge || project.situation} />
+              <DetailBlock label={tr("02 Visión del cliente", "02 Visione del cliente", "02 Client vision")} title={tr("Lo que buscaba el cliente", "Cosa cercava il cliente", "What the client wanted")} body={project.vision || project.goal} />
+              <DetailBlock label={tr("03 Solución Eivitech", "03 Soluzione Eivitech", "03 Eivitech solution")} title={tr("Cómo lo resolvimos", "Come lo abbiamo risolto", "How we solved it")} body={project.solution} />
             </div>
           </div>
         </section>
@@ -117,7 +117,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
           <div className="container-x grid gap-14 lg:grid-cols-2">
             <div>
               <div className="eyebrow">{tr("Intervenciones", "Interventi", "Works")}</div>
-              <h2 className="display-md mt-3 mb-6">{tr("What we delivered", "Cosa abbiamo realizzato", "What we delivered")}</h2>
+              <h2 className="display-md mt-3 mb-6">{tr("Lo que entregamos", "Cosa abbiamo realizzato", "What we delivered")}</h2>
               <ul className="space-y-3">
                 {project.works.map((w, i) => (
                   <li key={i} className="flex gap-4 border-b border-border pb-3">
@@ -129,7 +129,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
             </div>
             <div>
               <div className="eyebrow">{tr("Materiales y detalles", "Materiali e dettagli", "Materials and details")}</div>
-              <h2 className="display-md mt-3 mb-6">{tr("Materials that shape the feeling", "Materiali che modellano la sensazione", "Materials that shape the feeling")}</h2>
+              <h2 className="display-md mt-3 mb-6">{tr("Materiales que moldean la sensación", "Materiali che modellano la sensazione", "Materials that shape the feeling")}</h2>
               <div className="flex flex-wrap gap-2">
                 {project.materials.map((m) => (
                   <span key={m} className="rounded-sm border border-border bg-background px-4 py-2 text-sm">
@@ -139,15 +139,15 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
               </div>
               <div className="mt-10 grid gap-8">
                 <div>
-                  <div className="text-sm uppercase tracking-widest text-muted-foreground">Lighting / Atmosphere</div>
+                  <div className="text-sm uppercase tracking-widest text-muted-foreground">{tr("Iluminación / atmósfera", "Illuminazione / atmosfera", "Lighting / Atmosphere")}</div>
                   <p className="mt-2 text-lg leading-relaxed">{project.lighting}</p>
                 </div>
                 <div>
-                  <div className="text-sm uppercase tracking-widest text-muted-foreground">Craftsmanship</div>
+                  <div className="text-sm uppercase tracking-widest text-muted-foreground">{tr("Artesanía", "Artigianalità", "Craftsmanship")}</div>
                   <p className="mt-2 text-lg leading-relaxed">{project.craftsmanship}</p>
                 </div>
                 <div>
-                  <div className="text-sm uppercase tracking-widest text-muted-foreground">Final result</div>
+                  <div className="text-sm uppercase tracking-widest text-muted-foreground">{tr("Resultado final", "Risultato finale", "Final result")}</div>
                   <p className="mt-2 text-lg leading-relaxed">{project.result}</p>
                 </div>
               </div>
@@ -202,7 +202,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         </section>
       </article>
 
-      <CTASection title={tr("Let's talk about your property.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
+      <CTASection title={tr("Hablemos de tu propiedad.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
     </>
   );
 }
