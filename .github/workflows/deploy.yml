@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,50 +22,24 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    env:
-      VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
-      VITE_ALLOWED_ADMIN_EMAILS: ${{ vars.VITE_ALLOWED_ADMIN_EMAILS }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 24
+          cache: npm
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
 
       - name: Build
         run: npm run build
-
-      - name: Add SPA fallback for GitHub Pages
-        run: |
-          if [ -f dist/index.html ]; then
-            cp dist/index.html dist/404.html
-          fi
-
-      - name: Detect build output directory
-        id: detect_output
-        run: |
-          if [ -d dist ]; then
-            echo "path=dist" >> $GITHUB_OUTPUT
-          elif [ -d build ]; then
-            echo "path=build" >> $GITHUB_OUTPUT
-          else
-            echo "No build output found"
-            ls -la
-            exit 1
-          fi
-
-      - name: Verify build output
-        run: |
-          echo "Using output dir: ${{ steps.detect_output.outputs.path }}"
-          test -d ${{ steps.detect_output.outputs.path }}
-          test -f ${{ steps.detect_output.outputs.path }}/index.html || test -f ${{ steps.detect_output.outputs.path }}/index.htm
-          ls -la ${{ steps.detect_output.outputs.path }}
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_ALLOWED_ADMIN_EMAILS: ${{ secrets.VITE_ALLOWED_ADMIN_EMAILS }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -74,7 +47,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ steps.detect_output.outputs.path }}
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
