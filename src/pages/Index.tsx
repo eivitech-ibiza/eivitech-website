@@ -9,7 +9,7 @@ import { orgJsonLd, faqJsonLd } from "@/lib/seo";
 import { tr } from "@/lib/i18n";
 import { ArrowRight, Check } from "lucide-react";
 
-const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-vadella/cover.jpg`;
+const heroImg = `${import.meta.env.BASE_URL}media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp`;
 
 const pillars = [
   {
