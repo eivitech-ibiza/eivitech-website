@@ -35,14 +35,22 @@ jobs:
       - name: Use public npm registry
         run: npm config set registry https://registry.npmjs.org/
 
-      - name: Use public npm registry
-        run: npm config set registry https://registry.npmjs.org/
-
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
       - name: Build
         run: npm run build
+        env:
+          # Clerk frontend auth. Prefer VITE_* variables; fall back to backend-style names if already configured in GitHub.
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY || vars.CLERK_PUBLISHABLE_KEY || secrets.VITE_CLERK_PUBLISHABLE_KEY || secrets.CLERK_PUBLISHABLE_KEY }}
+          VITE_ALLOWED_ADMIN_EMAILS: ${{ vars.VITE_ALLOWED_ADMIN_EMAILS || vars.BOOTSTRAP_ADMIN_EMAILS || secrets.VITE_ALLOWED_ADMIN_EMAILS || secrets.BOOTSTRAP_ADMIN_EMAILS }}
+
+          # Consent-aware advertising / analytics IDs.
+          VITE_GTM_ID: ${{ vars.VITE_GTM_ID || secrets.VITE_GTM_ID }}
+          VITE_GA4_ID: ${{ vars.VITE_GA4_ID || secrets.VITE_GA4_ID }}
+          VITE_GOOGLE_ADS_ID: ${{ vars.VITE_GOOGLE_ADS_ID || secrets.VITE_GOOGLE_ADS_ID }}
+          VITE_GOOGLE_ADS_LEAD_LABEL: ${{ vars.VITE_GOOGLE_ADS_LEAD_LABEL || secrets.VITE_GOOGLE_ADS_LEAD_LABEL }}
+          VITE_META_PIXEL_ID: ${{ vars.VITE_META_PIXEL_ID || secrets.VITE_META_PIXEL_ID }}
 
       - name: Detect build output directory
         id: detect_output
