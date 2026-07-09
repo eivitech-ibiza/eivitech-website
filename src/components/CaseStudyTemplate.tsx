@@ -4,6 +4,7 @@ import { SEO } from "@/components/SEO";
 import { CTASection } from "@/components/CTASection";
 import { ProjectCard } from "@/components/ProjectCard";
 import { PROJECTS } from "@/data/projects";
+import { getProjectGalleryCaption } from "@/data/projectCaptions";
 import { tr } from "@/lib/i18n";
 import { resolveProjectMediaPath } from "@/lib/projectMedia";
 
@@ -152,24 +153,28 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
 
         <section className="container-x mt-6">
           <div className="grid gap-4 md:grid-cols-4 md:auto-rows-[260px]">
-            {gallery.map((src, index) => (
-              <figure
-                key={`${src}-${index}`}
-                className={`group relative overflow-hidden rounded-sm bg-muted ${
-                  index === 0 ? "md:col-span-2 md:row-span-2" : ""
-                }`}
-              >
-                <ProjectImage
-                  src={src}
-                  alt={`${project.name} — ${tr("imagen", "immagine", "image")} ${index + 1}`}
-                  priority={index === 0}
-                  className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
-                />
-                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  {project.name} · {project.category}
-                </figcaption>
-              </figure>
-            ))}
+            {gallery.map((src, index) => {
+              const caption = getProjectGalleryCaption(project.slug, index) || `${project.name} · ${project.category}`;
+
+              return (
+                <figure
+                  key={`${src}-${index}`}
+                  className={`group relative overflow-hidden rounded-sm bg-muted ${
+                    index === 0 ? "md:col-span-2 md:row-span-2" : ""
+                  }`}
+                >
+                  <ProjectImage
+                    src={src}
+                    alt={caption}
+                    priority={index === 0}
+                    className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
+                  />
+                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm leading-snug text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    {caption}
+                  </figcaption>
+                </figure>
+              );
+            })}
           </div>
         </section>
 
