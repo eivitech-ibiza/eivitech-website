@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { CLERK_ENABLED, CLERK_PUBLISHABLE_KEY } from "./lib/config";
 import { initLanguage } from "./lib/i18n";
+import { setDefaultConsent } from "./lib/tracking";
 
 const GITHUB_PAGES_REDIRECT_KEY = "eivitech_github_pages_redirect";
 
@@ -26,6 +27,7 @@ function restoreGitHubPagesRedirect() {
   window.history.replaceState(null, "", finalPath);
 }
 
+setDefaultConsent();
 restoreGitHubPagesRedirect();
 initLanguage();
 
