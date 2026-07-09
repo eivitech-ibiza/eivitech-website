@@ -27,6 +27,16 @@ export function resolveProjectMediaPath(path: string) {
     "/media/projects/casa-vadella/vadella-04.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-covered-terrace.webp",
     "/media/projects/casa-vadella/vadella-05.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-mediterranean-landscape.webp",
     "/media/projects/casa-vadella/vadella-06.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-bathroom-blue-microcement.webp",
+
+    "/media/projects/casa-charlie/cover.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-authentic-finca-restoration-cover.webp",
+    "/media/projects/casa-charlie/charlie-01.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-stone-interior-hall.webp",
+    "/media/projects/casa-charlie/charlie-02.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-restored-stone-room.webp",
+    "/media/projects/casa-charlie/charlie-03.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-stone-wall-wood-beams.webp",
+    "/media/projects/casa-charlie/charlie-04.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-rustic-living-travertine-floor.webp",
+    "/media/projects/casa-charlie/charlie-05.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-stone-kitchen.webp",
+    "/media/projects/casa-charlie/charlie-06.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-kitchen-island.webp",
+    "/media/projects/casa-charlie/charlie-07.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-bathroom-freestanding-tub.webp",
+    "/media/projects/casa-charlie/charlie-08.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-white-finca-exterior.webp",
   };
 
   return mediaRewrites[path] || path;
