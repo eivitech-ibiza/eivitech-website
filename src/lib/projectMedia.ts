@@ -37,6 +37,16 @@ export function resolveProjectMediaPath(path: string) {
     "/media/projects/casa-charlie/charlie-06.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-kitchen-island.webp",
     "/media/projects/casa-charlie/charlie-07.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-bathroom-freestanding-tub.webp",
     "/media/projects/casa-charlie/charlie-08.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-white-finca-exterior.webp",
+
+    "/media/projects/proyecto-paisajismo-exterior/cover.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-low-maintenance-mediterranean-landscape-cover.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-01.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-gravel-driveway-natural-stone-wall.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-02.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-gravel-garden-plant-island.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-03.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-mediterranean-gravel-paths.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-04.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-05.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-cactus-sand-garden.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-06.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-pool-shade-sail-cactus-landscape.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-07.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-hammock-relax-area.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-08.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-villa-terrace-tropical-plants.webp",
   };
 
   return mediaRewrites[path] || path;
