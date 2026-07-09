@@ -19,6 +19,7 @@ import LandingGoogle from "./pages/LandingGoogle.tsx";
 import LandingMeta from "./pages/LandingMeta.tsx";
 import LandingEN from "./pages/LandingEN.tsx";
 import Privacidad from "./pages/Privacidad.tsx";
+import CookiePolicy from "./pages/CookiePolicy.tsx";
 import AvisoLegal from "./pages/AvisoLegal.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -45,6 +46,9 @@ const router = createBrowserRouter([
       { path: "/proyectos-reformas-ibiza", element: <LandingMeta /> },
       { path: "/renovation-company-ibiza", element: <LandingEN /> },
       { path: "/privacidad", element: <Privacidad /> },
+      { path: "/privacy-policy", element: <Privacidad /> },
+      { path: "/cookie-policy", element: <CookiePolicy /> },
+      { path: "/cookies", element: <CookiePolicy /> },
       { path: "/aviso-legal", element: <AvisoLegal /> },
       { path: "/dashboard", element: <Dashboard /> },
       { path: "*", element: <NotFound /> },
