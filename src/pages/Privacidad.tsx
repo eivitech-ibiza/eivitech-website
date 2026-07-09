@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { SEO } from "@/components/SEO";
 import { LEGAL, TRACKING_PROVIDERS } from "@/data/legal";
 import { tr } from "@/lib/i18n";
@@ -76,7 +77,7 @@ const Privacidad = () => (
   </>
 );
 
-function PolicySection({ title, children }: { title: string; children: React.ReactNode }) {
+function PolicySection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
       <h2 className="display-sm text-foreground">{title}</h2>
