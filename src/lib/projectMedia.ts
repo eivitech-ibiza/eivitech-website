@@ -19,6 +19,14 @@ export function resolveProjectMediaPath(path: string) {
     "/media/projects/casa-mediterraneo/mediterraneo-06.jpg": "/media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-bathroom-shower.webp",
     "/media/projects/casa-mediterraneo/mediterraneo-07.jpg": "/media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-textured-wall-lighting.webp",
     "/media/projects/casa-mediterraneo/mediterraneo-08.jpg": "/media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-microcement-material-detail.webp",
+
+    "/media/projects/casa-vadella/cover.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-investment-villa-makeover-cover.webp",
+    "/media/projects/casa-vadella/vadella-01.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-open-plan-living-room.webp",
+    "/media/projects/casa-vadella/vadella-02.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-dining-living-space.webp",
+    "/media/projects/casa-vadella/vadella-03.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-fireplace-living-detail.webp",
+    "/media/projects/casa-vadella/vadella-04.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-covered-terrace.webp",
+    "/media/projects/casa-vadella/vadella-05.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-mediterranean-landscape.webp",
+    "/media/projects/casa-vadella/vadella-06.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-bathroom-blue-microcement.webp",
   };
 
   return mediaRewrites[path] || path;
