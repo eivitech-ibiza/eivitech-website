@@ -1,7 +1,7 @@
 export const LEGAL = {
   companyName: "Eivitech",
   legalName: "Eivitech",
-  taxId: "Datos societarios pendientes de completar",
+  taxId: "",
   address: "Ibiza, Illes Balears, España",
   email: "info@eivitech.com",
   privacyEmail: "info@eivitech.com",
