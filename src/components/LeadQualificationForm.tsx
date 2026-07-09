@@ -111,6 +111,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
 
     try {
       await submitLeadToCrm(payload);
+      track("lead", { source, mode: "cliente", tipoCliente: data.tipoCliente, intervencion: data.intervencion });
       await new Promise((r) => setTimeout(r, 400));
       navigate("/gracias");
     } catch (error) {
@@ -134,6 +135,8 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
 
     try {
       await submitPartnerToCrm(payload);
+      track("partner_application", { source, mode: "partner", categoria: data.categoria });
+      track("lead", { source, mode: "partner", categoria: data.categoria });
       await new Promise((r) => setTimeout(r, 400));
       navigate("/gracias");
     } catch (error) {
@@ -358,7 +361,7 @@ function PrivacyAndSubmit({ registerConsent, errors, submitting, submitError, bu
       <label className="flex items-start gap-3 text-sm text-muted-foreground">
         <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" {...registerConsent} />
         <span>
-          {tr("He leído y acepto la", "Ho letto e accetto la", "I have read and accept the")} <a href="/privacidad" className="underline hover:text-foreground">{tr("política de privacidad", "privacy policy", "privacy policy")}</a>.
+          {tr("He leído y acepto la", "Ho letto e accetto la", "I have read and accept the")} <a href="/privacy-policy" className="underline hover:text-foreground">{tr("política de privacidad", "privacy policy", "privacy policy")}</a>.
           {" "}{tr("Acepto el tratamiento de mis datos para responder a la solicitud.", "Accetto il trattamento dei miei dati per rispondere alla richiesta.", "I accept the processing of my data to respond to the request.")}
         </span>
       </label>
@@ -375,9 +378,9 @@ function PrivacyAndSubmit({ registerConsent, errors, submitting, submitError, bu
 
       <p className="text-xs text-muted-foreground">
         {tr(
-          "El tratamiento de datos debe verificarse con asesoría legal/privacy antes de activar campañas, cookies, píxeles o automatizaciones.",
-          "Il trattamento dei dati deve essere verificato con consulenza legale/privacy prima di attivare campagne, cookie, pixel o automazioni.",
-          "Data processing must be verified with legal/privacy advice before activating campaigns, cookies, pixels or automations."
+          "Puedes cambiar tus preferencias de cookies en cualquier momento desde el footer. La medición publicitaria solo se activa si aceptas analítica o marketing.",
+          "Puoi modificare le preferenze cookie in qualsiasi momento dal footer. La misurazione pubblicitaria si attiva solo se accetti analitica o marketing.",
+          "You can change your cookie preferences at any time from the footer. Advertising measurement is activated only if you accept analytics or marketing."
         )}
       </p>
     </>
