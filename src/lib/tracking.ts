@@ -23,6 +23,14 @@ export type ConsentState = {
   updatedAt: string;
 };
 
+type Fbq = ((...args: unknown[]) => void) & {
+  callMethod?: (...args: unknown[]) => void;
+  queue?: unknown[];
+  loaded?: boolean;
+  version?: string;
+  push?: (...args: unknown[]) => void;
+};
+
 export const COOKIE_CONSENT_KEY = "eivitech_cookie_consent_v2";
 
 const DEFAULT_CONSENT: ConsentState = {
@@ -50,8 +58,8 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
-    fbq?: ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue?: unknown[]; loaded?: boolean; version?: string; push?: (...args: unknown[]) => void };
-    _fbq?: Window["fbq"];
+    fbq?: Fbq;
+    _fbq?: Fbq;
     __eivitechEvents?: Array<{ event: TrackEvent; payload: Record<string, unknown>; ts: number }>;
   }
 }
@@ -90,6 +98,7 @@ function getGoogleConsent(consent: ConsentState) {
 }
 
 export function setDefaultConsent() {
+  if (!canUseDom()) return;
   ensureDataLayer();
   window.gtag?.("consent", "default", {
     ...getGoogleConsent(DEFAULT_CONSENT),
@@ -167,14 +176,13 @@ function loadGoogleStack(consent: ConsentState) {
 function loadMetaPixel(consent: ConsentState) {
   if (!canUseDom() || !consent.marketing || !trackingConfig.metaPixelId || metaLoaded) return;
 
-  /* Meta Pixel bootstrap */
-  const fbq = function fbq(...args: unknown[]) {
+  const fbq: Fbq = function fbqProxy(...args: unknown[]) {
     if (fbq.callMethod) {
       fbq.callMethod(...args);
     } else {
       fbq.queue?.push(args);
     }
-  } as Window["fbq"];
+  };
 
   if (!window.fbq) {
     fbq.queue = [];
