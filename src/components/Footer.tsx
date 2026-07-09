@@ -11,6 +11,11 @@ const LANGUAGE_OPTIONS: { value: LanguageSelection; label: string }[] = [
   { value: "en", label: "EN" },
 ];
 
+function openCookiePreferences() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("eivitech:open-cookie-preferences"));
+}
+
 export function Footer() {
   return (
     <footer className="mt-24 border-t border-border bg-accent/40">
@@ -72,7 +77,9 @@ export function Footer() {
             <li><Link to="/proyectos" className="text-muted-foreground hover:text-foreground">{tr("Proyectos", "Progetti", "Projects")}</Link></li>
             <li><Link to="/empresa" className="text-muted-foreground hover:text-foreground">{tr("Empresa", "Azienda", "Company")}</Link></li>
             <li><Link to="/contacto" className="text-muted-foreground hover:text-foreground">{tr("Contacto", "Contatto", "Contact")}</Link></li>
-            <li><Link to="/privacidad" className="text-muted-foreground hover:text-foreground">{tr("Privacidad", "Privacy", "Privacy")}</Link></li>
+            <li><Link to="/privacy-policy" className="text-muted-foreground hover:text-foreground">{tr("Privacidad", "Privacy", "Privacy")}</Link></li>
+            <li><Link to="/cookie-policy" className="text-muted-foreground hover:text-foreground">{tr("Cookies", "Cookie", "Cookies")}</Link></li>
+            <li><button type="button" onClick={openCookiePreferences} className="text-left text-muted-foreground hover:text-foreground">{tr("Gestionar cookies", "Gestisci cookie", "Manage cookies")}</button></li>
             <li><Link to="/aviso-legal" className="text-muted-foreground hover:text-foreground">{tr("Aviso legal", "Note legali", "Legal notice")}</Link></li>
           </ul>
 
