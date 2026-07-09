@@ -87,15 +87,8 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         </section>
 
         <section className="container-x mt-10">
-          <div className="relative aspect-[16/10] overflow-hidden rounded-sm bg-muted md:aspect-[16/8]">
+          <div className="aspect-[16/10] overflow-hidden rounded-sm bg-muted md:aspect-[16/8]">
             <ProjectImage src={project.cover} alt={project.name} priority className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6 max-w-3xl text-white">
-              <div className="text-xs uppercase tracking-[0.25em] text-white/75">
-                {tr("Transformación de propiedad", "Trasformazione immobiliare", "Property transformation")}
-              </div>
-              <p className="mt-3 text-xl font-medium leading-snug md:text-4xl">{project.short}</p>
-            </div>
           </div>
         </section>
 
