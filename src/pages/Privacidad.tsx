@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { SEO } from "@/components/SEO";
 import { LEGAL, TRACKING_PROVIDERS } from "@/data/legal";
 import { tr } from "@/lib/i18n";
@@ -69,7 +70,7 @@ const Privacidad = () => (
           </PolicySection>
 
           <PolicySection title={tr("Cookies y campañas", "Cookie e campagne", "Cookies and campaigns")}>
-            <p>{tr("La información completa sobre cookies, Google Tag Manager, Google Analytics, Google Ads, Meta Pixel y gestión del consentimiento está disponible en la", "Le informazioni complete su cookie, Google Tag Manager, Google Analytics, Google Ads, Meta Pixel e gestione del consenso sono disponibili nella", "Full information about cookies, Google Tag Manager, Google Analytics, Google Ads, Meta Pixel and consent management is available in the")} <a href="/cookie-policy" className="underline hover:text-foreground">Cookie Policy</a>.</p>
+            <p>{tr("La información completa sobre cookies, Google Tag Manager, Google Analytics, Google Ads, Meta Pixel y gestión del consentimiento está disponible en la", "Le informazioni complete su cookie, Google Tag Manager, Google Analytics, Google Ads, Meta Pixel e gestione del consenso sono disponibili nella", "Full information about cookies, Google Tag Manager, Google Analytics, Google Ads, Meta Pixel and consent management is available in the")} <Link to="/cookie-policy" className="underline hover:text-foreground">Cookie Policy</Link>.</p>
           </PolicySection>
         </div>
       </div>
