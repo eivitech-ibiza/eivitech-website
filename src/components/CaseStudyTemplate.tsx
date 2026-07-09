@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Project } from "@/data/projects";
 import { SEO } from "@/components/SEO";
@@ -48,6 +49,39 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
   const others = PROJECTS.filter((p) => p.slug !== project.slug).slice(0, 3);
   const path = getProjectPath(project);
   const gallery = project.gallery?.length ? project.gallery : [project.cover];
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const activeSrc = lightboxIndex === null ? null : gallery[lightboxIndex];
+  const activeCaption = lightboxIndex === null ? "" : getProjectGalleryCaption(project.slug, lightboxIndex) || `${project.name} · ${project.category}`;
+
+  const closeLightbox = () => setLightboxIndex(null);
+  const showPreviousImage = () => setLightboxIndex((current) => {
+    if (current === null) return current;
+    return current === 0 ? gallery.length - 1 : current - 1;
+  });
+  const showNextImage = () => setLightboxIndex((current) => {
+    if (current === null) return current;
+    return current === gallery.length - 1 ? 0 : current + 1;
+  });
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeLightbox();
+      if (event.key === "ArrowLeft") showPreviousImage();
+      if (event.key === "ArrowRight") showNextImage();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxIndex, gallery.length]);
 
   return (
     <>
@@ -163,15 +197,22 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                     index === 0 ? "md:col-span-2 md:row-span-2" : ""
                   }`}
                 >
-                  <ProjectImage
-                    src={src}
-                    alt={caption}
-                    priority={index === 0}
-                    className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
-                  />
-                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm leading-snug text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    {caption}
-                  </figcaption>
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex(index)}
+                    className="block h-full w-full cursor-zoom-in text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    aria-label={tr("Ampliar imagen del proyecto", "Ingrandisci immagine del progetto", "Enlarge project image")}
+                  >
+                    <ProjectImage
+                      src={src}
+                      alt={caption}
+                      priority={index === 0}
+                      className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
+                    />
+                    <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm leading-snug text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      {caption}
+                    </figcaption>
+                  </button>
                 </figure>
               );
             })}
@@ -189,6 +230,65 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
           </div>
         </section>
       </article>
+
+      {activeSrc && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4 opacity-100 backdrop-blur-sm animate-in fade-in duration-200 md:p-8"
+          role="dialog"
+          aria-modal="true"
+          aria-label={tr("Imagen ampliada del proyecto", "Immagine ingrandita del progetto", "Enlarged project image")}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeLightbox();
+          }}
+        >
+          <div className="relative flex max-h-[92vh] w-full max-w-6xl scale-100 flex-col overflow-hidden rounded-sm bg-background shadow-2xl animate-in zoom-in-95 duration-200">
+            <button
+              type="button"
+              onClick={closeLightbox}
+              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white transition hover:bg-black/80"
+              aria-label={tr("Cerrar imagen", "Chiudi immagine", "Close image")}
+            >
+              ×
+            </button>
+
+            {gallery.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={showPreviousImage}
+                  className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-3xl text-white transition hover:bg-black/75"
+                  aria-label={tr("Imagen anterior", "Immagine precedente", "Previous image")}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextImage}
+                  className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-3xl text-white transition hover:bg-black/75"
+                  aria-label={tr("Imagen siguiente", "Immagine successiva", "Next image")}
+                >
+                  ›
+                </button>
+              </>
+            )}
+
+            <div className="flex min-h-0 items-center justify-center bg-black">
+              <ProjectImage
+                src={activeSrc}
+                alt={activeCaption}
+                priority
+                className="max-h-[78vh] w-full object-contain"
+              />
+            </div>
+            <div className="border-t border-border bg-background p-4 text-sm leading-relaxed text-foreground md:p-5">
+              <p>{activeCaption}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {lightboxIndex + 1} / {gallery.length}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <CTASection title={tr("Hablemos de tu propiedad.", "Parliamo della tua proprietà.", "Let's talk about your property.")} />
     </>
