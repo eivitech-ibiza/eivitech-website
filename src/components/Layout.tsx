@@ -5,11 +5,14 @@ import { WhatsAppFloat } from "@/components/WhatsAppFloat";
 import { CookieConsent } from "@/components/CookieConsent";
 import { useEffect } from "react";
 import { captureUtm } from "@/lib/utm";
+import { initTrackingFromStoredConsent } from "@/lib/tracking";
 
 export function Layout() {
   useEffect(() => {
     captureUtm();
+    initTrackingFromStoredConsent();
   }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
