@@ -32,8 +32,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          if compgen -G ".github/logo-install/eivitech-logo.svg.b64.part*" > /dev/null; then
-            cat .github/logo-install/eivitech-logo.svg.b64.part* \
+          shopt -s nullglob
+          parts=(.github/logo-install/eivitech-logo.svg.b64.part*)
+
+          if [ ${#parts[@]} -gt 0 ]; then
+            cat "${parts[@]}" \
+              | tr -d '\r\n\t ' \
               | base64 --decode \
               > public/media/brand/eivitech-logo.svg
           fi
