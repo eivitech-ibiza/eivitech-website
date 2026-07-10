@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -26,6 +26,68 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python for one-time hero replacement
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Replace hero from Google Drive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pillow
+          curl --fail --location --retry 3 \
+            "https://drive.usercontent.google.com/download?id=10bDfdIrr8ehVeNMvwMjeGkX4a2ZTjxV3&export=download&confirm=t" \
+            --output /tmp/eivitech-new-hero.webp
+
+          python <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          source = Path("/tmp/eivitech-new-hero.webp")
+          destination = Path("public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp")
+          target_width, target_height = 1672, 941
+          target_ratio = target_width / target_height
+
+          with Image.open(source) as original:
+              image = original.convert("RGB")
+              width, height = image.size
+              current_ratio = width / height
+
+              if current_ratio < target_ratio:
+                  crop_height = round(width / target_ratio)
+                  top = min(35, max(0, height - crop_height))
+                  crop_box = (0, top, width, top + crop_height)
+              else:
+                  crop_width = round(height * target_ratio)
+                  left = max(0, (width - crop_width) // 2)
+                  crop_box = (left, 0, left + crop_width, height)
+
+              result = image.crop(crop_box).resize(
+                  (target_width, target_height),
+                  Image.Resampling.LANCZOS,
+              )
+              result.save(destination, "WEBP", quality=88, method=6, optimize=True)
+
+          with Image.open(destination) as check:
+              if check.size != (target_width, target_height):
+                  raise RuntimeError(f"Dimensioni finali errate: {check.size}")
+              print(f"Hero pronta: {check.size[0]}x{check.size[1]} - {destination.stat().st_size} bytes")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp
+          if ! git diff --cached --quiet; then
+            git commit -m "Replace homepage hero with resized Casa Vadella image"
+            git push origin main
+          else
+            echo "Hero già aggiornata."
+          fi
 
       - name: Verify official Eivitech logo
         shell: bash
