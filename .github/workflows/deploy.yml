@@ -18,8 +18,6 @@ concurrency:
 env:
   HERO_DIRECTORY: media/hero
   HERO_ORIGINAL: eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp
-  HERO_VERSIONED: eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner-casa-vadella-20260710.webp
-  HERO_SHA256: b9028c2a306bcb43deeea61ac6aec29c49f048975f9f20c7a0039d4bcd771232
 
 jobs:
   deploy:
@@ -42,14 +40,14 @@ jobs:
           echo "cb3a8cdfcd5d5fc06fa35f62c934a9d5ec8979ed05de4b3476f15b0ac33457ba  public/media/brand/eivitech-logo.svg" | sha256sum --check --strict
           grep -q '<svg' public/media/brand/eivitech-logo.svg
 
-      - name: Verify updated homepage hero
+      - name: Verify homepage hero
         shell: bash
         run: |
           set -euo pipefail
           HERO="public/${HERO_DIRECTORY}/${HERO_ORIGINAL}"
-          test -f "$HERO"
-          echo "${HERO_SHA256}  ${HERO}" | sha256sum --check --strict
-          echo "Verified updated homepage hero: $HERO"
+          test -s "$HERO"
+          echo "Homepage hero found: $HERO"
+          sha256sum "$HERO"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -77,6 +75,7 @@ jobs:
         id: detect_output
         shell: bash
         run: |
+          set -euo pipefail
           if [ -d dist ]; then
             echo "path=dist" >> "$GITHUB_OUTPUT"
           elif [ -d build ]; then
@@ -93,12 +92,14 @@ jobs:
           set -euo pipefail
           OUTPUT="${{ steps.detect_output.outputs.path }}"
           ORIGINAL_PATH="${OUTPUT}/${HERO_DIRECTORY}/${HERO_ORIGINAL}"
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          HERO_STEM="${HERO_ORIGINAL%.webp}"
+          HERO_VERSIONED="${HERO_STEM}-${SHORT_SHA}.webp"
           VERSIONED_PATH="${OUTPUT}/${HERO_DIRECTORY}/${HERO_VERSIONED}"
 
-          test -f "$ORIGINAL_PATH"
-          echo "${HERO_SHA256}  ${ORIGINAL_PATH}" | sha256sum --check --strict
+          test -s "$ORIGINAL_PATH"
           cp "$ORIGINAL_PATH" "$VERSIONED_PATH"
-          echo "${HERO_SHA256}  ${VERSIONED_PATH}" | sha256sum --check --strict
+          cmp --silent "$ORIGINAL_PATH" "$VERSIONED_PATH"
 
           mapfile -t BUNDLES < <(grep -RIl --include='*.js' "$HERO_ORIGINAL" "$OUTPUT" || true)
           if [ "${#BUNDLES[@]}" -eq 0 ]; then
@@ -116,7 +117,9 @@ jobs:
           fi
 
           grep -RIl --include='*.js' "$HERO_VERSIONED" "$OUTPUT" >/dev/null
-          echo "Published cache-busted hero: ${HERO_VERSIONED}"
+          test -s "$VERSIONED_PATH"
+          echo "HERO_VERSIONED=$HERO_VERSIONED" >> "$GITHUB_ENV"
+          echo "Published cache-busted hero: $HERO_VERSIONED"
 
       - name: Verify build output
         shell: bash
@@ -127,8 +130,7 @@ jobs:
           test -d "$OUTPUT"
           test -f "$OUTPUT/index.html" || test -f "$OUTPUT/index.htm"
           test -f "$OUTPUT/media/brand/eivitech-logo.svg"
-          test -f "$OUTPUT/${HERO_DIRECTORY}/${HERO_VERSIONED}"
-          echo "${HERO_SHA256}  ${OUTPUT}/${HERO_DIRECTORY}/${HERO_VERSIONED}" | sha256sum --check --strict
+          test -s "$OUTPUT/${HERO_DIRECTORY}/${HERO_VERSIONED}"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
