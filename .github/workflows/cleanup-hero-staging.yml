@@ -1,0 +1,37 @@
+name: Clean temporary hero staging
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/cleanup-hero-staging.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Remove temporary hero files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf .hero-upload
+          rm -f .github/workflows/apply-staged-hero.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No temporary files to remove"
+            exit 0
+          fi
+          git commit -m "Remove temporary hero replacement files"
+          git push origin HEAD:main
