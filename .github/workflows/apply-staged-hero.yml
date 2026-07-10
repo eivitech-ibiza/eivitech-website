@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           TARGET="public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp"
-          cat .hero-upload/chunk*.b64 | base64 --decode > "$TARGET"
+          { printf 'U'; cat .hero-upload/chunk*.b64; } | base64 --decode > "$TARGET"
           echo "b9028c2a306bcb43deeea61ac6aec29c49f048975f9f20c7a0039d4bcd771232  $TARGET" | sha256sum --check --strict
           python <<'PY'
           from pathlib import Path
