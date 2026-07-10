@@ -77,3 +77,5 @@ jobs:
           git rm .github/workflows/apply-staged-hero.yml
           git commit -m "Replace homepage hero with resized Google Drive image"
           git push origin HEAD:main
+
+# q25 source chunks are now complete on main
