@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { LEGAL } from "@/data/legal";
 import { acceptAllConsent, getStoredConsent, rejectOptionalConsent, saveConsent } from "@/lib/tracking";
 import { tr } from "@/lib/i18n";
 
@@ -14,6 +15,15 @@ const defaultPreferences: Preferences = {
   analytics: false,
   marketing: false,
 };
+
+function clearAttributionStorageWhenRejected(preferences: Preferences) {
+  if (preferences.analytics || preferences.marketing || typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem("eivitech_utm");
+  } catch {
+    /* noop */
+  }
+}
 
 export function CookieConsent() {
   const [visible, setVisible] = useState(false);
@@ -47,12 +57,14 @@ export function CookieConsent() {
 
   const rejectAll = () => {
     rejectOptionalConsent();
+    clearAttributionStorageWhenRejected(defaultPreferences);
     setPrefs(defaultPreferences);
     setVisible(false);
   };
 
   const saveCustom = () => {
     saveConsent(prefs);
+    clearAttributionStorageWhenRejected(prefs);
     setVisible(false);
   };
 
@@ -67,9 +79,9 @@ export function CookieConsent() {
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
             {tr(
-              "Usamos cookies técnicas necesarias para que el sitio funcione. Solo con tu consentimiento activamos analítica, publicidad, remarketing, Meta Pixel y medición de campañas de Google.",
-              "Usiamo cookie tecnici necessari al funzionamento del sito. Solo con il tuo consenso attiviamo analitica, pubblicità, remarketing, Meta Pixel e misurazione campagne Google.",
-              "We use strictly necessary cookies for the website to work. Analytics, advertising, remarketing, Meta Pixel and Google campaign measurement are activated only with your consent."
+              `${LEGAL.legalName} utiliza tecnologías necesarias para que el sitio funcione. Solo con tu consentimiento activamos analítica, publicidad, remarketing, Meta Pixel y medición de campañas de Google.`,
+              `${LEGAL.legalName} utilizza tecnologie necessarie al funzionamento del sito. Solo con il tuo consenso attiviamo analitica, pubblicità, remarketing, Meta Pixel e misurazione delle campagne Google.`,
+              `${LEGAL.legalName} uses technologies required for the website to work. Analytics, advertising, remarketing, Meta Pixel and Google campaign measurement are activated only with your consent.`
             )}
           </p>
           <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -89,7 +101,11 @@ export function CookieConsent() {
                 <span>
                   <span className="block font-medium">{tr("Necesarias", "Necessari", "Necessary")}</span>
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    {tr("Siempre activas: seguridad, formularios y funcionamiento básico.", "Sempre attivi: sicurezza, moduli e funzionamento di base.", "Always active: security, forms and basic website functionality.")}
+                    {tr(
+                      "Siempre activas: seguridad, formularios, gestión del consentimiento y funciones solicitadas expresamente.",
+                      "Sempre attivi: sicurezza, moduli, gestione del consenso e funzioni richieste espressamente.",
+                      "Always active: security, forms, consent management and expressly requested functions."
+                    )}
                   </span>
                 </span>
                 <input type="checkbox" checked disabled className="mt-1 h-4 w-4 accent-primary" />
@@ -97,19 +113,19 @@ export function CookieConsent() {
 
               <ConsentToggle
                 label={tr("Preferencias", "Preferenze", "Preferences")}
-                description={tr("Idioma elegido y ajustes de experiencia.", "Lingua scelta e preferenze di esperienza.", "Selected language and experience settings.")}
+                description={tr("Personalización adicional de la experiencia.", "Personalizzazione aggiuntiva dell'esperienza.", "Additional experience personalisation.")}
                 checked={prefs.preferences}
                 onChange={(checked) => setPrefs((current) => ({ ...current, preferences: checked }))}
               />
               <ConsentToggle
                 label={tr("Analítica", "Analitici", "Analytics")}
-                description={tr("Medición de visitas, páginas y rendimiento de campañas.", "Misurazione di visite, pagine e rendimento campagne.", "Measurement of visits, pages and campaign performance.")}
+                description={tr("Medición de visitas, páginas y rendimiento del sitio.", "Misurazione di visite, pagine e rendimento del sito.", "Measurement of visits, pages and website performance.")}
                 checked={prefs.analytics}
                 onChange={(checked) => setPrefs((current) => ({ ...current, analytics: checked }))}
               />
               <ConsentToggle
-                label={tr("Marketing", "Marketing", "Marketing")}
-                description={tr("Google Ads, Meta Pixel, remarketing y conversiones publicitarias.", "Google Ads, Meta Pixel, remarketing e conversioni pubblicitarie.", "Google Ads, Meta Pixel, remarketing and advertising conversions.")}
+                label="Marketing"
+                description={tr("Google Ads, Meta Pixel, atribución, remarketing y conversiones publicitarias.", "Google Ads, Meta Pixel, attribuzione, remarketing e conversioni pubblicitarie.", "Google Ads, Meta Pixel, attribution, remarketing and advertising conversions.")}
                 checked={prefs.marketing}
                 onChange={(checked) => setPrefs((current) => ({ ...current, marketing: checked }))}
               />
