@@ -1,0 +1,192 @@
+name: Execute uploaded Eivitech hero replacement
+
+on:
+  push:
+    branches:
+      - execute-uploaded-hero-20260710-final
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: execute-uploaded-hero-final
+  cancel-in-progress: false
+
+env:
+  STAGED_TREE_SHA: fc99bd8392aee425c72c06c4b1bbd2ff3fb6043e
+  EXPECTED_MAIN_SHA: 468969016f2011bdbdd27846b7eabf7993069df2
+  EXECUTOR_BRANCH: execute-uploaded-hero-20260710-final
+  HERO_TARGET: public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp
+  HERO_VERSIONED: public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner-living-20260710-v3.webp
+  HERO_SHA256: 6a01ca336287cbac57af9e5e51ad3fcb201880c13a741448eb2415bbec68bef3
+
+jobs:
+  replace-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout executor branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Attach staged tree to main
+        id: stage
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          MAIN_SHA="$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$MAIN_SHA" != "$EXPECTED_MAIN_SHA" ]; then
+            echo "Main changed unexpectedly: $MAIN_SHA"
+            exit 1
+          fi
+          PAYLOAD="$(jq -n \
+            --arg message "Stage uploaded homepage hero replacement" \
+            --arg tree "$STAGED_TREE_SHA" \
+            --arg parent "$MAIN_SHA" \
+            '{message:$message, tree:$tree, parents:[$parent]}')"
+          STAGED_COMMIT="$(printf '%s' "$PAYLOAD" | gh api \
+            --method POST \
+            "repos/$REPO/git/commits" \
+            --input - \
+            --jq '.sha')"
+          jq -n --arg sha "$STAGED_COMMIT" '{sha:$sha, force:false}' | gh api \
+            --method PATCH \
+            "repos/$REPO/git/refs/heads/main" \
+            --input - >/dev/null
+          echo "commit=$STAGED_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout staged main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout --detach "${{ steps.stage.outputs.commit }}"
+
+      - name: Reconstruct and verify uploaded hero
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$HERO_TARGET")"
+          for file in $(find .hero-upload -maxdepth 1 -type f -name 'part-*.txt' | sort); do
+            grep -v '^#' "$file"
+          done | tr -d '\r\n' | base64 --decode > "$HERO_TARGET"
+          test "$(wc -c < "$HERO_TARGET" | tr -d ' ')" = "82094"
+          echo "$HERO_SHA256  $HERO_TARGET" | sha256sum --check --strict
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp")
+          data = p.read_bytes()
+          assert data[:4] == b"RIFF"
+          assert data[8:12] == b"WEBP"
+          assert len(data) == 82094
+          PY
+          cp "$HERO_TARGET" "$HERO_VERSIONED"
+
+      - name: Update homepage reference
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("src/pages/Index.tsx")
+          text = p.read_text()
+          updated, count = re.subn(
+              r'media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner(?:-[^`"]+)?\.webp',
+              'media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner-living-20260710-v3.webp',
+              text,
+              count=1,
+          )
+          assert count == 1, "Homepage hero reference not found"
+          p.write_text(updated)
+          PY
+
+      - name: Finalize main and remove temporary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .hero-upload
+          rm -f .github/workflows/apply-uploaded-hero.yml
+          sed -i "/Stage uploaded homepage hero replacement/d" .github/workflows/deploy.yml
+          rm -f .scratch-test.txt
+          git checkout -B main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Replace homepage hero with uploaded living image"
+          git push origin HEAD:main
+
+      - name: Delete executor branch
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            "repos/${{ github.repository }}/git/refs/heads/$EXECUTOR_BRANCH"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Use public npm registry
+        run: npm config set registry https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY || vars.CLERK_PUBLISHABLE_KEY || secrets.VITE_CLERK_PUBLISHABLE_KEY || secrets.CLERK_PUBLISHABLE_KEY }}
+          VITE_ALLOWED_ADMIN_EMAILS: ${{ vars.VITE_ALLOWED_ADMIN_EMAILS || vars.BOOTSTRAP_ADMIN_EMAILS || secrets.VITE_ALLOWED_ADMIN_EMAILS || secrets.BOOTSTRAP_ADMIN_EMAILS }}
+          VITE_GTM_ID: ${{ vars.VITE_GTM_ID || secrets.VITE_GTM_ID }}
+          VITE_GA4_ID: ${{ vars.VITE_GA4_ID || secrets.VITE_GA4_ID }}
+          VITE_GOOGLE_ADS_ID: ${{ vars.VITE_GOOGLE_ADS_ID || secrets.VITE_GOOGLE_ADS_ID }}
+          VITE_GOOGLE_ADS_LEAD_LABEL: ${{ vars.VITE_GOOGLE_ADS_LEAD_LABEL || secrets.VITE_GOOGLE_ADS_LEAD_LABEL }}
+          VITE_META_PIXEL_ID: ${{ vars.VITE_META_PIXEL_ID || secrets.VITE_META_PIXEL_ID }}
+
+      - name: Detect build output
+        id: detect_output
+        shell: bash
+        run: |
+          if [ -d dist ]; then
+            echo "path=dist" >> "$GITHUB_OUTPUT"
+          elif [ -d build ]; then
+            echo "path=build" >> "$GITHUB_OUTPUT"
+          else
+            echo "No build output found"
+            exit 1
+          fi
+
+      - name: Verify final build
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTPUT="${{ steps.detect_output.outputs.path }}"
+          HERO="$OUTPUT/media/hero/$(basename "$HERO_VERSIONED")"
+          test -f "$HERO"
+          echo "$HERO_SHA256  $HERO" | sha256sum --check --strict
+          grep -R -q "$(basename "$HERO_VERSIONED")" "$OUTPUT/assets"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.detect_output.outputs.path }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
