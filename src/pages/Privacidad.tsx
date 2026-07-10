@@ -9,9 +9,9 @@ const Privacidad = () => (
     <SEO
       title={tr("Política de privacidad | Eivitech Ibiza", "Privacy Policy | Eivitech Ibiza", "Privacy Policy | Eivitech Ibiza")}
       description={tr(
-        "Información sobre cómo EIVITECH PLUS SLU trata los datos personales recibidos a través del sitio, formularios, CRM, correo electrónico y campañas publicitarias.",
-        "Informazioni su come EIVITECH PLUS SLU tratta i dati personali ricevuti tramite sito, moduli, CRM, email e campagne pubblicitarie.",
-        "Information about how EIVITECH PLUS SLU processes personal data received through the website, forms, CRM, email and advertising campaigns."
+        `Información sobre cómo ${LEGAL.legalName} trata los datos personales recibidos a través del sitio, formularios, CRM, correo electrónico y campañas publicitarias.`,
+        `Informazioni su come ${LEGAL.legalName} tratta i dati personali ricevuti tramite sito, moduli, CRM, email e campagne pubblicitarie.`,
+        `Information about how ${LEGAL.legalName} processes personal data received through the website, forms, CRM, email and advertising campaigns.`
       )}
       path="/privacy-policy"
     />
@@ -31,7 +31,9 @@ const Privacidad = () => (
         <div className="mt-10 space-y-10 text-muted-foreground leading-relaxed">
           <PolicySection title={tr("1. Responsable del tratamiento", "1. Titolare del trattamento", "1. Data controller")}>
             <p className="font-medium text-foreground">{LEGAL.legalName}</p>
+            <p>{tr("CIF:", "CIF:", "Tax ID:")} {LEGAL.taxId}</p>
             <p>{LEGAL.address}</p>
+            <p>{tr("Referente operativo:", "Referente operativo:", "Operational contact:")} {LEGAL.operationalContact}</p>
             <p>{tr("Correo electrónico:", "Email:", "Email:")} <a href={`mailto:${LEGAL.privacyEmail}`} className="underline hover:text-foreground">{LEGAL.privacyEmail}</a></p>
             <p>{tr("Sitio web:", "Sito web:", "Website:")} <a href={LEGAL.website} className="underline hover:text-foreground">eivitech.com</a></p>
           </PolicySection>
@@ -153,9 +155,9 @@ const Privacidad = () => (
 
           <PolicySection title={tr("10. Confidencialidad del correo electrónico", "10. Riservatezza delle email", "10. Email confidentiality")}>
             <p>{tr(
-              "Los mensajes enviados por EIVITECH PLUS SLU y sus archivos adjuntos se dirigen exclusivamente a sus destinatarios y pueden contener información confidencial o sometida a secreto profesional. Si recibes un mensaje por error, debes eliminarlo e informar al remitente.",
-              "I messaggi inviati da EIVITECH PLUS SLU e i relativi allegati sono destinati esclusivamente ai destinatari e possono contenere informazioni riservate o soggette a segreto professionale. Se ricevi un messaggio per errore, eliminalo e informa il mittente.",
-              "Messages sent by EIVITECH PLUS SLU and their attachments are intended exclusively for their recipients and may contain confidential or professionally privileged information. If you receive a message in error, delete it and notify the sender."
+              `Los mensajes enviados por ${LEGAL.legalName} y sus archivos adjuntos se dirigen exclusivamente a sus destinatarios y pueden contener información confidencial o sometida a secreto profesional. Si recibes un mensaje por error, debes eliminarlo e informar al remitente.`,
+              `I messaggi inviati da ${LEGAL.legalName} e i relativi allegati sono destinati esclusivamente ai destinatari e possono contenere informazioni riservate o soggette a segreto professionale. Se ricevi un messaggio per errore, eliminalo e informa il mittente.`,
+              `Messages sent by ${LEGAL.legalName} and their attachments are intended exclusively for their recipients and may contain confidential or professionally privileged information. If you receive a message in error, delete it and notify the sender.`
             )}</p>
           </PolicySection>
 
