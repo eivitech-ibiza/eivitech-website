@@ -19,10 +19,34 @@ export const LEGAL = {
 };
 
 export const TRACKING_PROVIDERS = [
-  "GitHub Pages, para el alojamiento del frontend",
-  "Railway, para el backend, CRM y base de datos",
-  "Resend, para notificaciones por correo electrónico cuando esté activo",
-  "Clerk, para autenticación y acceso al área privada cuando esté activo",
-  "Google Tag Manager, Google Analytics 4 y Google Ads, cuando estén configurados y exista consentimiento",
-  "Meta Pixel y Meta Conversions API, cuando estén configurados y exista la base jurídica correspondiente",
+  {
+    es: "GitHub Pages, para el alojamiento del frontend",
+    it: "GitHub Pages, per l'hosting del frontend",
+    en: "GitHub Pages, for frontend hosting",
+  },
+  {
+    es: "Railway, para el backend, CRM y base de datos",
+    it: "Railway, per backend, CRM e database",
+    en: "Railway, for the backend, CRM and database",
+  },
+  {
+    es: "Resend, para notificaciones por correo electrónico cuando esté activo",
+    it: "Resend, per le notifiche email quando attivo",
+    en: "Resend, for email notifications when enabled",
+  },
+  {
+    es: "Clerk, para autenticación y acceso al área privada cuando esté activo",
+    it: "Clerk, per autenticazione e accesso all'area privata quando attivo",
+    en: "Clerk, for authentication and private-area access when enabled",
+  },
+  {
+    es: "Google Tag Manager, Google Analytics 4 y Google Ads, cuando estén configurados y exista consentimiento",
+    it: "Google Tag Manager, Google Analytics 4 e Google Ads, quando configurati e previo consenso",
+    en: "Google Tag Manager, Google Analytics 4 and Google Ads, when configured and consent has been given",
+  },
+  {
+    es: "Meta Pixel y Meta Conversions API, cuando estén configurados y exista la base jurídica correspondiente",
+    it: "Meta Pixel e Meta Conversions API, quando configurati e in presenza della relativa base giuridica",
+    en: "Meta Pixel and Meta Conversions API, when configured and the relevant legal basis applies",
+  },
 ];
