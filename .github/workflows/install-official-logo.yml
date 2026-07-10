@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/install-official-logo.yml"
       - ".github/logo-install/**"
+      - ".gitattributes"
 
 permissions:
   contents: write
@@ -24,7 +25,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .github/logo-install/eivitech-logo.svg.b64.part* \
+
+          shopt -s nullglob
+          parts=(.github/logo-install/eivitech-logo.svg.b64.part*)
+
+          if [ ${#parts[@]} -eq 0 ]; then
+            echo "ERROR: no base64 parts found in .github/logo-install" >&2
+            ls -la .github/logo-install || true
+            exit 1
+          fi
+
+          cat "${parts[@]}" \
+            | tr -d '\r\n\t ' \
             | base64 --decode \
             > public/media/brand/eivitech-logo.svg
 
