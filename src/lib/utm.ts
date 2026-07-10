@@ -1,3 +1,5 @@
+import { getStoredConsent } from "@/lib/tracking";
+
 const KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
 const STORAGE_KEY = "eivitech_utm";
 
@@ -7,35 +9,76 @@ export type UTM = Partial<Record<(typeof KEYS)[number], string>> & {
   timestamp?: string;
 };
 
+let inMemoryUtm: UTM | null = null;
+
+function hasAttributionConsent() {
+  const consent = getStoredConsent();
+  return Boolean(consent?.analytics || consent?.marketing);
+}
+
+function saveSessionAttribution(value: UTM) {
+  if (!hasAttributionConsent()) return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    /* noop */
+  }
+}
+
+function clearSessionAttribution() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
 export function captureUtm(): UTM {
   if (typeof window === "undefined") return {};
+
   const params = new URLSearchParams(window.location.search);
   const fromUrl: UTM = {};
   let hasNew = false;
-  for (const k of KEYS) {
-    const v = params.get(k);
-    if (v) {
-      fromUrl[k] = v;
+
+  for (const key of KEYS) {
+    const value = params.get(key);
+    if (value) {
+      fromUrl[key] = value;
       hasNew = true;
     }
   }
+
   if (hasNew) {
     fromUrl.landing_page = window.location.pathname;
     fromUrl.referrer = document.referrer || "direct";
     fromUrl.timestamp = new Date().toISOString();
+    inMemoryUtm = fromUrl;
+
+    if (hasAttributionConsent()) saveSessionAttribution(fromUrl);
+    else clearSessionAttribution();
+
+    return fromUrl;
+  }
+
+  if (inMemoryUtm) {
+    if (hasAttributionConsent()) saveSessionAttribution(inMemoryUtm);
+    return inMemoryUtm;
+  }
+
+  if (hasAttributionConsent()) {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(fromUrl));
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        inMemoryUtm = JSON.parse(raw) as UTM;
+        return inMemoryUtm;
+      }
     } catch {
       /* noop */
     }
-    return fromUrl;
+  } else {
+    clearSessionAttribution();
   }
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as UTM;
-  } catch {
-    /* noop */
-  }
+
   return {
     landing_page: window.location.pathname,
     referrer: document.referrer || "direct",
