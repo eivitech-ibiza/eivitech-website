@@ -25,65 +25,68 @@ const CookiePolicy = () => (
         <h1 className="display-lg mt-4">{tr("Política de cookies", "Cookie Policy", "Cookie Policy")}</h1>
         <p className="mt-6 max-w-3xl text-muted-foreground leading-relaxed">
           {tr(
-            `Última actualización: ${LEGAL.lastUpdated}. Esta política explica cómo ${LEGAL.legalName} utiliza cookies, almacenamiento local y tecnologías similares en este sitio web.`,
-            `Ultimo aggiornamento: ${LEGAL.lastUpdatedIt}. Questa policy spiega come ${LEGAL.legalName} utilizza cookie, archiviazione locale e tecnologie simili su questo sito web.`,
-            `Last updated: ${LEGAL.lastUpdatedEn}. This policy explains how ${LEGAL.legalName} uses cookies, local storage and similar technologies on this website.`
+            `Última actualización: ${LEGAL.lastUpdated}. Esta política integra la documentación legal de ${LEGAL.legalName} y explica el uso real de cookies, almacenamiento local y tecnologías similares en ${LEGAL.domain}.`,
+            `Ultimo aggiornamento: ${LEGAL.lastUpdatedIt}. Questa policy integra la documentazione legale di ${LEGAL.legalName} e descrive l'uso effettivo di cookie, archiviazione locale e tecnologie simili su ${LEGAL.domain}.`,
+            `Last updated: ${LEGAL.lastUpdatedEn}. This policy incorporates ${LEGAL.legalName}'s legal documentation and explains the actual use of cookies, local storage and similar technologies on ${LEGAL.domain}.`
           )}
         </p>
 
         <div className="mt-10 space-y-10 text-muted-foreground leading-relaxed">
-          <PolicySection title={tr("1. Responsable", "1. Titolare", "1. Controller")}>
+          <PolicySection title={tr("1. Responsable", "1. Titolare", "1. Controller")}> 
             <p className="font-medium text-foreground">{LEGAL.legalName}</p>
+            <p>{tr("NIF:", "NIF:", "Tax ID:")} {LEGAL.taxId}</p>
             <p>{LEGAL.address}</p>
             <p><a href={`mailto:${LEGAL.privacyEmail}`} className="underline hover:text-foreground">{LEGAL.privacyEmail}</a></p>
+            <p>{tr("Sitio web:", "Sito web:", "Website:")} {LEGAL.domain}</p>
           </PolicySection>
 
-          <PolicySection title={tr("2. Qué son las cookies y tecnologías similares", "2. Cosa sono i cookie e le tecnologie simili", "2. What cookies and similar technologies are")}>
+          <PolicySection title={tr("2. Qué son las cookies y tecnologías similares", "2. Cosa sono i cookie e le tecnologie simili", "2. What cookies and similar technologies are")}> 
             <p>{tr(
-              "Las cookies son pequeños archivos que un sitio o un tercero guarda o consulta en el dispositivo del usuario. Esta política también cubre tecnologías equivalentes, como localStorage y sessionStorage, que permiten recordar elecciones, mantener funciones técnicas o medir campañas.",
-              "I cookie sono piccoli file che un sito o un terzo salva o consulta sul dispositivo dell'utente. Questa policy comprende anche tecnologie equivalenti, come localStorage e sessionStorage, utilizzate per ricordare scelte, mantenere funzioni tecniche o misurare campagne.",
-              "Cookies are small files stored or accessed by a website or third party on a user's device. This policy also covers equivalent technologies such as localStorage and sessionStorage, used to remember choices, support technical functions or measure campaigns."
+              "Las cookies son pequeños archivos que un sitio o un tercero guarda o consulta en el dispositivo del usuario. Esta política también cubre tecnologías equivalentes, como localStorage, sessionStorage y píxeles, utilizadas para recordar elecciones, mantener funciones técnicas, medir campañas o mostrar publicidad.",
+              "I cookie sono piccoli file che un sito o un terzo salva o consulta sul dispositivo dell'utente. Questa policy comprende anche tecnologie equivalenti, come localStorage, sessionStorage e pixel, utilizzate per ricordare scelte, mantenere funzioni tecniche, misurare campagne o mostrare pubblicità.",
+              "Cookies are small files stored or accessed by a website or third party on a user's device. This policy also covers equivalent technologies such as localStorage, sessionStorage and pixels, used to remember choices, support technical functions, measure campaigns or display advertising."
             )}</p>
           </PolicySection>
 
-          <PolicySection title={tr("3. Categorías", "3. Categorie", "3. Categories")}>
+          <PolicySection title={tr("3. Base jurídica y consentimiento", "3. Base giuridica e consenso", "3. Legal basis and consent")}> 
+            <p>{tr(
+              "Las cookies técnicas o estrictamente necesarias pueden utilizarse sin consentimiento cuando son imprescindibles para la navegación, seguridad, gestión del consentimiento o prestación de un servicio solicitado. Las cookies analíticas, publicitarias y de afiliación solo se activan después de una decisión afirmativa del usuario.",
+              "I cookie tecnici o strettamente necessari possono essere utilizzati senza consenso quando indispensabili per navigazione, sicurezza, gestione del consenso o fornitura di un servizio richiesto. I cookie analitici, pubblicitari e di affiliazione si attivano solo dopo una scelta positiva dell'utente.",
+              "Technical or strictly necessary cookies may be used without consent where essential for navigation, security, consent management or delivery of a requested service. Analytics, advertising and affiliate cookies are activated only after an affirmative user choice."
+            )}</p>
+            <p>{tr(
+              "En la primera capa del banner puedes aceptar todo, rechazar todo o configurar las categorías. La negativa no impide utilizar las funciones principales del sitio.",
+              "Nel primo livello del banner puoi accettare tutto, rifiutare tutto o configurare le categorie. Il rifiuto non impedisce l'uso delle funzioni principali del sito.",
+              "On the first banner layer you can accept all, reject all or configure categories. Refusal does not prevent use of the website's main functions."
+            )}</p>
+          </PolicySection>
+
+          <PolicySection title={tr("4. Categorías", "4. Categorie", "4. Categories")}> 
             <div className="grid gap-4 md:grid-cols-2">
-              <CookieCategory
-                title={tr("Necesarias", "Necessari", "Necessary")}
-                text={tr(
-                  "Imprescindibles para seguridad, formularios, navegación, gestión del consentimiento, redirecciones técnicas y acceso al área privada. No se utilizan con fines publicitarios.",
-                  "Indispensabili per sicurezza, moduli, navigazione, gestione del consenso, reindirizzamenti tecnici e accesso all'area privata. Non sono utilizzati per finalità pubblicitarie.",
-                  "Essential for security, forms, navigation, consent management, technical redirects and private-area access. They are not used for advertising."
-                )}
-              />
-              <CookieCategory
-                title={tr("Preferencias", "Preferenze", "Preferences")}
-                text={tr(
-                  "Permiten recordar elecciones realizadas por el usuario, como el idioma. Cuando responden a una solicitud expresa del usuario pueden considerarse funcionales.",
-                  "Permettono di ricordare le scelte dell'utente, come la lingua. Quando derivano da una richiesta espressa dell'utente possono essere considerate funzionali.",
-                  "They remember user choices such as language. Where they result from an explicit user request, they may be treated as functional."
-                )}
-              />
-              <CookieCategory
-                title={tr("Analítica", "Analitici", "Analytics")}
-                text={tr(
-                  "Permiten medir visitas, páginas vistas, navegación y rendimiento del sitio mediante herramientas como Google Analytics 4. Solo se activan con consentimiento.",
-                  "Permettono di misurare visite, pagine viste, navigazione e rendimento del sito tramite strumenti come Google Analytics 4. Si attivano solo con consenso.",
-                  "They measure visits, page views, navigation and website performance through tools such as Google Analytics 4. They are activated only with consent."
-                )}
-              />
-              <CookieCategory
-                title="Marketing"
-                text={tr(
-                  "Permiten medir conversiones, atribuir campañas, hacer remarketing y optimizar publicidad en Google y Meta. Solo se activan con consentimiento.",
-                  "Permettono di misurare conversioni, attribuire campagne, fare remarketing e ottimizzare pubblicità su Google e Meta. Si attivano solo con consenso.",
-                  "They measure conversions, attribute campaigns, enable remarketing and optimise advertising on Google and Meta. They are activated only with consent."
-                )}
-              />
+              <CookieCategory title={tr("Necesarias", "Necessari", "Necessary")} text={tr(
+                "Imprescindibles para seguridad, formularios, navegación, gestión del consentimiento, redirecciones técnicas y acceso al área privada. No se utilizan con fines publicitarios.",
+                "Indispensabili per sicurezza, moduli, navigazione, gestione del consenso, reindirizzamenti tecnici e accesso all'area privata. Non sono utilizzati per finalità pubblicitarie.",
+                "Essential for security, forms, navigation, consent management, technical redirects and private-area access. They are not used for advertising."
+              )} />
+              <CookieCategory title={tr("Preferencias", "Preferenze", "Preferences")} text={tr(
+                "Permiten recordar elecciones realizadas por el usuario, como el idioma. Cuando responden a una solicitud expresa pueden considerarse funcionales.",
+                "Permettono di ricordare le scelte dell'utente, come la lingua. Quando derivano da una richiesta espressa possono essere considerate funzionali.",
+                "They remember user choices such as language. Where they result from an explicit request, they may be treated as functional."
+              )} />
+              <CookieCategory title={tr("Analítica", "Analitici", "Analytics")} text={tr(
+                "Permiten medir visitas, páginas vistas, navegación y rendimiento mediante herramientas como Google Analytics 4. Solo se activan con consentimiento.",
+                "Permettono di misurare visite, pagine viste, navigazione e rendimento tramite strumenti come Google Analytics 4. Si attivano solo con consenso.",
+                "They measure visits, page views, navigation and performance through tools such as Google Analytics 4. They are activated only with consent."
+              )} />
+              <CookieCategory title="Marketing" text={tr(
+                "Permiten medir conversiones, atribuir campañas, hacer remarketing y optimizar publicidad en Google y Meta. Solo se activan con consentimiento.",
+                "Permettono di misurare conversioni, attribuire campagne, fare remarketing e ottimizzare pubblicità su Google e Meta. Si attivano solo con consenso.",
+                "They measure conversions, attribute campaigns, enable remarketing and optimise advertising on Google and Meta. They are activated only with consent."
+              )} />
             </div>
           </PolicySection>
 
-          <PolicySection title={tr("4. Inventario de tecnologías", "4. Inventario delle tecnologie", "4. Technology inventory")}>
+          <PolicySection title={tr("5. Inventario de tecnologías", "5. Inventario delle tecnologie", "5. Technology inventory")}> 
             <div className="overflow-x-auto rounded-sm border border-border">
               <table className="min-w-[760px] w-full border-collapse text-left text-sm">
                 <thead className="bg-accent/60 text-foreground">
@@ -108,48 +111,43 @@ const CookiePolicy = () => (
               </table>
             </div>
             <p className="mt-3 text-sm">{tr(
-              "La lista puede variar si se modifican las herramientas o su configuración. Cuando cambien las finalidades o los terceros, se actualizará esta política y se solicitará una nueva decisión cuando corresponda.",
-              "L'elenco può variare in caso di modifica degli strumenti o della loro configurazione. Se cambiano finalità o terze parti, questa policy sarà aggiornata e verrà richiesta una nuova scelta quando necessario.",
-              "The list may change if tools or their configuration change. Where purposes or third parties change, this policy will be updated and a new choice requested where required."
+              "El inventario refleja la configuración actual del sitio y se actualizará cuando se añadan, retiren o modifiquen herramientas, finalidades o terceros. No se incorporan al inventario cookies de servicios que no estén realmente instalados.",
+              "L'inventario riflette la configurazione attuale del sito e sarà aggiornato quando verranno aggiunti, rimossi o modificati strumenti, finalità o terze parti. Non vengono elencati cookie di servizi non realmente installati.",
+              "The inventory reflects the website's current configuration and will be updated when tools, purposes or third parties are added, removed or changed. Cookies from services not actually installed are not included."
             )}</p>
           </PolicySection>
 
-          <PolicySection title={tr("5. Herramientas de Google y Meta", "5. Strumenti Google e Meta", "5. Google and Meta tools")}>
+          <PolicySection title={tr("6. Herramientas de Google y Meta", "6. Strumenti Google e Meta", "6. Google and Meta tools")}> 
             <ul className="list-disc space-y-2 pl-5">
-              <li><strong className="text-foreground">Google Tag Manager:</strong> {tr("gestiona la activación de etiquetas; no se usa para activar analítica o marketing antes del consentimiento correspondiente.", "gestisce l'attivazione dei tag; non viene utilizzato per attivare analitica o marketing prima del relativo consenso.", "manages tag activation; it is not used to activate analytics or marketing before the relevant consent.")}</li>
-              <li><strong className="text-foreground">Google Analytics 4:</strong> {tr("mide el uso del sitio cuando se acepta la categoría analítica.", "misura l'uso del sito quando viene accettata la categoria analitica.", "measures website usage when the analytics category is accepted.")}</li>
+              <li><strong className="text-foreground">Google Tag Manager:</strong> {tr("gestiona la activación de etiquetas; no activa analítica o marketing antes del consentimiento correspondiente.", "gestisce l'attivazione dei tag; non attiva analitica o marketing prima del relativo consenso.", "manages tag activation; it does not activate analytics or marketing before the relevant consent.")}</li>
+              <li><strong className="text-foreground">Google Analytics 4:</strong> {tr("mide el uso del sitio cuando se acepta analítica.", "misura l'uso del sito quando viene accettata l'analitica.", "measures website usage when analytics is accepted.")}</li>
               <li><strong className="text-foreground">Google Ads:</strong> {tr("mide conversiones, atribuye campañas y permite remarketing cuando se acepta marketing.", "misura conversioni, attribuisce campagne e consente remarketing quando viene accettato il marketing.", "measures conversions, attributes campaigns and enables remarketing when marketing is accepted.")}</li>
-              <li><strong className="text-foreground">Meta Pixel:</strong> {tr("mide visitas y conversiones procedentes de campañas de Meta y permite crear audiencias cuando se acepta marketing.", "misura visite e conversioni provenienti dalle campagne Meta e consente di creare pubblici quando viene accettato il marketing.", "measures visits and conversions from Meta campaigns and enables audience creation when marketing is accepted.")}</li>
-              <li><strong className="text-foreground">Meta Conversions API:</strong> {tr("puede utilizarse desde el backend para enviar conversiones consentidas y mejorar la medición, aplicando controles de seguridad y minimización.", "può essere utilizzata dal backend per inviare conversioni consentite e migliorare la misurazione, applicando controlli di sicurezza e minimizzazione.", "may be used from the backend to send consented conversions and improve measurement, applying security and minimisation controls.")}</li>
+              <li><strong className="text-foreground">Meta Pixel:</strong> {tr("mide visitas y conversiones de campañas Meta y permite crear audiencias cuando se acepta marketing.", "misura visite e conversioni delle campagne Meta e consente di creare pubblici quando viene accettato il marketing.", "measures visits and conversions from Meta campaigns and enables audience creation when marketing is accepted.")}</li>
+              <li><strong className="text-foreground">Meta Conversions API:</strong> {tr("puede utilizarse desde el backend para enviar conversiones consentidas, aplicando seguridad y minimización.", "può essere utilizzata dal backend per inviare conversioni consentite, applicando sicurezza e minimizzazione.", "may be used from the backend to send consented conversions, applying security and minimisation.")}</li>
             </ul>
           </PolicySection>
 
-          <PolicySection title={tr("6. Cómo gestionamos el consentimiento", "6. Come gestiamo il consenso", "6. How consent is managed")}>
+          <PolicySection title={tr("7. Gestión, retirada y renovación del consentimiento", "7. Gestione, revoca e rinnovo del consenso", "7. Managing, withdrawing and renewing consent")}> 
             <p>{tr(
-              "En la primera visita puedes aceptar todo, rechazar todo o personalizar por categorías. Las etiquetas analíticas y publicitarias permanecen bloqueadas hasta que exista consentimiento válido. Rechazar las cookies opcionales no impide utilizar las funciones principales del sitio.",
-              "Alla prima visita puoi accettare tutto, rifiutare tutto o personalizzare per categoria. I tag analitici e pubblicitari restano bloccati finché non esiste un consenso valido. Il rifiuto dei cookie opzionali non impedisce l'uso delle funzioni principali del sito.",
-              "On the first visit you may accept all, reject all or customise by category. Analytics and advertising tags remain blocked until valid consent exists. Rejecting optional cookies does not prevent use of the website's main functions."
-            )}</p>
-            <p>{tr(
-              `La selección se conserva durante un máximo de ${LEGAL.consentValidityMonths} meses y puede retirarse o modificarse en cualquier momento mediante el botón disponible en esta página y en el footer.`,
-              `La scelta viene conservata per un massimo di ${LEGAL.consentValidityMonths} mesi e può essere revocata o modificata in qualsiasi momento tramite il pulsante disponibile in questa pagina e nel footer.`,
-              `The selection is retained for no longer than ${LEGAL.consentValidityMonths} months and may be withdrawn or changed at any time through the button on this page and in the footer.`
+              `La selección se conserva durante un máximo de ${LEGAL.consentValidityMonths} meses y puede retirarse o modificarse en cualquier momento mediante el botón disponible en esta página y en el footer. Si cambian significativamente las finalidades o los terceros, podrá solicitarse una nueva decisión.`,
+              `La scelta viene conservata per un massimo di ${LEGAL.consentValidityMonths} mesi e può essere revocata o modificata in qualsiasi momento tramite il pulsante disponibile in questa pagina e nel footer. Se finalità o terze parti cambiano in modo significativo, potrà essere richiesta una nuova decisione.`,
+              `The selection is retained for no longer than ${LEGAL.consentValidityMonths} months and may be withdrawn or changed at any time through the button on this page and in the footer. If purposes or third parties change significantly, a new decision may be requested.`
             )}</p>
             <button type="button" onClick={openCookiePreferences} className="mt-5 rounded-sm border border-border px-5 py-3 text-sm text-foreground hover:bg-accent">
               {tr("Gestionar preferencias de cookies", "Gestisci preferenze cookie", "Manage cookie preferences")}
             </button>
           </PolicySection>
 
-          <PolicySection title={tr("7. Configuración del navegador", "7. Impostazioni del browser", "7. Browser settings")}>
+          <PolicySection title={tr("8. Configuración del navegador", "8. Impostazioni del browser", "8. Browser settings")}> 
             <p>{tr(
-              "También puedes bloquear o eliminar cookies desde la configuración del navegador. La eliminación de cookies de terceros debe realizarse desde el navegador o mediante las herramientas facilitadas por el proveedor correspondiente.",
-              "Puoi inoltre bloccare o eliminare i cookie dalle impostazioni del browser. L'eliminazione dei cookie di terze parti deve essere effettuata dal browser o tramite gli strumenti messi a disposizione dal relativo fornitore.",
-              "You may also block or delete cookies through browser settings. Third-party cookies must be deleted through the browser or tools provided by the relevant provider."
+              "También puedes bloquear o eliminar cookies desde la configuración del navegador. La eliminación de cookies de terceros debe realizarse desde el navegador o mediante las herramientas facilitadas por el proveedor correspondiente. El bloqueo de cookies necesarias puede afectar al funcionamiento de algunas características.",
+              "Puoi inoltre bloccare o eliminare i cookie dalle impostazioni del browser. I cookie di terze parti devono essere eliminati dal browser o tramite gli strumenti del relativo fornitore. Il blocco dei cookie necessari può influire sul funzionamento di alcune funzionalità.",
+              "You may also block or delete cookies through browser settings. Third-party cookies must be deleted through the browser or tools provided by the relevant provider. Blocking necessary cookies may affect some features."
             )}</p>
           </PolicySection>
 
-          <PolicySection title={tr("8. Más información y contacto", "8. Ulteriori informazioni e contatti", "8. Further information and contact")}>
-            <p>{tr("Puedes consultar la", "Puoi consultare la", "You may read the")} <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline hover:text-foreground">{tr("política de privacidad de Google", "privacy policy di Google", "Google Privacy Policy")}</a> {tr("y la", "e la", "and the")} <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noreferrer" className="underline hover:text-foreground">{tr("política de privacidad de Meta", "privacy policy di Meta", "Meta Privacy Policy")}</a>.</p>
+          <PolicySection title={tr("9. Proveedores externos y contacto", "9. Fornitori esterni e contatti", "9. External providers and contact")}> 
+            <p>{tr("Los proveedores externos pueden modificar sus condiciones, finalidades o duraciones. Puedes consultar la", "I fornitori esterni possono modificare condizioni, finalità o durate. Puoi consultare la", "External providers may change their terms, purposes or retention periods. You may read the")} <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline hover:text-foreground">{tr("política de privacidad de Google", "privacy policy di Google", "Google Privacy Policy")}</a> {tr("y la", "e la", "and the")} <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noreferrer" className="underline hover:text-foreground">{tr("política de privacidad de Meta", "privacy policy di Meta", "Meta Privacy Policy")}</a>.</p>
             <p>{tr("Para consultas sobre cookies o privacidad, escribe a", "Per domande su cookie o privacy, scrivi a", "For cookie or privacy questions, contact")} <a href={`mailto:${LEGAL.privacyEmail}`} className="underline hover:text-foreground">{LEGAL.privacyEmail}</a>.</p>
           </PolicySection>
         </div>
