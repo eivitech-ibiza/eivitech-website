@@ -2,7 +2,7 @@ type EivitechLogoProps = {
   className?: string;
 };
 
-const logoSrc = "/ibiza-project-accelerator/media/brand/eivitech-logo.svg";
+const logoSrc = `${import.meta.env.BASE_URL}media/brand/eivitech-logo.svg?v=official-20260710`;
 
 export function EivitechLogo({ className = "" }: EivitechLogoProps) {
   const classes = ["block", "h-auto", "object-contain", className].filter(Boolean).join(" ");
