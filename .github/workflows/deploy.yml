@@ -27,44 +27,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install and verify official Eivitech logo
+      - name: Verify official Eivitech logo
         shell: bash
         run: |
           set -euo pipefail
-
-          shopt -s nullglob
-          parts=(.github/logo-install/eivitech-logo.svg.b64.part*)
-
-          if [ ${#parts[@]} -eq 0 ]; then
-            echo "No logo parts found; skipping logo install" >&2
-            exit 0
-          fi
-
-          mkdir -p public/media/brand
-
-          # Assemble parts and normalize CR characters only (handle CRLF), write to a temp file
-          tmp_b64=$(mktemp)
-          tmp_out=$(mktemp)
-
-          cat "${parts[@]}" | tr -d '\r' > "$tmp_b64"
-
-          # Try several decoders in order of permissiveness; write to tmp_out on success
-          if base64 --decode --ignore-garbage < "$tmp_b64" > "$tmp_out" 2>/dev/null || \
-             base64 --decode < "$tmp_b64" > "$tmp_out" 2>/dev/null || \
-             openssl base64 -d -A < "$tmp_b64" > "$tmp_out" 2>/dev/null; then
-            mv "$tmp_out" public/media/brand/eivitech-logo.svg
-            rm -f "$tmp_b64" || true
-          else
-            echo "Base64 decode failed; dumping beginning of assembled input for diagnosis:" >&2
-            sed -n '1,200p' "$tmp_b64" >&2
-            rm -f "$tmp_b64" "$tmp_out" || true
-            exit 1
-          fi
-
-          # Verify file exists and expected size/hash
           test -f public/media/brand/eivitech-logo.svg
-          test "$(wc -c < public/media/brand/eivitech-logo.svg | tr -d ' ')" = "23135"
-          echo "b7d4c1a0d29964f8b3af4a64fa7b45282fa1a8dd10f18416aa9a37332878c303  public/media/brand/eivitech-logo.svg" | sha256sum --check --strict
+          test "$(wc -c < public/media/brand/eivitech-logo.svg | tr -d ' ')" = "34695"
+          echo "cb3a8cdfcd5d5fc06fa35f62c934a9d5ec8979ed05de4b3476f15b0ac33457ba  public/media/brand/eivitech-logo.svg" | sha256sum --check --strict
+          grep -q '<svg' public/media/brand/eivitech-logo.svg
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -109,6 +79,7 @@ jobs:
           echo "Using output dir: ${{ steps.detect_output.outputs.path }}"
           test -d ${{ steps.detect_output.outputs.path }}
           test -f ${{ steps.detect_output.outputs.path }}/index.html || test -f ${{ steps.detect_output.outputs.path }}/index.htm
+          test -f ${{ steps.detect_output.outputs.path }}/media/brand/eivitech-logo.svg
           ls -la ${{ steps.detect_output.outputs.path }}
 
       - name: Setup Pages
