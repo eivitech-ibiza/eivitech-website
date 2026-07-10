@@ -32,6 +32,7 @@ type Fbq = ((...args: unknown[]) => void) & {
 };
 
 export const COOKIE_CONSENT_KEY = "eivitech_cookie_consent_v2";
+export const CONSENT_VALIDITY_MONTHS = 24;
 
 const DEFAULT_CONSENT: ConsentState = {
   version: 2,
@@ -111,16 +112,35 @@ export function getStoredConsent(): ConsentState | null {
   try {
     const raw = window.localStorage.getItem(COOKIE_CONSENT_KEY);
     if (!raw) return null;
+
     const parsed = JSON.parse(raw) as Partial<ConsentState>;
-    if (parsed.version !== 2) return null;
+    if (parsed.version !== 2 || !parsed.updatedAt) {
+      window.localStorage.removeItem(COOKIE_CONSENT_KEY);
+      return null;
+    }
+
+    const updatedAt = new Date(parsed.updatedAt);
+    if (Number.isNaN(updatedAt.getTime())) {
+      window.localStorage.removeItem(COOKIE_CONSENT_KEY);
+      return null;
+    }
+
+    const expiresAt = new Date(updatedAt);
+    expiresAt.setMonth(expiresAt.getMonth() + CONSENT_VALIDITY_MONTHS);
+    if (Date.now() >= expiresAt.getTime()) {
+      window.localStorage.removeItem(COOKIE_CONSENT_KEY);
+      return null;
+    }
+
     return {
       ...DEFAULT_CONSENT,
       ...parsed,
       necessary: true,
       version: 2,
-      updatedAt: parsed.updatedAt || new Date().toISOString(),
+      updatedAt: parsed.updatedAt,
     };
   } catch {
+    window.localStorage.removeItem(COOKIE_CONSENT_KEY);
     return null;
   }
 }
