@@ -1,0 +1,252 @@
+name: Verify and apply Eivitech hero replacement
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-hero-replacement.yml
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-hero-replacement.yml
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: hero-replacement-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_FILE_ID: 10bDfdIrr8ehVeNMvwMjeGkX4a2ZTjxV3
+  HERO_PATH: public/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp
+  TARGET_WIDTH: "1672"
+  TARGET_HEIGHT: "941"
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Download, crop and verify replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=/tmp/eivitech-source.webp
+
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://drive.usercontent.google.com/download?id=${SOURCE_FILE_ID}&export=download&confirm=t" \
+            --output "$SOURCE" \
+          || curl --fail --location --retry 3 --retry-all-errors \
+            "https://drive.google.com/uc?export=download&id=${SOURCE_FILE_ID}&confirm=t" \
+            --output "$SOURCE"
+
+          python <<'PY'
+          import os
+          from pathlib import Path
+          from PIL import Image
+
+          source = Path('/tmp/eivitech-source.webp')
+          destination = Path(os.environ['HERO_PATH'])
+          target_width = int(os.environ['TARGET_WIDTH'])
+          target_height = int(os.environ['TARGET_HEIGHT'])
+          target_ratio = target_width / target_height
+
+          with Image.open(source) as original:
+              image = original.convert('RGB')
+              width, height = image.size
+              current_ratio = width / height
+
+              if current_ratio < target_ratio:
+                  crop_height = round(width / target_ratio)
+                  top = min(35, max(0, height - crop_height))
+                  crop_box = (0, top, width, top + crop_height)
+              else:
+                  crop_width = round(height * target_ratio)
+                  left = max(0, (width - crop_width) // 2)
+                  crop_box = (left, 0, left + crop_width, height)
+
+              result = image.crop(crop_box).resize(
+                  (target_width, target_height),
+                  Image.Resampling.LANCZOS,
+              )
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              result.save(destination, 'WEBP', quality=50, method=6, optimize=True)
+
+          with Image.open(destination) as verified:
+              assert verified.format == 'WEBP', verified.format
+              assert verified.size == (target_width, target_height), verified.size
+
+          size = destination.stat().st_size
+          assert size > 50000, size
+          print(f'Hero verificata: {target_width}x{target_height} WebP, {size} byte')
+          PY
+
+  apply-and-deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Download, crop and verify replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=/tmp/eivitech-source.webp
+
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://drive.usercontent.google.com/download?id=${SOURCE_FILE_ID}&export=download&confirm=t" \
+            --output "$SOURCE" \
+          || curl --fail --location --retry 3 --retry-all-errors \
+            "https://drive.google.com/uc?export=download&id=${SOURCE_FILE_ID}&confirm=t" \
+            --output "$SOURCE"
+
+          python <<'PY'
+          import os
+          from pathlib import Path
+          from PIL import Image
+
+          source = Path('/tmp/eivitech-source.webp')
+          destination = Path(os.environ['HERO_PATH'])
+          target_width = int(os.environ['TARGET_WIDTH'])
+          target_height = int(os.environ['TARGET_HEIGHT'])
+          target_ratio = target_width / target_height
+
+          with Image.open(source) as original:
+              image = original.convert('RGB')
+              width, height = image.size
+              current_ratio = width / height
+
+              if current_ratio < target_ratio:
+                  crop_height = round(width / target_ratio)
+                  top = min(35, max(0, height - crop_height))
+                  crop_box = (0, top, width, top + crop_height)
+              else:
+                  crop_width = round(height * target_ratio)
+                  left = max(0, (width - crop_width) // 2)
+                  crop_box = (left, 0, left + crop_width, height)
+
+              result = image.crop(crop_box).resize(
+                  (target_width, target_height),
+                  Image.Resampling.LANCZOS,
+              )
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              result.save(destination, 'WEBP', quality=50, method=6, optimize=True)
+
+          with Image.open(destination) as verified:
+              assert verified.format == 'WEBP', verified.format
+              assert verified.size == (target_width, target_height), verified.size
+
+          size = destination.stat().st_size
+          assert size > 50000, size
+          print(f'Hero verificata: {target_width}x{target_height} WebP, {size} byte')
+          PY
+
+      - name: Commit replacement and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$HERO_PATH"
+          git rm .github/workflows/apply-hero-replacement.yml
+          git commit -m "Replace homepage hero with resized Casa Vadella image"
+          git push origin HEAD:main
+
+      - name: Verify official Eivitech logo
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/media/brand/eivitech-logo.svg
+          test "$(wc -c < public/media/brand/eivitech-logo.svg | tr -d ' ')" = "34695"
+          echo "cb3a8cdfcd5d5fc06fa35f62c934a9d5ec8979ed05de4b3476f15b0ac33457ba  public/media/brand/eivitech-logo.svg" | sha256sum --check --strict
+          grep -q '<svg' public/media/brand/eivitech-logo.svg
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Use public npm registry
+        run: npm config set registry https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY || vars.CLERK_PUBLISHABLE_KEY || secrets.VITE_CLERK_PUBLISHABLE_KEY || secrets.CLERK_PUBLISHABLE_KEY }}
+          VITE_ALLOWED_ADMIN_EMAILS: ${{ vars.VITE_ALLOWED_ADMIN_EMAILS || vars.BOOTSTRAP_ADMIN_EMAILS || secrets.VITE_ALLOWED_ADMIN_EMAILS || secrets.BOOTSTRAP_ADMIN_EMAILS }}
+          VITE_GTM_ID: ${{ vars.VITE_GTM_ID || secrets.VITE_GTM_ID }}
+          VITE_GA4_ID: ${{ vars.VITE_GA4_ID || secrets.VITE_GA4_ID }}
+          VITE_GOOGLE_ADS_ID: ${{ vars.VITE_GOOGLE_ADS_ID || secrets.VITE_GOOGLE_ADS_ID }}
+          VITE_GOOGLE_ADS_LEAD_LABEL: ${{ vars.VITE_GOOGLE_ADS_LEAD_LABEL || secrets.VITE_GOOGLE_ADS_LEAD_LABEL }}
+          VITE_META_PIXEL_ID: ${{ vars.VITE_META_PIXEL_ID || secrets.VITE_META_PIXEL_ID }}
+
+      - name: Detect build output directory
+        id: detect_output
+        shell: bash
+        run: |
+          if [ -d dist ]; then
+            echo "path=dist" >> "$GITHUB_OUTPUT"
+          elif [ -d build ]; then
+            echo "path=build" >> "$GITHUB_OUTPUT"
+          else
+            echo "No build output found"
+            ls -la
+            exit 1
+          fi
+
+      - name: Verify build output
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTPUT="${{ steps.detect_output.outputs.path }}"
+          test -f "$OUTPUT/index.html" || test -f "$OUTPUT/index.htm"
+          test -f "$OUTPUT/media/brand/eivitech-logo.svg"
+          test -f "$OUTPUT/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.detect_output.outputs.path }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
