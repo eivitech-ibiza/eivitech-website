@@ -36,130 +36,90 @@ const captions: Record<string, string[]> = {
 
   "luxury-mediterranean-villa-renovation": [
     tr(
-      "Living con chimenea moderna, gran ventanal y luz natural: el corazón más acogedor de la villa.",
-      "Living con camino moderno, grande vetrata e luce naturale: il cuore più accogliente della villa.",
-      "Living area with modern fireplace, large glazing and natural light: the most welcoming heart of the villa."
+      "Cocina lineal con frentes de madera, encimera continua y una composición limpia de gran formato.",
+      "Cucina lineare con frontali in legno, piano continuo e una composizione pulita di grande formato.",
+      "Linear kitchen with wooden fronts, a continuous worktop and a clean large-scale composition."
     ),
     tr(
-      "Open space luminoso con pavimento continuo y grandes aperturas, pensado para una vida cotidiana más fluida.",
-      "Open space luminoso con pavimento continuo e grandi aperture, pensato per una vita quotidiana più fluida.",
-      "Bright open space with continuous flooring and large openings, designed for a more fluid everyday life."
+      "Isla central y armarios de madera organizan el espacio con funcionalidad y soluciones a medida.",
+      "Isola centrale e armadi in legno organizzano lo spazio con funzionalità e soluzioni su misura.",
+      "Central island and wooden cabinetry organise the space through function and bespoke solutions."
     ),
     tr(
-      "Cocina con isla central, madera natural y líneas limpias: una solución funcional y muy personalizada.",
-      "Cucina con isola centrale, legno naturale e linee pulite: una soluzione funzionale e molto personalizzata.",
-      "Kitchen with central island, natural wood and clean lines: a functional and highly personalised solution."
+      "Detalle de encimera en madera natural, elegido para aportar materia y calidez a la cocina.",
+      "Dettaglio del piano in legno naturale, scelto per aggiungere materia e calore alla cucina.",
+      "Natural-wood counter detail chosen to add materiality and warmth to the kitchen."
     ),
     tr(
-      "Armarios a medida en madera natural, pensados para crear orden real sin recargar los interiores.",
-      "Armadiatura su misura in legno naturale, pensata per dare ordine reale senza appesantire gli interni.",
-      "Bespoke natural-wood storage designed to create real order without visually weighing down the interior."
+      "Distribución interior con escalera integrada, arcos suaves y continuidad entre las distintas zonas.",
+      "Distribuzione interna con scala integrata, archi morbidi e continuità tra le diverse zone.",
+      "Interior layout with integrated staircase, soft arches and continuity between the different areas."
     ),
     tr(
-      "Dormitorio luminoso con acceso a la terraza: confort privado, luz y continuidad con el exterior.",
-      "Camera luminosa con accesso alla terrazza: comfort privato, luce e continuità con l'esterno.",
-      "Bright bedroom with terrace access: private comfort, light and continuity with the outdoor space."
+      "Open space luminoso con grandes ventanas y pavimento continuo para una percepción más amplia.",
+      "Open space luminoso con grandi finestre e pavimento continuo per una percezione più ampia.",
+      "Bright open space with large windows and continuous flooring for a wider sense of space."
     ),
     tr(
-      "Baño con bañera freestanding y ducha walk-in, donde la funcionalidad se une a una sensación más premium.",
-      "Bagno con vasca freestanding e doccia walk-in, dove la funzionalità incontra una sensazione più premium.",
-      "Bathroom with freestanding tub and walk-in shower, where functionality meets a more premium feeling."
+      "Escalera y cocina conectadas dentro de una distribución clara, fluida y completamente renovada.",
+      "Scala e cucina collegate dentro una distribuzione chiara, fluida e completamente rinnovata.",
+      "Staircase and kitchen connected within a clear, fluid and fully renovated layout."
     ),
     tr(
-      "Doble lavabo sobre mueble de madera: una elección práctica que hace el baño más cómodo y elegante.",
-      "Doppio lavabo su mobile in legno: una scelta pratica che rende il bagno più comodo e più elegante.",
-      "Double vanity on a wooden unit: a practical choice that makes the bathroom more comfortable and elegant."
-    ),
-    tr(
-      "Detalle de ducha con textura efecto piedra y grifería oscura, para un lenguaje natural y contemporáneo.",
-      "Dettaglio doccia con texture effetto pietra e rubinetteria scura, per un linguaggio naturale e contemporaneo.",
-      "Shower detail with stone-effect texture and dark fittings, creating a natural and contemporary language."
+      "Chimenea contemporánea enmarcada en negro como punto focal del living y conexión visual con el jardín.",
+      "Camino contemporaneo incorniciato in nero come punto focale del living e collegamento visivo con il giardino.",
+      "Contemporary black-framed fireplace as the living-room focal point and a visual link to the garden."
     ),
   ],
 
   "warm-contemporary-apartment-transformation": [
     tr(
-      "Zona de comedor y cocina abierta: el paso de un apartamento cerrado a un espacio cálido y convivial.",
-      "Zona pranzo e cucina aperta: il passaggio da appartamento chiuso a spazio caldo e conviviale.",
-      "Dining area and open kitchen: the shift from a closed apartment to a warm, social space."
+      "Living cálido con tonos naturales, textiles suaves y acceso directo a la terraza.",
+      "Living caldo con toni naturali, tessuti morbidi e accesso diretto alla terrazza.",
+      "Warm living room with natural tones, soft textiles and direct terrace access."
     ),
     tr(
-      "Vista frontal de la cocina en madera natural y encimera clara, con líneas simples y una lectura más contemporánea.",
-      "Cucina frontale in legno naturale e piano chiaro, con linee semplici e una lettura più contemporanea.",
-      "Front kitchen view with natural wood and a light worktop, simple lines and a more contemporary reading."
+      "Comedor a medida conectado con la cocina para crear un espacio más social y funcional.",
+      "Zona pranzo su misura collegata alla cucina per creare uno spazio più sociale e funzionale.",
+      "Bespoke dining area connected to the kitchen to create a more social and functional space."
     ),
     tr(
-      "Almacenaje en madera y detalles a medida para hacer que un espacio pequeño sea más ordenado y funcional.",
-      "Contenitori in legno e dettagli su misura per rendere lo spazio piccolo più ordinato e funzionale.",
-      "Wood storage and bespoke details designed to make the compact space more ordered and functional."
+      "Dormitorio acogedor con iluminación ambiental y una paleta neutra pensada para el descanso.",
+      "Camera accogliente con illuminazione d'atmosfera e una palette neutra pensata per il riposo.",
+      "Welcoming bedroom with ambient lighting and a neutral palette designed for rest."
     ),
     tr(
-      "Mesa de comedor en madera natural: un elemento sencillo que aporta calidez y atmósfera ibicenca.",
-      "Tavolo pranzo in legno naturale: un elemento semplice che porta calore e atmosfera ibizenca.",
-      "Natural-wood dining table: a simple element that brings warmth and an Ibiza feeling."
+      "Cocina abierta en madera natural, con almacenamiento integrado y una distribución más contemporánea.",
+      "Cucina aperta in legno naturale, con contenimento integrato e una distribuzione più contemporanea.",
+      "Open natural-wood kitchen with integrated storage and a more contemporary layout."
     ),
     tr(
-      "Baño con mueble lavabo de madera, microcemento y luz cálida para una sensación más suave.",
-      "Bagno con mobile lavabo in legno, microcemento e luce calda per una sensazione più morbida.",
-      "Bathroom with wooden vanity, microcement and warm light for a softer feeling."
-    ),
-    tr(
-      "Ducha walk-in y acabados continuos: el baño se vuelve más limpio, actual y fácil de vivir.",
-      "Doccia walk-in e finiture continue: il bagno diventa più pulito, attuale e facile da vivere.",
-      "Walk-in shower and continuous finishes: the bathroom becomes cleaner, more current and easier to live with."
-    ),
-    tr(
-      "Pared texturizada con luz LED indirecta, pensada para cambiar la atmósfera sin recargar el espacio.",
-      "Parete materica con luce LED indiretta, pensata per cambiare l'atmosfera senza appesantire lo spazio.",
-      "Textured wall with indirect LED light, designed to change the atmosphere without weighing down the space."
-    ),
-    tr(
-      "Detalle de microcemento y acabado continuo: materia, simplicidad y coherencia visual.",
-      "Dettaglio di microcemento e finitura continua: materia, semplicità e coerenza visiva.",
-      "Microcement and continuous finish detail: materiality, simplicity and visual coherence."
+      "Baño con doble lámpara colgante, espejo orgánico y acabados continuos de tono cálido.",
+      "Bagno con doppia lampada sospesa, specchio organico e finiture continue dai toni caldi.",
+      "Bathroom with twin pendant lights, an organic mirror and warm continuous finishes."
     ),
   ],
 
   "authentic-ibiza-finca-restoration": [
     tr(
-      "Entrada interior con piedra original, vigas y travertino: el carácter auténtico de la finca sigue siendo protagonista.",
-      "Ingresso interno con pietra originale, travi e travertino: il carattere autentico della finca resta protagonista.",
-      "Interior hall with original stone, beams and travertine: the authentic character of the finca stays central."
+      "Dos estancias conectadas por un volumen de piedra original, con vigas vistas y travertino continuo.",
+      "Due ambienti collegati da un volume in pietra originale, con travi a vista e travertino continuo.",
+      "Two rooms connected by an original stone volume, with exposed beams and continuous travertine."
     ),
     tr(
-      "Estancia restaurada con muros de piedra antigua y luz cálida, recuperada sin borrar su identidad.",
-      "Stanza restaurata con muri in pietra antica e luce calda, recuperata senza cancellarne l'identità.",
-      "Restored room with ancient stone walls and warm light, recovered without erasing its identity."
+      "Fachada original de piedra restaurada para conservar la presencia histórica de la finca.",
+      "Facciata originale in pietra restaurata per conservare la presenza storica della finca.",
+      "Original stone façade restored to preserve the historic presence of the finca."
     ),
     tr(
-      "Paredes de piedra y vigas de madera: el detalle que mejor cuenta respeto, materia y artesanía.",
-      "Pareti in pietra e travi in legno: il dettaglio che racconta meglio rispetto, materia e artigianalità.",
-      "Stone walls and wooden beams: the detail that best tells the story of respect, material and craft."
+      "Muro de piedra con estantes integrados, donde la intervención contemporánea respeta la materia existente.",
+      "Muro in pietra con mensole integrate, dove l'intervento contemporaneo rispetta la materia esistente.",
+      "Stone wall with integrated shelves, where the contemporary intervention respects the existing material."
     ),
     tr(
-      "Living rústico con pavimento de travertino, donde la finca se vuelve más habitable sin perder alma.",
-      "Living rustico con pavimento in travertino, dove la finca diventa più vivibile senza perdere anima.",
-      "Rustic living area with travertine floor, where the finca becomes more liveable without losing its soul."
-    ),
-    tr(
-      "Cocina en piedra con arco natural y vigas vistas: una solución coherente con la historia de la casa.",
-      "Cucina in pietra con arco naturale e travi a vista: una soluzione coerente con la storia della casa.",
-      "Stone kitchen with natural arch and exposed beams: a solution aligned with the history of the house."
-    ),
-    tr(
-      "Isla de cocina con piedra y encimera natural, pensada como punto práctico y matérico del espacio.",
-      "Isola cucina con pietra e piano naturale, pensata come punto pratico e materico dello spazio.",
-      "Kitchen island with stone and a natural worktop, designed as a practical and material focal point."
-    ),
-    tr(
-      "Baño con bañera freestanding y detalles naturales: confort contemporáneo dentro de un lenguaje rústico.",
-      "Bagno con vasca freestanding e dettagli naturali: comfort contemporaneo dentro un linguaggio rustico.",
-      "Bathroom with freestanding tub and natural details: contemporary comfort within a rustic language."
-    ),
-    tr(
-      "Exterior blanco de la finca, con piedra original y pavimento natural para mantener la identidad ibicenca.",
-      "Esterno bianco della finca, con pietra originale e pavimentazione naturale per mantenere l'identità ibizenca.",
-      "White finca exterior, with original stone and natural paving to preserve the Ibizan identity."
+      "Paso hacia el baño con microcemento, madera y piedra, integrado dentro del lenguaje rústico de la casa.",
+      "Passaggio verso il bagno con microcemento, legno e pietra, integrato nel linguaggio rustico della casa.",
+      "Passage to the bathroom with microcement, wood and stone, integrated into the home's rustic language."
     ),
   ],
 
@@ -208,34 +168,49 @@ const captions: Record<string, string[]> = {
 
   "investment-oriented-villa-makeover": [
     tr(
-      "Open space living y comedor con luz natural: una nueva percepción de la villa sin cambiar su estructura.",
-      "Open space living e dining con luce naturale: una nuova percezione della villa senza stravolgerne la struttura.",
-      "Open-plan living and dining with natural light: a new perception of the villa without altering its structure."
+      "Detalle del baño azul con lavabo de piedra y encimera de madera natural.",
+      "Dettaglio del bagno blu con lavabo in pietra e piano in legno naturale.",
+      "Blue bathroom detail with a stone basin and natural-wood countertop."
     ),
     tr(
-      "Zona de comedor y living con mobiliario natural, donde el makeover aumenta de inmediato el valor percibido.",
-      "Zona pranzo e living con arredi naturali, dove il makeover aumenta subito il valore percepito.",
-      "Dining and living area with natural furnishings, where the makeover immediately raises perceived value."
+      "Baño completo en microcemento azul, con doble lavabo y un carácter mediterráneo muy definido.",
+      "Bagno completo in microcemento blu, con doppio lavabo e un carattere mediterraneo molto deciso.",
+      "Full blue microcement bathroom with double vanity and a strong Mediterranean character."
     ),
     tr(
-      "Detalle de chimenea y texturas naturales: pocos cambios bien dirigidos transforman el carácter de la casa.",
-      "Dettaglio camino e texture naturali: pochi interventi mirati cambiano il carattere della casa.",
-      "Fireplace detail and natural textures: targeted interventions change the character of the home."
+      "Puerta y armario en madera reinterpretados para aportar textura rústica sin cambiar la estructura de la villa.",
+      "Porta e armadio in legno reinterpretati per aggiungere texture rustica senza cambiare la struttura della villa.",
+      "Reworked wooden door and wardrobe adding rustic texture without changing the villa structure."
     ),
     tr(
-      "Terraza cubierta con vigas y zona relax, pensada para reforzar la experiencia exterior.",
-      "Terrazza coperta con travi e zona relax, pensata per rendere più forte l'esperienza outdoor.",
-      "Covered terrace with beams and a lounge area, designed to strengthen the outdoor experience."
+      "Terraza superior abierta y luminosa, con vistas despejadas y una lectura más contemporánea del exterior.",
+      "Terrazza superiore aperta e luminosa, con vista libera e una lettura più contemporanea dell'esterno.",
+      "Bright open rooftop terrace with clear views and a more contemporary outdoor feel."
     ),
     tr(
-      "Jardín mediterráneo con grava y plantas resistentes, coherente con una villa más atractiva y fácil de gestionar.",
-      "Giardino mediterraneo con ghiaia e piante resistenti, coerente con una villa più attraente e gestibile.",
-      "Mediterranean garden with gravel and resilient planting, aligned with a more attractive and manageable villa."
+      "Exterior blanco de la villa renovado con líneas limpias y una imagen mediterránea más actual.",
+      "Esterno bianco della villa rinnovato con linee pulite e un'immagine mediterranea più attuale.",
+      "White villa exterior renewed with clean lines and a more current Mediterranean appearance."
     ),
     tr(
-      "Baño con microcemento azul y lavabo de piedra: un detalle distintivo que eleva la percepción del proyecto.",
-      "Bagno con microcemento blu e lavabo in pietra: un dettaglio distintivo che alza la percezione del progetto.",
-      "Bathroom with blue microcement and stone basin: a distinctive detail that raises the perception of the project."
+      "Terraza cubierta con vigas naturales y zona de relax conectada con el paisaje de Ibiza.",
+      "Terrazza coperta con travi naturali e zona relax collegata al paesaggio di Ibiza.",
+      "Covered terrace with natural beams and a relaxation area connected to the Ibiza landscape."
+    ),
+    tr(
+      "Dormitorio sereno con madera, fibras naturales y una atmósfera cálida y sencilla.",
+      "Camera serena con legno, fibre naturali e un'atmosfera calda e semplice.",
+      "Calm bedroom with wood, natural fibres and a warm, simple atmosphere."
+    ),
+    tr(
+      "Comedor y living en un único espacio abierto, con luz natural y materiales que elevan el valor percibido.",
+      "Zona pranzo e living in un unico spazio aperto, con luce naturale e materiali che aumentano il valore percepito.",
+      "Dining and living in one open space, with natural light and materials that raise perceived value."
+    ),
+    tr(
+      "Vista desde la villa hacia la piscina y la terraza, integradas en una experiencia exterior más atractiva.",
+      "Vista dalla villa verso piscina e terrazza, integrate in un'esperienza esterna più attrattiva.",
+      "View from the villa towards the pool and terrace, integrated into a more attractive outdoor experience."
     ),
   ],
 };
