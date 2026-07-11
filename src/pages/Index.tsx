@@ -10,7 +10,7 @@ import { tr } from "@/lib/i18n";
 import { ArrowRight, Check } from "lucide-react";
 
 const heroImg = `${import.meta.env.BASE_URL}media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp`;
-const materialsAtmosphereImg = `${import.meta.env.BASE_URL}media/projects/casa-charlie/casa-charlie-ibiza-original-stone-exterior.webp`;
+const materialsAtmosphereImg = `${import.meta.env.BASE_URL}media/home/eivitech-ibiza-materiali-atmosfera-lavabo-pietra.webp`;
 
 const pillars = [
   {
@@ -162,7 +162,7 @@ const Index = () => (
     <section className="section">
       <div className="container-x grid gap-10 lg:grid-cols-2 lg:items-center">
         <div className="aspect-[4/3] overflow-hidden rounded-sm bg-muted">
-          <img src={materialsAtmosphereImg} alt={tr("Piedra original de finca ibicenca restaurada con materiales naturales", "Pietra originale di finca ibizenca restaurata con materiali naturali", "Original Ibiza finca stone restored with natural materials")} className="h-full w-full object-cover" />
+          <img src={materialsAtmosphereImg} alt={tr("Lavabo de piedra natural y grifería mural en un baño Eivitech en Ibiza", "Lavabo in pietra naturale e rubinetteria a parete in un bagno Eivitech a Ibiza", "Natural stone basin and wall-mounted tapware in an Eivitech bathroom in Ibiza")} className="h-full w-full object-cover" />
         </div>
         <div>
           <div className="eyebrow">{tr("Materiales y atmósfera", "Materiali e atmosfera", "Materials & atmosphere")}</div>
