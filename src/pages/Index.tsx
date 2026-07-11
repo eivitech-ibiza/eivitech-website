@@ -12,6 +12,18 @@ import { ArrowRight, Check } from "lucide-react";
 const heroImg = `${import.meta.env.BASE_URL}media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp`;
 const materialsAtmosphereImg = `${import.meta.env.BASE_URL}media/home/eivitech-ibiza-materiali-atmosfera-lavabo-pietra.webp`;
 
+const HOME_PROJECT_SLUGS = [
+  "investment-oriented-villa-makeover",
+  "luxury-mediterranean-villa-renovation",
+  "warm-contemporary-apartment-transformation",
+  "authentic-ibiza-finca-restoration",
+] as const;
+
+const HOME_PROJECTS = HOME_PROJECT_SLUGS.flatMap((slug) => {
+  const project = PROJECTS.find((item) => item.slug === slug);
+  return project ? [project] : [];
+});
+
 const pillars = [
   {
     title: tr("Atmósfera a través de la luz", "Atmosfera attraverso la luce", "Atmosphere through light"),
@@ -129,7 +141,7 @@ const Index = () => (
           </Link>
         </div>
         <div className="mt-10 grid gap-6 md:grid-cols-2">
-          {PROJECTS.slice(0, 4).map((project, index) => (
+          {HOME_PROJECTS.map((project, index) => (
             <ProjectCard key={project.slug} project={project} priority={index === 0} />
           ))}
         </div>
