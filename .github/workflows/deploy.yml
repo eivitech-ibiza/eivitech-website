@@ -61,10 +61,13 @@ jobs:
         run: npm ci
 
       - name: Type-check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
@@ -78,6 +81,12 @@ jobs:
           VITE_GOOGLE_ADS_ID: ${{ vars.VITE_GOOGLE_ADS_ID || secrets.VITE_GOOGLE_ADS_ID }}
           VITE_GOOGLE_ADS_LEAD_LABEL: ${{ vars.VITE_GOOGLE_ADS_LEAD_LABEL || secrets.VITE_GOOGLE_ADS_LEAD_LABEL }}
           VITE_META_PIXEL_ID: ${{ vars.VITE_META_PIXEL_ID || secrets.VITE_META_PIXEL_ID }}
+
+      - name: Verify SEO output
+        run: npm run seo:check
+
+      - name: Audit production dependencies
+        run: npm run audit:prod
 
       - name: Detect build output directory
         id: detect_output

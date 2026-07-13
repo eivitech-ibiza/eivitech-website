@@ -9,7 +9,11 @@
     "build": "vite build",
     "postbuild": "node scripts/generate-seo-files.mjs --pages",
     "build:dev": "vite build --mode development",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "node --test scripts/*.test.mjs",
+    "seo:check": "node scripts/check-seo-output.mjs",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
     "preview": "vite preview"
   },
   "dependencies": {

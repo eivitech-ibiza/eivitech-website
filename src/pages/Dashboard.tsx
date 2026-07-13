@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { SignInButton, SignOutButton, SignedIn, SignedOut, UserButton, useAuth, useUser } from "@clerk/clerk-react";
+import { ClerkProvider, SignInButton, SignOutButton, SignedIn, SignedOut, UserButton, useAuth, useUser } from "@clerk/clerk-react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -19,7 +19,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
-import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, hasClientAdminAccess } from "@/lib/config";
+import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
 import { addCrmLeadActivity, fetchCrmLeads, updateCrmLead, type CrmLeadUpdatePayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
@@ -1130,6 +1130,37 @@ function RoadmapCard({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+const DashboardAuth = () => (
+  <ClerkProvider
+    publishableKey={CLERK_PUBLISHABLE_KEY}
+    afterSignOutUrl={`${import.meta.env.BASE_URL}`}
+    signInFallbackRedirectUrl={`${import.meta.env.BASE_URL}dashboard`}
+    signUpFallbackRedirectUrl={`${import.meta.env.BASE_URL}dashboard`}
+  >
+    <SignedOut>
+      <section className="container-x py-20">
+        <div className="max-w-2xl rounded-sm border border-border bg-card p-8 shadow-card">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Lock size={22} />
+          </div>
+          <h1 className="display-md mt-5">{tr("Acceso privado al CRM", "Accesso privato al CRM", "Private CRM access")}</h1>
+          <p className="mt-4 text-muted-foreground leading-relaxed">
+            {tr("Inicia sesión con una cuenta autorizada para acceder a la dashboard operativa de Eivitech.", "Accedi con un account autorizzato per entrare nella dashboard operativa di Eivitech.", "Sign in with an authorized account to access the Eivitech operational dashboard.")}
+          </p>
+          <SignInButton mode="modal">
+            <button className="mt-6 rounded-sm bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              {tr("Iniciar sesión", "Accedi", "Sign in")}
+            </button>
+          </SignInButton>
+        </div>
+      </section>
+    </SignedOut>
+    <SignedIn>
+      <DashboardShell />
+    </SignedIn>
+  </ClerkProvider>
+);
+
 const Dashboard = () => (
   <>
     <SEO title="CRM Dashboard | Eivitech Ibiza" description={tr("Dashboard privada para gestión de clientes y partners profesionales Eivitech Ibiza.", "Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Private dashboard to manage Eivitech Ibiza clients and professional partners.")} path="/dashboard" noIndex />
@@ -1145,31 +1176,7 @@ const Dashboard = () => (
           </p>
         </div>
       </section>
-    ) : (
-      <>
-        <SignedOut>
-          <section className="container-x py-20">
-            <div className="max-w-2xl rounded-sm border border-border bg-card p-8 shadow-card">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Lock size={22} />
-              </div>
-              <h1 className="display-md mt-5">{tr("Acceso privado al CRM", "Accesso privato al CRM", "Private CRM access")}</h1>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                {tr("Inicia sesión con una cuenta autorizada para acceder a la dashboard operativa de Eivitech.", "Accedi con un account autorizzato per entrare nella dashboard operativa di Eivitech.", "Sign in with an authorized account to access the Eivitech operational dashboard.")}
-              </p>
-              <SignInButton mode="modal">
-                <button className="mt-6 rounded-sm bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                  {tr("Iniciar sesión", "Accedi", "Sign in")}
-                </button>
-              </SignInButton>
-            </div>
-          </section>
-        </SignedOut>
-        <SignedIn>
-          <DashboardShell />
-        </SignedIn>
-      </>
-    )}
+    ) : <DashboardAuth />}
   </>
 );
 

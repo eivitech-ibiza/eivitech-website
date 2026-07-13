@@ -10,7 +10,7 @@ import { SERVICES } from "@/data/services";
 import { serviceJsonLd, faqJsonLd } from "@/lib/seo";
 import { tr } from "@/lib/i18n";
 import { Check } from "lucide-react";
-const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-mediterraneo/cover.jpg`;
+const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-warm-contemporary-apartment-cover.webp`;
 
 export function ServicePageTemplate({ service }: { service: Service }) {
   const related = (service.relatedProjects || [])
