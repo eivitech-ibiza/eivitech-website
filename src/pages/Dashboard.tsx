@@ -1132,7 +1132,7 @@ function RoadmapCard({ title, items }: { title: string; items: string[] }) {
 
 const Dashboard = () => (
   <>
-    <SEO title="CRM Dashboard | Eivitech Ibiza" description={tr("Dashboard privada para gestión de clientes y partners profesionales Eivitech Ibiza.", "Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Private dashboard to manage Eivitech Ibiza clients and professional partners.")} path="/dashboard" />
+    <SEO title="CRM Dashboard | Eivitech Ibiza" description={tr("Dashboard privada para gestión de clientes y partners profesionales Eivitech Ibiza.", "Dashboard privata per gestione clienti e partner professionali Eivitech Ibiza.", "Private dashboard to manage Eivitech Ibiza clients and professional partners.")} path="/dashboard" noIndex />
     {!CLERK_ENABLED ? (
       <section className="container-x py-20">
         <div className="max-w-2xl rounded-sm border border-border bg-card p-8 shadow-card">

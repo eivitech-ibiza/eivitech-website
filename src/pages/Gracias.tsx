@@ -10,6 +10,7 @@ const Gracias = () => (
       title={tr("Gracias | Eivitech Ibiza", "Grazie | Eivitech Ibiza", "Thank you | Eivitech Ibiza")}
       description={tr("Hemos recibido tu solicitud.", "Abbiamo ricevuto la tua richiesta.", "We have received your request.")}
       path="/gracias"
+      noIndex
     />
     <section className="container-x py-32 text-center">
       <CheckCircle2 size={56} className="mx-auto text-primary" />
@@ -29,7 +30,7 @@ const Gracias = () => (
         >
           {tr("Enviar material por WhatsApp", "Inviare materiale via WhatsApp", "Send material by WhatsApp")}
         </a>
-        <Link to="/proyectos" className="inline-flex items-center rounded-sm border border-foreground/20 px-6 py-3.5 text-sm font-medium hover:bg-foreground/5">
+        <Link to="/transformations" className="inline-flex items-center rounded-sm border border-foreground/20 px-6 py-3.5 text-sm font-medium hover:bg-foreground/5">
           {tr("Ver proyectos mientras tanto", "Guarda i progetti nel frattempo", "View projects in the meantime")}
         </Link>
       </div>

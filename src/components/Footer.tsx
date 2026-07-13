@@ -74,7 +74,7 @@ export function Footer() {
         <div>
           <div className="eyebrow mb-4">{tr("Sitio", "Sito", "Site")}</div>
           <ul className="space-y-2 text-sm">
-            <li><Link to="/proyectos" className="text-muted-foreground hover:text-foreground">{tr("Proyectos", "Progetti", "Projects")}</Link></li>
+            <li><Link to="/transformations" className="text-muted-foreground hover:text-foreground">{tr("Proyectos", "Progetti", "Projects")}</Link></li>
             <li><Link to="/empresa" className="text-muted-foreground hover:text-foreground">{tr("Empresa", "Azienda", "Company")}</Link></li>
             <li><Link to="/contacto" className="text-muted-foreground hover:text-foreground">{tr("Contacto", "Contatto", "Contact")}</Link></li>
             <li><Link to="/privacy-policy" className="text-muted-foreground hover:text-foreground">{tr("Privacidad", "Privacy", "Privacy")}</Link></li>
