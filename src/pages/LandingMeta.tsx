@@ -8,8 +8,8 @@ import { track } from "@/lib/tracking";
 import { MessageCircle } from "lucide-react";
 import { tr } from "@/lib/i18n";
 
-const materiales = `${import.meta.env.BASE_URL}media/projects/casa-vinya/cover.jpg`;
-const apartamento = `${import.meta.env.BASE_URL}media/projects/casa-boas/cover.jpg`;
+const materiales = `${import.meta.env.BASE_URL}media/projects/casa-vinya/casa-vinya-ibiza-natural-wood-counter-detail.webp`;
+const apartamento = `${import.meta.env.BASE_URL}media/projects/modern-minimal-apartment-marina-botafoch/modern-minimal-apartment-marina-botafoch-ibiza-cover.webp`;
 
 const LandingMeta = () => (
   <>

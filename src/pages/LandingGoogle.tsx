@@ -11,7 +11,7 @@ import { track } from "@/lib/tracking";
 import { Phone, MessageCircle, Check } from "lucide-react";
 import { serviceJsonLd, faqJsonLd } from "@/lib/seo";
 import { tr } from "@/lib/i18n";
-const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-vadella/cover.jpg`;
+const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-vadella/casa-vadella-ibiza-investment-villa-makeover-cover.webp`;
 
 const LandingGoogle = () => {
   const benefits = [

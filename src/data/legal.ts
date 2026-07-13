@@ -8,7 +8,7 @@ export const LEGAL = {
   operationalContact: "Greco Daniele Luca",
   email: "info@eivitech.com",
   privacyEmail: "info@eivitech.com",
-  phone: "+34 660 94 53 66",
+  phone: "+34 674 735 188",
   website: "https://eivitech.com",
   domain: "eivitech.com",
   aepdUrl: "https://www.aepd.es",
