@@ -12,6 +12,8 @@ type CrmUser = {
 };
 
 declare global {
+  // Express uses namespace declaration merging for request augmentation.
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       crmUser?: CrmUser;

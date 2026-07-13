@@ -58,11 +58,19 @@ jobs:
         run: npm config set registry https://registry.npmjs.org/
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
 
       - name: Build
         run: npm run build
         env:
+          SITE_URL: https://eivitech.com
+          VITE_SITE_URL: https://eivitech.com
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY || vars.CLERK_PUBLISHABLE_KEY || secrets.VITE_CLERK_PUBLISHABLE_KEY || secrets.CLERK_PUBLISHABLE_KEY }}
           VITE_ALLOWED_ADMIN_EMAILS: ${{ vars.VITE_ALLOWED_ADMIN_EMAILS || vars.BOOTSTRAP_ADMIN_EMAILS || secrets.VITE_ALLOWED_ADMIN_EMAILS || secrets.BOOTSTRAP_ADMIN_EMAILS }}
           VITE_GTM_ID: ${{ vars.VITE_GTM_ID || secrets.VITE_GTM_ID }}

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/generate-seo-files.mjs --sitemap",
     "build": "vite build",
+    "postbuild": "node scripts/generate-seo-files.mjs --pages",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview"

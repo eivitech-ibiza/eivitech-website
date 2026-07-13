@@ -5,7 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "/ibiza-project-accelerator/",
+  // The production site is served from the root of the custom GitHub Pages
+  // domain (https://eivitech.com), not from the repository sub-path.
+  base: "/",
   server: {
     host: "::",
     port: 8080,
