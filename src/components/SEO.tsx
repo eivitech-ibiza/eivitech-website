@@ -15,7 +15,7 @@ type Props = {
   ogType?: "website" | "article";
 };
 
-const DEFAULT_OG_IMAGE = "/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp";
+const DEFAULT_OG_IMAGE = "/media/social/eivitech-og-brand-preview-v1.png";
 
 export function SEO({
   title,
@@ -34,6 +34,7 @@ export function SEO({
 
   const blocks = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
   const canonicalUrl = buildCanonicalUrl(path);
+  const usesDefaultSocialImage = !ogImage;
   const socialImage = absoluteUrl(ogImage || DEFAULT_OG_IMAGE);
   const robots = noIndex
     ? "noindex, nofollow"
@@ -52,11 +53,16 @@ export function SEO({
       <meta property="og:site_name" content="Eivitech Ibiza" />
       <meta property="og:locale" content="es_ES" />
       <meta property="og:image" content={socialImage} />
+      <meta property="og:image:secure_url" content={socialImage} />
+      {usesDefaultSocialImage && <meta property="og:image:type" content="image/png" />}
+      {usesDefaultSocialImage && <meta property="og:image:width" content="1200" />}
+      {usesDefaultSocialImage && <meta property="og:image:height" content="630" />}
       <meta property="og:image:alt" content={title} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={socialImage} />
+      <meta name="twitter:image:alt" content={title} />
       {blocks.map((b, i) => (
         <script key={i} type="application/ld+json">{JSON.stringify(b)}</script>
       ))}
