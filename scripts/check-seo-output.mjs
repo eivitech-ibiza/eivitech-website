@@ -9,6 +9,8 @@ import { indexableRoutes, noIndexRoutes } from "./site-routes.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = resolve(ROOT, "dist");
 const SITE_URL = "https://eivitech.com";
+const SOCIAL_IMAGE_PATH = "media/social/eivitech-og-brand-preview-v1.png";
+const SOCIAL_IMAGE_URL = `${SITE_URL}/${SOCIAL_IMAGE_PATH}`;
 const MAX_ENTRY_RAW_BYTES = 450_000;
 const MAX_ENTRY_GZIP_BYTES = 145_000;
 
@@ -41,7 +43,8 @@ for (const route of indexableRoutes) {
   const canonical = pageUrl(route.path);
   assert.ok(html.includes(`<link rel="canonical" href="${canonical}"`), `Wrong canonical for ${route.path}`);
   assert.ok(html.includes(`<meta property="og:url" content="${canonical}"`), `Wrong Open Graph URL for ${route.path}`);
-  assert.ok(html.includes("<meta name=\"twitter:image\" content=\"https://eivitech.com/"), `Missing absolute Twitter image for ${route.path}`);
+  assert.ok(html.includes(`<meta property="og:image" content="${SOCIAL_IMAGE_URL}"`), `Wrong Open Graph image for ${route.path}`);
+  assert.ok(html.includes(`<meta name="twitter:image" content="${SOCIAL_IMAGE_URL}"`), `Wrong Twitter image for ${route.path}`);
   assert.ok(html.includes("index, follow, max-image-preview:large"), `Indexing directive missing for ${route.path}`);
   assert.equal(html.includes("noindex, nofollow"), false, `Canonical route is noindex: ${route.path}`);
 }
@@ -50,6 +53,13 @@ for (const route of noIndexRoutes) {
   const html = readRoute(route.path);
   assert.ok(html.includes("noindex, nofollow"), `Private route is indexable: ${route.path}`);
 }
+
+const socialImageFile = resolve(DIST, SOCIAL_IMAGE_PATH);
+assert.equal(existsSync(socialImageFile), true, `Missing branded social preview: ${socialImageFile}`);
+const socialImage = readFileSync(socialImageFile);
+assert.deepEqual([...socialImage.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], "Social preview is not a PNG");
+assert.equal(socialImage.readUInt32BE(16), 1200, "Social preview width must be 1200px");
+assert.equal(socialImage.readUInt32BE(20), 630, "Social preview height must be 630px");
 
 const notFound = readFileSync(resolve(DIST, "404.html"), "utf8");
 assert.ok(notFound.includes('<meta name="robots" content="noindex, nofollow"'), "Static 404 page must be noindex");
@@ -69,4 +79,5 @@ assert.ok(entryRaw <= MAX_ENTRY_RAW_BYTES, `Entry bundle is too large: ${entryRa
 assert.ok(entryGzip <= MAX_ENTRY_GZIP_BYTES, `Gzipped entry bundle is too large: ${entryGzip} bytes`);
 
 console.log(`SEO output verified: ${sitemapUrls.length} canonical URLs`);
+console.log("Branded social preview verified: 1200x630 PNG");
 console.log(`Entry bundle verified: ${entryRaw} bytes raw, ${entryGzip} bytes gzip`);

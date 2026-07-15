@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { indexableRoutes, noIndexRoutes, redirects } from "./site-routes.mjs";
 
 const SITE_URL = (process.env.SITE_URL || "https://eivitech.com").replace(/\/$/, "");
-const DEFAULT_IMAGE = `${SITE_URL}/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp`;
+const DEFAULT_IMAGE = `${SITE_URL}/media/social/eivitech-og-brand-preview-v1.png`;
 
 function pageUrl(path) {
   if (path === "/") return `${SITE_URL}/`;
@@ -50,6 +50,10 @@ function replaceMeta(html, route, noIndex) {
     .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${url}" />`)
     .replace(/<meta property="og:type"[^>]*>/, `<meta property="og:type" content="${route.type || "website"}" />`)
     .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${DEFAULT_IMAGE}" />`)
+    .replace(/<meta property="og:image:secure_url"[^>]*>/, `<meta property="og:image:secure_url" content="${DEFAULT_IMAGE}" />`)
+    .replace(/<meta property="og:image:type"[^>]*>/, '<meta property="og:image:type" content="image/png" />')
+    .replace(/<meta property="og:image:width"[^>]*>/, '<meta property="og:image:width" content="1200" />')
+    .replace(/<meta property="og:image:height"[^>]*>/, '<meta property="og:image:height" content="630" />')
     .replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}" />`)
     .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}" />`)
     .replace(/<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${DEFAULT_IMAGE}" />`);

@@ -49,6 +49,24 @@ jobs:
           echo "Homepage hero found: $HERO"
           sha256sum "$HERO"
 
+      - name: Render branded social preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v rsvg-convert >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends librsvg2-bin
+          fi
+          mkdir -p public/media/social
+          rsvg-convert \
+            --format=png \
+            --width=1200 \
+            --height=630 \
+            --output=public/media/social/eivitech-og-brand-preview-v1.png \
+            assets/social/eivitech-og-brand-preview-v1.svg
+          test -s public/media/social/eivitech-og-brand-preview-v1.png
+          echo "Branded social preview rendered at 1200x630."
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -147,6 +165,7 @@ jobs:
           test -d "$OUTPUT"
           test -f "$OUTPUT/index.html" || test -f "$OUTPUT/index.htm"
           test -f "$OUTPUT/media/brand/eivitech-logo.svg"
+          test -s "$OUTPUT/media/social/eivitech-og-brand-preview-v1.png"
           test -s "$OUTPUT/${HERO_DIRECTORY}/${HERO_VERSIONED}"
 
       - name: Setup Pages
