@@ -21,6 +21,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Render branded social preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends librsvg2-bin
+          mkdir -p public/media/social
+          rsvg-convert \
+            --format=png \
+            --width=1200 \
+            --height=630 \
+            --output=public/media/social/eivitech-og-brand-preview-v1.png \
+            assets/social/eivitech-og-brand-preview-v1.svg
+          test -s public/media/social/eivitech-og-brand-preview-v1.png
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
