@@ -172,47 +172,56 @@ const captions: Record<string, string[]> = {
     tr(
       "Detalle del baño azul con lavabo de piedra y encimera de madera natural.",
       "Dettaglio del bagno blu con lavabo in pietra e piano in legno naturale.",
-      "Blue bathroom detail with a stone basin and natural-wood countertop."
+      "Blue bathroom detail with a stone basin and natural-wood countertop.",
+      "Detail van de blauwe badkamer met een stenen waskom en een werkblad van natuurlijk hout."
     ),
     tr(
-      "Baño completo en microcemento azul, con doble lavabo y un carácter mediterráneo muy definido.",
-      "Bagno completo in microcemento blu, con doppio lavabo e un carattere mediterraneo molto deciso.",
-      "Full blue microcement bathroom with double vanity and a strong Mediterranean character."
+      "Vista desde la villa hacia la piscina y la terraza, integradas en una experiencia exterior más atractiva.",
+      "Vista dalla villa verso la piscina e la terrazza, integrate in un'esperienza esterna più attrattiva.",
+      "View from the villa towards the pool and terrace, integrated into a more attractive outdoor experience.",
+      "Uitzicht vanuit de villa op het zwembad en het terras, samengebracht in een aantrekkelijkere buitenbeleving."
     ),
     tr(
       "Puerta y armario en madera reinterpretados para aportar textura rústica sin cambiar la estructura de la villa.",
       "Porta e armadio in legno reinterpretati per aggiungere texture rustica senza cambiare la struttura della villa.",
-      "Reworked wooden door and wardrobe adding rustic texture without changing the villa structure."
+      "Reworked wooden door and wardrobe adding rustic texture without changing the villa structure.",
+      "Herwerkte houten deur en kast voegen een rustieke textuur toe zonder de structuur van de villa te veranderen."
     ),
     tr(
-      "Terraza superior abierta y luminosa, con vistas despejadas y una lectura más contemporánea del exterior.",
-      "Terrazza superiore aperta e luminosa, con vista libera e una lettura più contemporanea dell'esterno.",
-      "Bright open rooftop terrace with clear views and a more contemporary outdoor feel."
-    ),
-    tr(
-      "Exterior blanco de la villa renovado con líneas limpias y una imagen mediterránea más actual.",
-      "Esterno bianco della villa rinnovato con linee pulite e un'immagine mediterranea più attuale.",
-      "White villa exterior renewed with clean lines and a more current Mediterranean appearance."
-    ),
-    tr(
-      "Terraza cubierta con vigas naturales y zona de relax conectada con el paisaje de Ibiza.",
-      "Terrazza coperta con travi naturali e zona relax collegata al paesaggio di Ibiza.",
-      "Covered terrace with natural beams and a relaxation area connected to the Ibiza landscape."
+      "Terraza cubierta con vigas naturales y zona de relax conectada con el paisaje de Cala Carbó.",
+      "Terrazza coperta con travi naturali e zona relax collegata al paesaggio di Cala Carbó.",
+      "Covered terrace with natural beams and a relaxation area connected to the Cala Carbó landscape.",
+      "Overdekt terras met natuurlijke balken en een ontspanningszone die aansluit op het landschap van Cala Carbó."
     ),
     tr(
       "Dormitorio sereno con madera, fibras naturales y una atmósfera cálida y sencilla.",
       "Camera serena con legno, fibre naturali e un'atmosfera calda e semplice.",
-      "Calm bedroom with wood, natural fibres and a warm, simple atmosphere."
+      "Calm bedroom with wood, natural fibres and a warm, simple atmosphere.",
+      "Rustige slaapkamer met hout, natuurlijke vezels en een warme, eenvoudige sfeer."
     ),
     tr(
       "Comedor y living en un único espacio abierto, con luz natural y materiales que elevan el valor percibido.",
       "Zona pranzo e living in un unico spazio aperto, con luce naturale e materiali che aumentano il valore percepito.",
-      "Dining and living in one open space, with natural light and materials that raise perceived value."
+      "Dining and living in one open space, with natural light and materials that raise perceived value.",
+      "Eet- en leefruimte in één open geheel, met natuurlijk licht en materialen die de waargenomen waarde verhogen."
     ),
     tr(
-      "Vista desde la villa hacia la piscina y la terraza, integradas en una experiencia exterior más atractiva.",
-      "Vista dalla villa verso piscina e terrazza, integrate in un'esperienza esterna più attrattiva.",
-      "View from the villa towards the pool and terrace, integrated into a more attractive outdoor experience."
+      "Baño completo en microcemento azul, con doble lavabo y un carácter mediterráneo muy definido.",
+      "Bagno completo in microcemento blu, con doppio lavabo e un carattere mediterraneo molto deciso.",
+      "Full blue microcement bathroom with double vanity and a strong Mediterranean character.",
+      "Volledig uitgevoerde badkamer in blauw microcement, met dubbele wastafel en een uitgesproken mediterrane uitstraling."
+    ),
+    tr(
+      "Terraza superior abierta y luminosa, con vistas despejadas y una lectura más contemporánea del exterior.",
+      "Terrazza superiore aperta e luminosa, con vista libera e una lettura più contemporanea dell'esterno.",
+      "Bright open rooftop terrace with clear views and a more contemporary outdoor feel.",
+      "Open en licht dakterras met vrij uitzicht en een eigentijdser buitenkarakter."
+    ),
+    tr(
+      "Exterior blanco de la villa renovado con líneas limpias y una imagen mediterránea más actual.",
+      "Esterno bianco della villa rinnovato con linee pulite e un'immagine mediterranea più attuale.",
+      "White villa exterior renewed with clean lines and a more current Mediterranean appearance.",
+      "De witte buitenzijde van de villa is vernieuwd met strakke lijnen en een eigentijdse mediterrane uitstraling."
     ),
   ],
 };
