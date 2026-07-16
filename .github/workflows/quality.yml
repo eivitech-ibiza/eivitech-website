@@ -34,6 +34,21 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Generate Dutch translation draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check argostranslate
+          python scripts/generate-nl-translations.py
+
+      - name: Upload Dutch translation draft
+        uses: actions/upload-artifact@v4
+        with:
+          name: eivitech-nl-translations
+          path: nl-translations.generated.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Render branded social preview
         shell: bash
         run: |
