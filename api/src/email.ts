@@ -25,17 +25,34 @@ type LeadEmailInput = {
   priority?: string;
 };
 
+type ResendChannelKey = "owner" | "luciano";
+
+type ResendChannel = {
+  key: ResendChannelKey;
+  apiKey?: string;
+  from: string;
+  to: string;
+};
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-const notificationTo = () => splitEmails(process.env.LEAD_NOTIFICATION_TO || "info@eivitech.com");
-const notificationCc = () => splitEmails(process.env.LEAD_NOTIFICATION_CC || "info@lucianonovello.com");
-const notificationFrom = () => process.env.LEAD_NOTIFICATION_FROM || "Eivitech <noreply@eivitech.com>";
+function resendChannels(): ResendChannel[] {
+  const fallbackFrom = process.env.LEAD_NOTIFICATION_FROM || "Eivitech Website <website@notifications.eivitech.com>";
 
-function splitEmails(value: string) {
-  return value
-    .split(",")
-    .map((email) => email.trim())
-    .filter(Boolean);
+  return [
+    {
+      key: "owner",
+      apiKey: process.env.RESEND_OWNER_API_KEY || process.env.RESEND_API_KEY,
+      from: process.env.RESEND_OWNER_FROM || fallbackFrom,
+      to: process.env.RESEND_OWNER_TO || "info@eivitech.com",
+    },
+    {
+      key: "luciano",
+      apiKey: process.env.RESEND_LUCIANO_API_KEY,
+      from: process.env.RESEND_LUCIANO_FROM || fallbackFrom,
+      to: process.env.RESEND_LUCIANO_TO || "lncoachmrc@gmail.com",
+    },
+  ];
 }
 
 function safe(value?: string | number | null) {
@@ -85,6 +102,7 @@ Data invio: ${safe(lead.timestamp || new Date().toISOString())}`;
 
 async function recordEmailAutomationEvent(
   leadId: string,
+  eventType: string,
   payload: Record<string, unknown>,
   status: "sent" | "failed" | "skipped",
   errorMessage: string | null = null
@@ -92,62 +110,170 @@ async function recordEmailAutomationEvent(
   try {
     await query(
       `INSERT INTO crm_automation_events (lead_id, event_type, provider, payload, status, error_message)
-       VALUES ($1, 'lead.email_notification', 'resend', $2, $3, $4)`,
-      [leadId, JSON.stringify(payload), status, errorMessage]
+       VALUES ($1, $2, 'resend', $3, $4, $5)`,
+      [leadId, eventType, JSON.stringify(payload), status, errorMessage]
     );
   } catch (error) {
     console.error("[email] failed to record email automation event", error);
   }
 }
 
-export async function notifyLeadByEmail(lead: LeadEmailInput) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const to = notificationTo();
-  const cc = notificationCc();
-  const from = notificationFrom();
-  const subject = `Nuova richiesta Eivitech — ${lead.nombre || "senza nome"}`;
+async function upsertNotification(
+  leadId: string,
+  channel: ResendChannel,
+  status: "pending" | "sent" | "failed" | "skipped",
+  details: {
+    resendEmailId?: string | null;
+    errorMessage?: string | null;
+    payload?: Record<string, unknown>;
+  } = {}
+) {
+  const eventAt = new Date().toISOString();
+
+  try {
+    await query(
+      `INSERT INTO crm_email_notifications (
+         lead_id, account_key, recipient, from_address, resend_email_id, status,
+         sent_at, last_event_at, error_message, payload
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6,
+         CASE WHEN $6 = 'sent' THEN $7::timestamptz ELSE NULL END,
+         $7::timestamptz, $8, $9::jsonb
+       )
+       ON CONFLICT (lead_id, account_key)
+       DO UPDATE SET
+         recipient = EXCLUDED.recipient,
+         from_address = EXCLUDED.from_address,
+         resend_email_id = COALESCE(EXCLUDED.resend_email_id, crm_email_notifications.resend_email_id),
+         status = EXCLUDED.status,
+         sent_at = CASE
+           WHEN EXCLUDED.status = 'sent' THEN COALESCE(crm_email_notifications.sent_at, EXCLUDED.last_event_at)
+           ELSE crm_email_notifications.sent_at
+         END,
+         last_event_at = EXCLUDED.last_event_at,
+         error_message = EXCLUDED.error_message,
+         payload = crm_email_notifications.payload || EXCLUDED.payload,
+         updated_at = now()`,
+      [
+        leadId,
+        channel.key,
+        channel.to,
+        channel.from,
+        details.resendEmailId || null,
+        status,
+        eventAt,
+        details.errorMessage || null,
+        JSON.stringify(details.payload || {}),
+      ]
+    );
+  } catch (error) {
+    console.error(`[email] failed to persist ${channel.key} notification state`, error);
+  }
+}
+
+async function sendLeadNotification(channel: ResendChannel, lead: LeadEmailInput) {
+  const requestType = labelTipoRichiesta(lead);
+  const subject = `Nuova richiesta Eivitech — ${requestType} — ${lead.nombre || "senza nome"}`;
   const text = formatLeadEmailText(lead);
-  const payload = { to, cc, from, subject, leadId: lead.leadId };
+  const payloadSummary = {
+    accountKey: channel.key,
+    to: channel.to,
+    from: channel.from,
+    subject,
+    leadId: lead.leadId,
+  };
 
-  if (!apiKey) {
-    console.warn("[email] RESEND_API_KEY missing: lead notification skipped");
-    await recordEmailAutomationEvent(lead.leadId, payload, "skipped", "RESEND_API_KEY missing");
+  if (!channel.apiKey) {
+    const variableName = channel.key === "owner" ? "RESEND_OWNER_API_KEY" : "RESEND_LUCIANO_API_KEY";
+    const message = `${variableName} missing`;
+    console.warn(`[email] ${message}: notification skipped`);
+
+    await upsertNotification(lead.leadId, channel, "skipped", {
+      errorMessage: message,
+      payload: payloadSummary,
+    });
+
+    await recordEmailAutomationEvent(
+      lead.leadId,
+      `lead.email_notification.${channel.key}`,
+      payloadSummary,
+      "skipped",
+      message
+    );
     return;
   }
 
-  if (to.length === 0) {
-    console.warn("[email] LEAD_NOTIFICATION_TO is empty: lead notification skipped");
-    await recordEmailAutomationEvent(lead.leadId, payload, "skipped", "LEAD_NOTIFICATION_TO empty");
-    return;
-  }
+  await upsertNotification(lead.leadId, channel, "pending", { payload: payloadSummary });
 
   try {
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${channel.apiKey}`,
         "Content-Type": "application/json",
+        "Idempotency-Key": `eivitech-lead-${lead.leadId}-${channel.key}`,
       },
       body: JSON.stringify({
-        from,
-        to,
-        cc,
+        from: channel.from,
+        to: [channel.to],
         subject,
         text,
         reply_to: lead.email,
+        tags: [
+          { name: "lead_id", value: lead.leadId },
+          { name: "account", value: channel.key },
+          { name: "request_type", value: requestType === "Collaboratore professionale" ? "partner" : "client" },
+        ],
       }),
     });
 
     const responseText = await response.text().catch(() => "");
+    let responseBody: { id?: string } = {};
+
+    try {
+      responseBody = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      responseBody = {};
+    }
 
     if (!response.ok) {
       throw new Error(`Resend HTTP ${response.status}: ${responseText}`);
     }
 
-    await recordEmailAutomationEvent(lead.leadId, { ...payload, response: responseText }, "sent");
+    if (!responseBody.id) {
+      throw new Error(`Resend response missing email id: ${responseText}`);
+    }
+
+    await upsertNotification(lead.leadId, channel, "sent", {
+      resendEmailId: responseBody.id,
+      payload: { ...payloadSummary, resendEmailId: responseBody.id },
+    });
+
+    await recordEmailAutomationEvent(
+      lead.leadId,
+      `lead.email_notification.${channel.key}`,
+      { ...payloadSummary, resendEmailId: responseBody.id },
+      "sent"
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown email notification error";
-    console.error("[email] failed to send lead notification", message);
-    await recordEmailAutomationEvent(lead.leadId, payload, "failed", message);
+    console.error(`[email] failed to send ${channel.key} lead notification`, message);
+
+    await upsertNotification(lead.leadId, channel, "failed", {
+      errorMessage: message,
+      payload: payloadSummary,
+    });
+
+    await recordEmailAutomationEvent(
+      lead.leadId,
+      `lead.email_notification.${channel.key}`,
+      payloadSummary,
+      "failed",
+      message
+    );
   }
+}
+
+export async function notifyLeadByEmail(lead: LeadEmailInput) {
+  await Promise.all(resendChannels().map((channel) => sendLeadNotification(channel, lead)));
 }
