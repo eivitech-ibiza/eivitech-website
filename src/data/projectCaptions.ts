@@ -216,5 +216,6 @@ const captions: Record<string, string[]> = {
 };
 
 export function getProjectGalleryCaption(slug: string, index: number) {
-  return captions[slug]?.[index];
+  if (index === 0) return undefined;
+  return captions[slug]?.[index - 1];
 }
