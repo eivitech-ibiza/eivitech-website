@@ -84,9 +84,10 @@ const captions: Record<string, string[]> = {
       "Bespoke dining area connected to the kitchen to create a more social and functional space."
     ),
     tr(
-      "Dormitorio acogedor con iluminación ambiental y una paleta neutra pensada para el descanso.",
-      "Camera accogliente con illuminazione d'atmosfera e una palette neutra pensata per il riposo.",
-      "Welcoming bedroom with ambient lighting and a neutral palette designed for rest."
+      "Baño de tonos cálidos con lavabo integrado, grifería negra, espejo orgánico y lámpara colgante de textura artesanal.",
+      "Bagno dai toni caldi con lavabo integrato, rubinetteria nera, specchio organico e lampada a sospensione dalla texture artigianale.",
+      "Warm-toned bathroom with an integrated basin, black fittings, an organic mirror and a textured pendant light.",
+      "Badkamer in warme tinten met een geïntegreerde wastafel, zwarte kranen, een organische spiegel en een hanglamp met ambachtelijke textuur."
     ),
     tr(
       "Cocina abierta en madera natural, con almacenamiento integrado y una distribución más contemporánea.",
@@ -94,9 +95,10 @@ const captions: Record<string, string[]> = {
       "Open natural-wood kitchen with integrated storage and a more contemporary layout."
     ),
     tr(
-      "Baño con doble lámpara colgante, espejo orgánico y acabados continuos de tono cálido.",
-      "Bagno con doppia lampada sospesa, specchio organico e finiture continue dai toni caldi.",
-      "Bathroom with twin pendant lights, an organic mirror and warm continuous finishes."
+      "Dormitorio acogedor con cabecero tapizado, iluminación ambiental cálida y conexión directa con la terraza.",
+      "Camera accogliente con testiera imbottita, illuminazione calda d'atmosfera e collegamento diretto con la terrazza.",
+      "Welcoming bedroom with an upholstered headboard, warm ambient lighting and direct access to the terrace.",
+      "Sfeervolle slaapkamer met een gestoffeerd hoofdbord, warme omgevingsverlichting en directe toegang tot het terras."
     ),
   ],
 
