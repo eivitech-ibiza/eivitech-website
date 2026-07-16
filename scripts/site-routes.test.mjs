@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 import { indexableRoutes, noIndexRoutes, redirects } from "./site-routes.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const GENERATED_MEDIA = new Set([
+  "media/social/eivitech-og-brand-preview-v1.png",
+]);
 
 function walk(directory) {
   return readdirSync(directory).flatMap((entry) => {
@@ -41,7 +44,7 @@ test("private routes stay out of the sitemap and redirects target canonical rout
   }
 });
 
-test("literal public media references resolve to existing files", () => {
+test("literal public media references resolve to existing or build-generated files", () => {
   const sourceFiles = [
     ...walk(resolve(ROOT, "src")).filter((path) => /\.[cm]?[jt]sx?$/.test(path)),
     resolve(ROOT, "index.html"),
@@ -56,6 +59,7 @@ test("literal public media references resolve to existing files", () => {
   }
 
   const missing = [...references]
+    .filter((reference) => !GENERATED_MEDIA.has(reference))
     .filter((reference) => !existsSync(resolve(ROOT, "public", reference)))
     .map((reference) => `${reference} (referenced from src/ or index.html)`);
 
