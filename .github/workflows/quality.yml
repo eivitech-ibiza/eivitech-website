@@ -62,6 +62,11 @@ jobs:
           SITE_URL: https://eivitech.com
           VITE_SITE_URL: https://eivitech.com
 
+      - name: Build CRM API
+        run: |
+          npm install --prefix api
+          npm run build --prefix api
+
       - name: Verify SEO output
         run: npm run seo:check
 
