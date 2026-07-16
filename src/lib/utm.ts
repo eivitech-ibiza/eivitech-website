@@ -1,3 +1,4 @@
+import { CURRENT_LANGUAGE } from "@/lib/i18n";
 import { getStoredConsent } from "@/lib/tracking";
 
 const KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
@@ -33,6 +34,19 @@ function clearSessionAttribution() {
   }
 }
 
+function languageAwareLandingPage(pathname: string) {
+  const url = new URL(pathname || "/", window.location.origin);
+  url.searchParams.set("lang", CURRENT_LANGUAGE);
+  return `${url.pathname}${url.search}`;
+}
+
+function withCurrentLanguage(value: UTM): UTM {
+  return {
+    ...value,
+    landing_page: languageAwareLandingPage(value.landing_page || window.location.pathname),
+  };
+}
+
 export function captureUtm(): UTM {
   if (typeof window === "undefined") return {};
 
@@ -49,7 +63,7 @@ export function captureUtm(): UTM {
   }
 
   if (hasNew) {
-    fromUrl.landing_page = window.location.pathname;
+    fromUrl.landing_page = languageAwareLandingPage(window.location.pathname);
     fromUrl.referrer = document.referrer || "direct";
     fromUrl.timestamp = new Date().toISOString();
     inMemoryUtm = fromUrl;
@@ -61,16 +75,20 @@ export function captureUtm(): UTM {
   }
 
   if (inMemoryUtm) {
-    if (hasAttributionConsent()) saveSessionAttribution(inMemoryUtm);
-    return inMemoryUtm;
+    const current = withCurrentLanguage(inMemoryUtm);
+    inMemoryUtm = current;
+    if (hasAttributionConsent()) saveSessionAttribution(current);
+    return current;
   }
 
   if (hasAttributionConsent()) {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (raw) {
-        inMemoryUtm = JSON.parse(raw) as UTM;
-        return inMemoryUtm;
+        const stored = withCurrentLanguage(JSON.parse(raw) as UTM);
+        inMemoryUtm = stored;
+        saveSessionAttribution(stored);
+        return stored;
       }
     } catch {
       /* noop */
@@ -80,7 +98,7 @@ export function captureUtm(): UTM {
   }
 
   return {
-    landing_page: window.location.pathname,
+    landing_page: languageAwareLandingPage(window.location.pathname),
     referrer: document.referrer || "direct",
     timestamp: new Date().toISOString(),
   };
