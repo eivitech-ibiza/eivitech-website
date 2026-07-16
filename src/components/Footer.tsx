@@ -9,6 +9,7 @@ const LANGUAGE_OPTIONS: { value: LanguageSelection; label: string }[] = [
   { value: "es", label: "ES" },
   { value: "it", label: "IT" },
   { value: "en", label: "EN" },
+  { value: "nl", label: "NL" },
 ];
 
 function openCookiePreferences() {

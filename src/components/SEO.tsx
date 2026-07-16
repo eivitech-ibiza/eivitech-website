@@ -1,6 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useEffect } from "react";
 import { track } from "@/lib/tracking";
+import { CURRENT_LANGUAGE, openGraphLocaleByLanguage } from "@/lib/i18n";
 import { absoluteUrl, canonicalUrl as buildCanonicalUrl } from "@/lib/siteUrl";
 
 type Props = {
@@ -51,7 +52,7 @@ export function SEO({
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:type" content={ogType} />
       <meta property="og:site_name" content="Eivitech Ibiza" />
-      <meta property="og:locale" content="es_ES" />
+      <meta property="og:locale" content={openGraphLocaleByLanguage[CURRENT_LANGUAGE]} />
       <meta property="og:image" content={socialImage} />
       <meta property="og:image:secure_url" content={socialImage} />
       {usesDefaultSocialImage && <meta property="og:image:type" content="image/png" />}
