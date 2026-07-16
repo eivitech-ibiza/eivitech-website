@@ -24,7 +24,7 @@ const Proyecto = () => {
 
   const project = getProject(mappedSlug);
   if (!project) return <Navigate to="/transformations" replace />;
-  return <CaseStudyTemplate project={project} />;
+  return <CaseStudyTemplate key={project.slug} project={project} />;
 };
 
 export default Proyecto;
