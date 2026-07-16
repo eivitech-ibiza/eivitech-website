@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: quality-${{ github.ref }}
@@ -20,20 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-
-      - name: Generate and apply Dutch localization
-        if: ${{ hashFiles('src/lib/nlTranslations.generated.json') == '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check argostranslate
-          python scripts/generate-nl-translations.py
-          python scripts/finalize-nl-translations.py
-          git apply -p1 scripts/dutch-code.patch
-          rm -f nl-translations.generated.json
 
       - name: Render branded social preview
         shell: bash
@@ -86,25 +72,3 @@ jobs:
 
       - name: Audit production dependencies
         run: npm run audit:prod
-
-      - name: Commit generated Dutch localization
-        if: ${{ github.event_name == 'pull_request' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/lib/i18n.ts \
-            src/lib/nlTranslations.ts \
-            src/lib/nlTranslations.generated.json \
-            src/lib/autoTranslate.ts \
-            src/main.tsx \
-            src/components/Footer.tsx \
-            src/components/SEO.tsx \
-            api/src/email.ts \
-            scripts/dutch-localization.test.mjs
-          if ! git diff --cached --quiet; then
-            git commit -m "Add complete Dutch website localization"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
