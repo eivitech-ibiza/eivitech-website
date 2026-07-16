@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Project } from "@/data/projects";
 import { SEO } from "@/components/SEO";
@@ -10,6 +10,7 @@ import { tr } from "@/lib/i18n";
 import { resolveProjectMediaPath } from "@/lib/projectMedia";
 
 const fallbackImage = `${import.meta.env.BASE_URL}placeholder.svg`;
+const SWIPE_THRESHOLD = 45;
 
 function withBase(path: string) {
   const resolvedPath = resolveProjectMediaPath(path);
@@ -49,10 +50,15 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
   const others = PROJECTS.filter((p) => p.slug !== project.slug).slice(0, 3);
   const path = getProjectPath(project);
   const gallery = project.gallery?.length ? project.gallery : [project.cover];
+  const [heroIndex, setHeroIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
   const activeSrc = lightboxIndex === null ? null : gallery[lightboxIndex];
   const activeCaption = lightboxIndex === null ? "" : getProjectGalleryCaption(project.slug, lightboxIndex) || `${project.name} · ${project.category}`;
+  const heroCaption = getProjectGalleryCaption(project.slug, heroIndex) || `${project.name} · ${project.category}`;
 
+  const showPreviousHeroImage = () => setHeroIndex((current) => (current === 0 ? gallery.length - 1 : current - 1));
+  const showNextHeroImage = () => setHeroIndex((current) => (current === gallery.length - 1 ? 0 : current + 1));
   const closeLightbox = () => setLightboxIndex(null);
   const showPreviousImage = () => setLightboxIndex((current) => {
     if (current === null) return current;
@@ -62,6 +68,11 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
     if (current === null) return current;
     return current === gallery.length - 1 ? 0 : current + 1;
   });
+
+  useEffect(() => {
+    setHeroIndex(0);
+    setLightboxIndex(null);
+  }, [project.slug]);
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -82,6 +93,23 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [lightboxIndex, gallery.length]);
+
+  const handleHeroTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleHeroTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX.current === null || gallery.length < 2) return;
+    const endX = event.changedTouches[0]?.clientX;
+    if (typeof endX !== "number") return;
+
+    const distance = endX - touchStartX.current;
+    touchStartX.current = null;
+
+    if (Math.abs(distance) < SWIPE_THRESHOLD) return;
+    if (distance > 0) showPreviousHeroImage();
+    else showNextHeroImage();
+  };
 
   return (
     <>
@@ -122,8 +150,86 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         </section>
 
         <section className="container-x mt-10">
-          <div className="aspect-[16/10] overflow-hidden rounded-sm bg-muted md:aspect-[16/8]">
-            <ProjectImage src={project.cover} alt={project.name} priority className="h-full w-full object-cover" />
+          <div
+            className="group relative outline-none"
+            role="region"
+            aria-roledescription="carousel"
+            aria-label={tr("Galería principal del proyecto", "Galleria principale del progetto", "Main project gallery")}
+            tabIndex={gallery.length > 1 ? 0 : -1}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                showPreviousHeroImage();
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                showNextHeroImage();
+              }
+            }}
+          >
+            <div
+              className="relative aspect-[16/10] touch-pan-y overflow-hidden rounded-sm bg-muted md:aspect-[16/8]"
+              onTouchStart={handleHeroTouchStart}
+              onTouchEnd={handleHeroTouchEnd}
+            >
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(heroIndex)}
+                className="block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                aria-label={tr("Ampliar imagen actual", "Ingrandisci immagine corrente", "Enlarge current image")}
+              >
+                <ProjectImage
+                  key={`${project.slug}-${gallery[heroIndex]}`}
+                  src={gallery[heroIndex]}
+                  alt={heroCaption}
+                  priority
+                  className="h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in motion-safe:duration-500"
+                />
+              </button>
+
+              {gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={showPreviousHeroImage}
+                    className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-background/90 text-3xl leading-none text-foreground shadow-lg backdrop-blur-sm transition hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:left-5 md:h-12 md:w-12"
+                    aria-label={tr("Imagen anterior", "Immagine precedente", "Previous image")}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={showNextHeroImage}
+                    className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-background/90 text-3xl leading-none text-foreground shadow-lg backdrop-blur-sm transition hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:right-5 md:h-12 md:w-12"
+                    aria-label={tr("Imagen siguiente", "Immagine successiva", "Next image")}
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+            </div>
+
+            {gallery.length > 1 && (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3" role="tablist" aria-label={tr("Seleccionar imagen", "Seleziona immagine", "Select image")}>
+                {gallery.map((src, index) => (
+                  <button
+                    key={`${src}-hero-dot-${index}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={heroIndex === index}
+                    aria-label={`${tr("Mostrar imagen", "Mostra immagine", "Show image")} ${index + 1} ${tr("de", "di", "of")} ${gallery.length}`}
+                    onClick={() => setHeroIndex(index)}
+                    className={`h-2.5 w-2.5 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                      heroIndex === index ? "scale-125 bg-primary" : "bg-border hover:bg-muted-foreground/55"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            <p className="sr-only" aria-live="polite">
+              {heroIndex + 1} / {gallery.length}: {heroCaption}
+            </p>
           </div>
         </section>
 
