@@ -1,9 +1,15 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Globe2, Menu, X } from "lucide-react";
 import { SITE } from "@/data/site";
 import { EivitechLogo } from "@/components/EivitechLogo";
-import { tr } from "@/lib/i18n";
+import {
+  CURRENT_LANGUAGE,
+  changeLanguage,
+  languageLabels,
+  tr,
+  type Language,
+} from "@/lib/i18n";
 
 const NAV = [
   { to: "/", label: tr("Inicio", "Home", "Home") },
@@ -12,6 +18,100 @@ const NAV = [
   { to: "/materials-atmosphere", label: tr("Materiales", "Materiali", "Materials") },
   { to: "/contacto", label: tr("Contacto", "Contatto", "Contact") },
 ];
+
+const HEADER_LANGUAGES: Language[] = ["es", "it", "en", "nl"];
+
+function HeaderLanguageSelector() {
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!languageOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setLanguageOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLanguageOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [languageOpen]);
+
+  const selectLanguage = (language: Language) => {
+    setLanguageOpen(false);
+    if (language !== CURRENT_LANGUAGE) changeLanguage(language);
+  };
+
+  return (
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={languageOpen}
+        aria-label={tr(
+          "Seleccionar idioma",
+          "Seleziona lingua",
+          "Select language",
+          "Taal selecteren",
+        )}
+        onClick={() => setLanguageOpen((current) => !current)}
+        className="inline-flex h-10 min-w-12 items-center justify-center gap-1 rounded-sm border border-border bg-background/80 px-2 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <Globe2 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+        <span>{CURRENT_LANGUAGE.toUpperCase()}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${languageOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {languageOpen && (
+        <div
+          role="menu"
+          aria-label={tr(
+            "Idiomas disponibles",
+            "Lingue disponibili",
+            "Available languages",
+            "Beschikbare talen",
+          )}
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-40 overflow-hidden rounded-sm border border-border bg-background py-1 shadow-lg"
+        >
+          {HEADER_LANGUAGES.map((language) => {
+            const active = language === CURRENT_LANGUAGE;
+            return (
+              <button
+                key={language}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => selectLanguage(language)}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent ${
+                  active ? "bg-accent/60 text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                <span className="w-6 text-xs font-semibold uppercase text-foreground">
+                  {language.toUpperCase()}
+                </span>
+                <span className="flex-1">{languageLabels[language]}</span>
+                {active && <Check aria-hidden="true" className="h-4 w-4" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -59,6 +159,7 @@ export function Header() {
           <a href={SITE.phoneHref} className="text-sm text-muted-foreground hover:text-foreground">
             {SITE.phone}
           </a>
+          <HeaderLanguageSelector />
           <Link
             to="/contacto"
             className="inline-flex items-center rounded-sm bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
@@ -67,13 +168,16 @@ export function Header() {
           </Link>
         </div>
 
-        <button
-          aria-label={open ? tr("Cerrar menú", "Chiudi menu", "Close menu") : tr("Abrir menú", "Apri menu", "Open menu")}
-          onClick={() => setOpen((o) => !o)}
-          className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-sm border border-border"
-        >
-          {open ? <X size={18} /> : <Menu size={18} />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <HeaderLanguageSelector />
+          <button
+            aria-label={open ? tr("Cerrar menú", "Chiudi menu", "Close menu") : tr("Abrir menú", "Apri menu", "Open menu")}
+            onClick={() => setOpen((o) => !o)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-sm border border-border"
+          >
+            {open ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
       </div>
 
       {open && (
