@@ -1,0 +1,23 @@
+name: Inspect Casa Vadella media
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export-media:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload Casa Vadella images
+        uses: actions/upload-artifact@v4
+        with:
+          name: casa-vadella-media
+          path: public/media/projects/casa-vadella/
+          if-no-files-found: error
