@@ -24,7 +24,13 @@ const Proyecto = () => {
 
   const project = getProject(mappedSlug);
   if (!project) return <Navigate to="/transformations" replace />;
-  return <CaseStudyTemplate key={project.slug} project={project} />;
+
+  const projectWithCoverFirst = {
+    ...project,
+    gallery: [project.cover, ...project.gallery.filter((image) => image !== project.cover)],
+  };
+
+  return <CaseStudyTemplate key={project.slug} project={projectWithCoverFirst} />;
 };
 
 export default Proyecto;
