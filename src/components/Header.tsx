@@ -1,7 +1,6 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Globe2, Menu, X } from "lucide-react";
-import { SITE } from "@/data/site";
 import { EivitechLogo } from "@/components/EivitechLogo";
 import {
   CURRENT_LANGUAGE,
@@ -156,9 +155,6 @@ export function Header() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <a href={SITE.phoneHref} className="text-sm text-muted-foreground hover:text-foreground">
-            {SITE.phone}
-          </a>
           <HeaderLanguageSelector />
           <Link
             to="/contacto"
@@ -201,9 +197,6 @@ export function Header() {
             >
               {ctaLabel}
             </Link>
-            <a href={SITE.phoneHref} className="py-3 text-sm text-muted-foreground">
-              {SITE.phone}
-            </a>
           </div>
         </div>
       )}
