@@ -25,32 +25,74 @@ type LeadEmailInput = {
   priority?: string;
 };
 
-type ResendChannelKey = "owner" | "luciano";
+type ResendChannelKey = "owner" | "luciano" | "requester";
+type ResendMessageKind = "internal_notification" | "requester_confirmation";
+type ConfirmationLanguage = "it" | "es" | "en";
 
 type ResendChannel = {
   key: ResendChannelKey;
+  kind: ResendMessageKind;
   apiKey?: string;
   from: string;
   to: string;
+  replyTo: string;
+};
+
+type ConfirmationCopy = {
+  subjectClient: string;
+  subjectPartner: string;
+  greeting: (name: string) => string;
+  introClient: string;
+  introPartner: string;
+  keepEmail: string;
+  reference: string;
+  submittedAt: string;
+  summary: string;
+  requestType: string;
+  clientType: string;
+  propertyType: string;
+  area: string;
+  intervention: string;
+  timing: string;
+  budget: string;
+  message: string;
+  contact: string;
+  closing: string;
 };
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const DEFAULT_SITE_URL = "https://www.eivitech.com";
 
-function resendChannels(): ResendChannel[] {
+function resendChannels(lead: LeadEmailInput): ResendChannel[] {
   const fallbackFrom = process.env.LEAD_NOTIFICATION_FROM || "Eivitech Website <website@notifications.eivitech.com>";
+  const ownerApiKey = process.env.RESEND_OWNER_API_KEY || process.env.RESEND_API_KEY;
+  const ownerFrom = process.env.RESEND_OWNER_FROM || fallbackFrom;
+  const ownerTo = process.env.RESEND_OWNER_TO || "info@eivitech.com";
 
   return [
     {
       key: "owner",
-      apiKey: process.env.RESEND_OWNER_API_KEY || process.env.RESEND_API_KEY,
-      from: process.env.RESEND_OWNER_FROM || fallbackFrom,
-      to: process.env.RESEND_OWNER_TO || "info@eivitech.com",
+      kind: "internal_notification",
+      apiKey: ownerApiKey,
+      from: ownerFrom,
+      to: ownerTo,
+      replyTo: lead.email,
     },
     {
       key: "luciano",
+      kind: "internal_notification",
       apiKey: process.env.RESEND_LUCIANO_API_KEY,
       from: process.env.RESEND_LUCIANO_FROM || fallbackFrom,
       to: process.env.RESEND_LUCIANO_TO || "lncoachmrc@gmail.com",
+      replyTo: lead.email,
+    },
+    {
+      key: "requester",
+      kind: "requester_confirmation",
+      apiKey: ownerApiKey,
+      from: process.env.RESEND_REQUESTER_FROM || ownerFrom,
+      to: lead.email,
+      replyTo: process.env.RESEND_REQUESTER_REPLY_TO || ownerTo,
     },
   ];
 }
@@ -60,11 +102,21 @@ function safe(value?: string | number | null) {
   return String(value);
 }
 
+function humanize(value?: string | null) {
+  if (!value) return "-";
+  const normalized = value.replaceAll("-", " ").trim();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 function labelTipoRichiesta(lead: LeadEmailInput) {
   const message = lead.mensaje || "";
   if (message.includes("[PARTNER_COLLABORATOR_APPLICATION]")) return "Collaboratore professionale";
   if ((lead.source || "").includes("partner")) return "Collaboratore professionale";
   return "Potenziale cliente";
+}
+
+function isPartnerRequest(lead: LeadEmailInput) {
+  return labelTipoRichiesta(lead) === "Collaboratore professionale";
 }
 
 function formatLeadEmailText(lead: LeadEmailInput) {
@@ -98,6 +150,144 @@ UTM source: ${safe(lead.utm_source)}
 UTM medium: ${safe(lead.utm_medium)}
 UTM campaign: ${safe(lead.utm_campaign)}
 Data invio: ${safe(lead.timestamp || new Date().toISOString())}`;
+}
+
+function confirmationLanguage(lead: LeadEmailInput): ConfirmationLanguage {
+  try {
+    const url = new URL(lead.landing_page || DEFAULT_SITE_URL, DEFAULT_SITE_URL);
+    const firstSegment = url.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
+    if (firstSegment === "es") return "es";
+    if (firstSegment === "en") return "en";
+  } catch {
+    // Fall back to Italian when the landing page cannot be parsed.
+  }
+
+  return "it";
+}
+
+const confirmationCopy: Record<ConfirmationLanguage, ConfirmationCopy> = {
+  it: {
+    subjectClient: "Abbiamo ricevuto la tua richiesta — Eivitech",
+    subjectPartner: "Abbiamo ricevuto la tua candidatura — Eivitech",
+    greeting: (name) => `Ciao ${name},`,
+    introClient: "abbiamo ricevuto correttamente la tua richiesta. Il team Eivitech esaminerà le informazioni e ti contatterà per valutare il prossimo passo.",
+    introPartner: "abbiamo ricevuto correttamente la tua candidatura professionale. Il team Eivitech esaminerà le informazioni e ti contatterà se il profilo è coerente con le collaborazioni attive.",
+    keepEmail: "Conserva questa email come conferma e riferimento della richiesta inviata.",
+    reference: "Riferimento richiesta",
+    submittedAt: "Data di invio",
+    summary: "Riepilogo dei dati inviati",
+    requestType: "Tipo di richiesta",
+    clientType: "Profilo",
+    propertyType: "Tipo di proprietà",
+    area: "Zona",
+    intervention: "Intervento",
+    timing: "Tempistica",
+    budget: "Budget",
+    message: "Messaggio",
+    contact: "Per integrare la richiesta con altre informazioni o documenti, puoi rispondere direttamente a questa email.",
+    closing: "A presto,\nil team Eivitech",
+  },
+  es: {
+    subjectClient: "Hemos recibido tu solicitud — Eivitech",
+    subjectPartner: "Hemos recibido tu candidatura — Eivitech",
+    greeting: (name) => `Hola ${name},`,
+    introClient: "hemos recibido correctamente tu solicitud. El equipo de Eivitech revisará la información y se pondrá en contacto contigo para valorar el siguiente paso.",
+    introPartner: "hemos recibido correctamente tu candidatura profesional. El equipo de Eivitech revisará la información y se pondrá en contacto contigo si el perfil encaja con las colaboraciones activas.",
+    keepEmail: "Conserva este correo como confirmación y referencia de la solicitud enviada.",
+    reference: "Referencia de la solicitud",
+    submittedAt: "Fecha de envío",
+    summary: "Resumen de los datos enviados",
+    requestType: "Tipo de solicitud",
+    clientType: "Perfil",
+    propertyType: "Tipo de propiedad",
+    area: "Zona",
+    intervention: "Intervención",
+    timing: "Plazo",
+    budget: "Presupuesto",
+    message: "Mensaje",
+    contact: "Para añadir información o documentos, puedes responder directamente a este correo.",
+    closing: "Hasta pronto,\nel equipo de Eivitech",
+  },
+  en: {
+    subjectClient: "We received your request — Eivitech",
+    subjectPartner: "We received your application — Eivitech",
+    greeting: (name) => `Hello ${name},`,
+    introClient: "we received your request successfully. The Eivitech team will review the information and contact you to assess the next step.",
+    introPartner: "we received your professional application successfully. The Eivitech team will review the information and contact you if your profile matches our current collaboration needs.",
+    keepEmail: "Keep this email as confirmation and a reference for your submitted request.",
+    reference: "Request reference",
+    submittedAt: "Submission date",
+    summary: "Summary of the information submitted",
+    requestType: "Request type",
+    clientType: "Profile",
+    propertyType: "Property type",
+    area: "Area",
+    intervention: "Requested work",
+    timing: "Timing",
+    budget: "Budget",
+    message: "Message",
+    contact: "To add information or documents, you can reply directly to this email.",
+    closing: "Kind regards,\nthe Eivitech team",
+  },
+};
+
+function formatSubmissionDate(timestamp: string | null | undefined, language: ConfirmationLanguage) {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  if (Number.isNaN(date.getTime())) return safe(timestamp);
+
+  const locale = language === "es" ? "es-ES" : language === "en" ? "en-GB" : "it-IT";
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Europe/Madrid",
+  }).format(date);
+}
+
+function formatRequesterConfirmation(lead: LeadEmailInput) {
+  const language = confirmationLanguage(lead);
+  const copy = confirmationCopy[language];
+  const partner = isPartnerRequest(lead);
+  const subject = partner ? copy.subjectPartner : copy.subjectClient;
+  const requestType = partner
+    ? language === "es"
+      ? "Colaborador profesional"
+      : language === "en"
+        ? "Professional collaborator"
+        : "Collaboratore professionale"
+    : language === "es"
+      ? "Cliente potencial"
+      : language === "en"
+        ? "Potential client"
+        : "Potenziale cliente";
+  const siteUrl = process.env.PUBLIC_SITE_URL || DEFAULT_SITE_URL;
+
+  const text = `${copy.greeting(lead.nombre)}
+
+${partner ? copy.introPartner : copy.introClient}
+
+${copy.keepEmail}
+
+${copy.reference}: ${lead.leadId}
+${copy.submittedAt}: ${formatSubmissionDate(lead.timestamp, language)}
+
+${copy.summary}
+
+${copy.requestType}: ${requestType}
+${copy.clientType}: ${humanize(lead.tipoCliente)}
+${copy.propertyType}: ${humanize(lead.tipoPropiedad)}
+${copy.area}: ${safe(lead.zona)}
+${copy.intervention}: ${humanize(lead.intervencion)}
+${copy.timing}: ${humanize(lead.plazo)}
+${copy.budget}: ${safe(lead.presupuesto)}
+${copy.message}: ${safe(lead.mensaje)}
+
+${copy.contact}
+
+${siteUrl}
+
+${copy.closing}`;
+
+  return { subject, text };
 }
 
 async function recordEmailAutomationEvent(
@@ -171,35 +361,39 @@ async function upsertNotification(
   }
 }
 
-async function sendLeadNotification(channel: ResendChannel, lead: LeadEmailInput) {
+function apiKeyVariableName(channel: ResendChannel) {
+  return channel.key === "luciano" ? "RESEND_LUCIANO_API_KEY" : "RESEND_OWNER_API_KEY";
+}
+
+async function sendLeadEmail(channel: ResendChannel, lead: LeadEmailInput) {
   const requestType = labelTipoRichiesta(lead);
-  const subject = `Nuova richiesta Eivitech — ${requestType} — ${lead.nombre || "senza nome"}`;
-  const text = formatLeadEmailText(lead);
+  const confirmation = channel.kind === "requester_confirmation" ? formatRequesterConfirmation(lead) : null;
+  const subject = confirmation?.subject || `Nuova richiesta Eivitech — ${requestType} — ${lead.nombre || "senza nome"}`;
+  const text = confirmation?.text || formatLeadEmailText(lead);
+  const eventType = channel.kind === "requester_confirmation"
+    ? "lead.email_confirmation.requester"
+    : `lead.email_notification.${channel.key}`;
   const payloadSummary = {
     accountKey: channel.key,
+    kind: channel.kind,
     to: channel.to,
     from: channel.from,
+    replyTo: channel.replyTo,
     subject,
     leadId: lead.leadId,
   };
 
   if (!channel.apiKey) {
-    const variableName = channel.key === "owner" ? "RESEND_OWNER_API_KEY" : "RESEND_LUCIANO_API_KEY";
+    const variableName = apiKeyVariableName(channel);
     const message = `${variableName} missing`;
-    console.warn(`[email] ${message}: notification skipped`);
+    console.warn(`[email] ${message}: ${channel.key} email skipped`);
 
     await upsertNotification(lead.leadId, channel, "skipped", {
       errorMessage: message,
       payload: payloadSummary,
     });
 
-    await recordEmailAutomationEvent(
-      lead.leadId,
-      `lead.email_notification.${channel.key}`,
-      payloadSummary,
-      "skipped",
-      message
-    );
+    await recordEmailAutomationEvent(lead.leadId, eventType, payloadSummary, "skipped", message);
     return;
   }
 
@@ -218,10 +412,11 @@ async function sendLeadNotification(channel: ResendChannel, lead: LeadEmailInput
         to: [channel.to],
         subject,
         text,
-        reply_to: lead.email,
+        reply_to: channel.replyTo,
         tags: [
           { name: "lead_id", value: lead.leadId },
           { name: "account", value: channel.key },
+          { name: "message_kind", value: channel.kind },
           { name: "request_type", value: requestType === "Collaboratore professionale" ? "partner" : "client" },
         ],
       }),
@@ -251,29 +446,23 @@ async function sendLeadNotification(channel: ResendChannel, lead: LeadEmailInput
 
     await recordEmailAutomationEvent(
       lead.leadId,
-      `lead.email_notification.${channel.key}`,
+      eventType,
       { ...payloadSummary, resendEmailId: responseBody.id },
       "sent"
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown email notification error";
-    console.error(`[email] failed to send ${channel.key} lead notification`, message);
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    console.error(`[email] failed to send ${channel.key} email`, message);
 
     await upsertNotification(lead.leadId, channel, "failed", {
       errorMessage: message,
       payload: payloadSummary,
     });
 
-    await recordEmailAutomationEvent(
-      lead.leadId,
-      `lead.email_notification.${channel.key}`,
-      payloadSummary,
-      "failed",
-      message
-    );
+    await recordEmailAutomationEvent(lead.leadId, eventType, payloadSummary, "failed", message);
   }
 }
 
 export async function notifyLeadByEmail(lead: LeadEmailInput) {
-  await Promise.all(resendChannels().map((channel) => sendLeadNotification(channel, lead)));
+  await Promise.all(resendChannels(lead).map((channel) => sendLeadEmail(channel, lead)));
 }

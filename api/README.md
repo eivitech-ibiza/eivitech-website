@@ -20,7 +20,7 @@ Required variables:
 - `BOOTSTRAP_ADMIN_EMAILS`
 - `ALLOWED_ORIGIN`
 
-Dual Resend notification variables:
+Internal Resend notification variables:
 
 - `RESEND_OWNER_API_KEY`
 - `RESEND_OWNER_FROM`
@@ -29,12 +29,20 @@ Dual Resend notification variables:
 - `RESEND_LUCIANO_FROM`
 - `RESEND_LUCIANO_TO`
 
-Each API key sends one separate notification. By default:
+By default:
 
 - owner channel → `info@eivitech.com`
 - Luciano channel → `lncoachmrc@gmail.com`
 
-The sender configured in each `*_FROM` variable must be verified inside the Resend account that owns the corresponding API key.
+The sender configured in each `*_FROM` variable must be verified inside the Resend account that owns the corresponding API key. The two internal channels may use separate Resend accounts or the same verified account and sender domain.
+
+Requester confirmation variables:
+
+- `RESEND_REQUESTER_FROM` (optional; defaults to `RESEND_OWNER_FROM`)
+- `RESEND_REQUESTER_REPLY_TO` (optional; defaults to `RESEND_OWNER_TO`)
+- `PUBLIC_SITE_URL` (optional; defaults to `https://www.eivitech.com`)
+
+The confirmation sent to the person who completes the form reuses `RESEND_OWNER_API_KEY`; no third API key is required.
 
 Webhook variables reserved for delivery tracking:
 
@@ -70,10 +78,13 @@ Protected by Clerk + CRM user authorization:
 When either the client form or the professional collaborator form creates a lead:
 
 1. the lead is stored in PostgreSQL;
-2. the owner Resend account sends a notification to `info@eivitech.com`;
-3. Luciano's Resend account sends a separate notification to `lncoachmrc@gmail.com`;
-4. each result is stored independently in `crm_email_notifications`;
-5. one failed channel does not block the other channel or delete the lead.
+2. the owner channel sends an internal notification to `info@eivitech.com`;
+3. the Luciano channel sends a separate internal notification to `lncoachmrc@gmail.com`;
+4. the owner Resend account sends a confirmation to the email address entered in the form;
+5. the confirmation contains the request reference, submission date, a summary of the submitted data, the website address, and a reply path to Eivitech;
+6. the confirmation language follows the landing-page prefix (`/it`, `/es`, or `/en`) and defaults to Italian;
+7. each result is stored independently in `crm_email_notifications` with account keys `owner`, `luciano`, and `requester`;
+8. one failed email does not block the other emails or delete the lead.
 
 ## Security note
 
