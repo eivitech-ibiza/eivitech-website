@@ -21,6 +21,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Upload localization source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: eivitech-localization-source
+          path: |
+            src
+            scripts
+            api/src/email.ts
+            package.json
+            tsconfig*.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Render branded social preview
         shell: bash
         run: |
