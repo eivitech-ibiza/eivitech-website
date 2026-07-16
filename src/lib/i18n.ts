@@ -1,9 +1,11 @@
-export type Language = "es" | "it" | "en";
+export type Language = "es" | "it" | "en" | "nl";
 export type LanguageSelection = Language | "auto";
 
 const FALLBACK_LANGUAGE: Language = "es";
 const STORAGE_KEY = "eivitech_language";
-const SUPPORTED_LANGUAGES: Language[] = ["es", "it", "en"];
+const SUPPORTED_LANGUAGES: Language[] = ["es", "it", "en", "nl"];
+
+let dutchTranslations: Readonly<Record<string, string>> = {};
 
 export function normaliseLanguage(value?: string | null): Language | null {
   if (!value) return null;
@@ -48,9 +50,27 @@ export function detectLanguage(): Language {
 
 export const CURRENT_LANGUAGE: Language = detectLanguage();
 
+export const htmlLocaleByLanguage: Record<Language, string> = {
+  es: "es-ES",
+  it: "it-IT",
+  en: "en-GB",
+  nl: "nl-NL",
+};
+
+export const openGraphLocaleByLanguage: Record<Language, string> = {
+  es: "es_ES",
+  it: "it_IT",
+  en: "en_GB",
+  nl: "nl_NL",
+};
+
 export function initLanguage() {
   if (typeof document === "undefined") return;
-  document.documentElement.lang = CURRENT_LANGUAGE === "es" ? "es-ES" : CURRENT_LANGUAGE === "it" ? "it-IT" : "en-GB";
+  document.documentElement.lang = htmlLocaleByLanguage[CURRENT_LANGUAGE];
+}
+
+export function registerDutchTranslations(translations: Readonly<Record<string, string>>) {
+  dutchTranslations = translations;
 }
 
 export function persistLanguageSelection(selection: LanguageSelection) {
@@ -75,14 +95,36 @@ export function changeLanguage(selection: LanguageSelection) {
   window.location.assign(languageSelectionHref(selection));
 }
 
-export function tr(es: string, it: string, en: string) {
-  if (CURRENT_LANGUAGE === "it") return it || es || en;
-  if (CURRENT_LANGUAGE === "en") return en || es || it;
-  return es || en || it;
+function translateDutchDynamic(english: string) {
+  const exact = dutchTranslations[english];
+  if (exact) return exact;
+
+  const languageOption = english.match(/^Change language to (.+)$/);
+  if (languageOption) return `Taal wijzigen naar ${languageOption[1]}`;
+
+  const partnerMessage = english.match(/^Hi (.+), thanks for applying as an Eivitech professional partner\. Could you send us your portfolio, work area, availability and indicative terms\?$/);
+  if (partnerMessage) {
+    return `Hallo ${partnerMessage[1]}, bedankt voor je aanmelding als professionele samenwerkingspartner van Eivitech. Kun je ons je portfolio, werkgebied, beschikbaarheid en indicatieve voorwaarden sturen?`;
+  }
+
+  const clientMessage = english.match(/^Hi (.+), thanks for contacting Eivitech\. Could you send us photos, videos or plans so we can assess the next step\?$/);
+  if (clientMessage) {
+    return `Hallo ${clientMessage[1]}, bedankt dat je contact hebt opgenomen met Eivitech. Kun je ons foto’s, video’s of plannen sturen, zodat we de volgende stap kunnen beoordelen?`;
+  }
+
+  return null;
+}
+
+export function tr(es: string, it: string, en: string, nl?: string) {
+  if (CURRENT_LANGUAGE === "nl") return nl || translateDutchDynamic(en) || en || es || it;
+  if (CURRENT_LANGUAGE === "it") return it || es || en || nl || dutchTranslations[en];
+  if (CURRENT_LANGUAGE === "en") return en || es || it || nl || dutchTranslations[en];
+  return es || en || it || nl || dutchTranslations[en];
 }
 
 export const languageLabels: Record<Language, string> = {
   es: "Español",
   it: "Italiano",
   en: "English",
+  nl: "Nederlands",
 };

@@ -27,7 +27,7 @@ type LeadEmailInput = {
 
 type ResendChannelKey = "owner" | "luciano" | "requester";
 type ResendMessageKind = "internal_notification" | "requester_confirmation";
-type ConfirmationLanguage = "it" | "es" | "en";
+type ConfirmationLanguage = "it" | "es" | "en" | "nl";
 
 type ResendChannel = {
   key: ResendChannelKey;
@@ -108,6 +108,35 @@ function humanize(value?: string | null) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+
+const DUTCH_LEAD_VALUE_LABELS: Record<string, string> = {
+  propietario: "Eigenaar",
+  comprador: "Koper",
+  inversor: "Investeerder",
+  agencia: "Makelaar / bureau",
+  empresa: "Bedrijf",
+  otro: "Anders",
+  villa: "Villa",
+  apartamento: "Appartement",
+  casa: "Woning",
+  "local-comercial": "Bedrijfsruimte",
+  "reforma-integral": "Volledige renovatie",
+  bano: "Badkamer",
+  cocina: "Keuken",
+  instalaciones: "Installaties",
+  exterior: "Buitenruimte",
+  urgente: "Dringend",
+  "1-3-meses": "1 tot 3 maanden",
+  "3-6-meses": "3 tot 6 maanden",
+  "sin-fecha": "Nog geen vaste datum",
+};
+
+function localizedLeadValue(value: string | null | undefined, language: ConfirmationLanguage) {
+  if (!value) return "-";
+  if (language === "nl") return DUTCH_LEAD_VALUE_LABELS[value] || humanize(value);
+  return humanize(value);
+}
+
 function labelTipoRichiesta(lead: LeadEmailInput) {
   const message = lead.mensaje || "";
   if (message.includes("[PARTNER_COLLABORATOR_APPLICATION]")) return "Collaboratore professionale";
@@ -155,9 +184,15 @@ Data invio: ${safe(lead.timestamp || new Date().toISOString())}`;
 function confirmationLanguage(lead: LeadEmailInput): ConfirmationLanguage {
   try {
     const url = new URL(lead.landing_page || DEFAULT_SITE_URL, DEFAULT_SITE_URL);
+    const queryLanguage = url.searchParams.get("lang")?.toLowerCase();
+    if (queryLanguage === "it" || queryLanguage === "es" || queryLanguage === "en" || queryLanguage === "nl") {
+      return queryLanguage;
+    }
+
     const firstSegment = url.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
-    if (firstSegment === "es") return "es";
-    if (firstSegment === "en") return "en";
+    if (firstSegment === "it" || firstSegment === "es" || firstSegment === "en" || firstSegment === "nl") {
+      return firstSegment;
+    }
   } catch {
     // Fall back to Italian when the landing page cannot be parsed.
   }
@@ -229,13 +264,34 @@ const confirmationCopy: Record<ConfirmationLanguage, ConfirmationCopy> = {
     contact: "To add information or documents, you can reply directly to this email.",
     closing: "Kind regards,\nthe Eivitech team",
   },
+  nl: {
+    subjectClient: "We hebben je aanvraag ontvangen — Eivitech",
+    subjectPartner: "We hebben je aanmelding ontvangen — Eivitech",
+    greeting: (name) => `Hallo ${name},`,
+    introClient: "we hebben je aanvraag goed ontvangen. Het Eivitech-team bekijkt de informatie en neemt contact met je op om de volgende stap te bespreken.",
+    introPartner: "we hebben je professionele aanmelding goed ontvangen. Het Eivitech-team bekijkt de informatie en neemt contact met je op als je profiel aansluit bij onze huidige samenwerkingen.",
+    keepEmail: "Bewaar deze e-mail als bevestiging en referentie van je ingediende aanvraag.",
+    reference: "Referentie van de aanvraag",
+    submittedAt: "Datum van verzending",
+    summary: "Overzicht van de verzonden gegevens",
+    requestType: "Type aanvraag",
+    clientType: "Profiel",
+    propertyType: "Type vastgoed",
+    area: "Regio",
+    intervention: "Gewenste werkzaamheden",
+    timing: "Planning",
+    budget: "Budget",
+    message: "Bericht",
+    contact: "Je kunt rechtstreeks op deze e-mail antwoorden om informatie of documenten toe te voegen.",
+    closing: "Met vriendelijke groet,\nhet Eivitech-team",
+  },
 };
 
 function formatSubmissionDate(timestamp: string | null | undefined, language: ConfirmationLanguage) {
   const date = timestamp ? new Date(timestamp) : new Date();
   if (Number.isNaN(date.getTime())) return safe(timestamp);
 
-  const locale = language === "es" ? "es-ES" : language === "en" ? "en-GB" : "it-IT";
+  const locale = language === "es" ? "es-ES" : language === "en" ? "en-GB" : language === "nl" ? "nl-NL" : "it-IT";
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "long",
     timeStyle: "short",
@@ -253,12 +309,16 @@ function formatRequesterConfirmation(lead: LeadEmailInput) {
       ? "Colaborador profesional"
       : language === "en"
         ? "Professional collaborator"
-        : "Collaboratore professionale"
+        : language === "nl"
+          ? "Professionele samenwerkingspartner"
+          : "Collaboratore professionale"
     : language === "es"
       ? "Cliente potencial"
       : language === "en"
         ? "Potential client"
-        : "Potenziale cliente";
+        : language === "nl"
+          ? "Potentiële klant"
+          : "Potenziale cliente";
   const siteUrl = process.env.PUBLIC_SITE_URL || DEFAULT_SITE_URL;
 
   const text = `${copy.greeting(lead.nombre)}
@@ -273,11 +333,11 @@ ${copy.submittedAt}: ${formatSubmissionDate(lead.timestamp, language)}
 ${copy.summary}
 
 ${copy.requestType}: ${requestType}
-${copy.clientType}: ${humanize(lead.tipoCliente)}
-${copy.propertyType}: ${humanize(lead.tipoPropiedad)}
+${copy.clientType}: ${localizedLeadValue(lead.tipoCliente, language)}
+${copy.propertyType}: ${localizedLeadValue(lead.tipoPropiedad, language)}
 ${copy.area}: ${safe(lead.zona)}
-${copy.intervention}: ${humanize(lead.intervencion)}
-${copy.timing}: ${humanize(lead.plazo)}
+${copy.intervention}: ${localizedLeadValue(lead.intervencion, language)}
+${copy.timing}: ${localizedLeadValue(lead.plazo, language)}
 ${copy.budget}: ${safe(lead.presupuesto)}
 ${copy.message}: ${safe(lead.mensaje)}
 

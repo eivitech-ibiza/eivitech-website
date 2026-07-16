@@ -1,8 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
-import App from "./App.tsx";
 import "./index.css";
-import { initLanguage } from "./lib/i18n";
+import { CURRENT_LANGUAGE, initLanguage, registerDutchTranslations } from "./lib/i18n";
 import { setDefaultConsent } from "./lib/tracking";
 
 const GITHUB_PAGES_REDIRECT_KEY = "eivitech_github_pages_redirect";
@@ -25,12 +24,23 @@ function restoreGitHubPagesRedirect() {
   window.history.replaceState(null, "", finalPath);
 }
 
-setDefaultConsent();
-restoreGitHubPagesRedirect();
-initLanguage();
+async function bootstrap() {
+  setDefaultConsent();
+  restoreGitHubPagesRedirect();
+  initLanguage();
 
-createRoot(document.getElementById("root")!).render(
-  <HelmetProvider>
-    <App />
-  </HelmetProvider>
-);
+  if (CURRENT_LANGUAGE === "nl") {
+    const { DUTCH_TRANSLATIONS } = await import("./lib/nlTranslations");
+    registerDutchTranslations(DUTCH_TRANSLATIONS);
+  }
+
+  const { default: App } = await import("./App.tsx");
+
+  createRoot(document.getElementById("root")!).render(
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  );
+}
+
+void bootstrap();

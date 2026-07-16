@@ -324,7 +324,7 @@ const EN: TranslationMap = {
   "Otros proyectos": "Other projects"
 };
 
-const DICTIONARIES: Record<Exclude<Language, "es">, TranslationMap> = { it: IT, en: EN };
+const DICTIONARIES: Record<Exclude<Language, "es">, TranslationMap> = { it: IT, en: EN, nl: {} };
 const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA"]);
 
 function normalise(value: string) {
