@@ -46,9 +46,10 @@ const captions: Record<string, string[]> = {
       "Central island and wooden cabinetry organise the space through function and bespoke solutions."
     ),
     tr(
-      "Detalle de encimera en madera natural, elegido para aportar materia y calidez a la cocina.",
-      "Dettaglio del piano in legno naturale, scelto per aggiungere materia e calore alla cucina.",
-      "Natural-wood counter detail chosen to add materiality and warmth to the kitchen."
+      "Open space luminoso con grandes ventanas y pavimento continuo para una percepción más amplia.",
+      "Open space luminoso con grandi finestre e pavimento continuo per una percezione più ampia.",
+      "Bright open space with large windows and continuous flooring for a wider sense of space.",
+      "Lichte open ruimte met grote ramen en een doorlopende vloer voor een ruimer gevoel."
     ),
     tr(
       "Distribución interior con escalera integrada, arcos suaves y continuidad entre las distintas zonas.",
@@ -56,9 +57,10 @@ const captions: Record<string, string[]> = {
       "Interior layout with integrated staircase, soft arches and continuity between the different areas."
     ),
     tr(
-      "Open space luminoso con grandes ventanas y pavimento continuo para una percepción más amplia.",
-      "Open space luminoso con grandi finestre e pavimento continuo per una percezione più ampia.",
-      "Bright open space with large windows and continuous flooring for a wider sense of space."
+      "Detalle de encimera en madera natural, elegido para aportar materia y calidez a la cocina.",
+      "Dettaglio del piano in legno naturale, scelto per aggiungere materia e calore alla cucina.",
+      "Natural-wood counter detail chosen to add materiality and warmth to the kitchen.",
+      "Detail van een werkblad in natuurlijk hout, gekozen om materialiteit en warmte aan de keuken toe te voegen."
     ),
     tr(
       "Escalera y cocina conectadas dentro de una distribución clara, fluida y completamente renovada.",
