@@ -2,7 +2,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { indexableRoutes, noIndexRoutes, redirects } from "./site-routes.mjs";
 
-const SITE_URL = (process.env.SITE_URL || "https://eivitech.com").replace(/\/$/, "");
+const SITE_URL = (process.env.SITE_URL || "https://eivitech.com").replace(
+  /\/$/,
+  "",
+);
 const DEFAULT_IMAGE = `${SITE_URL}/media/social/eivitech-og-brand-preview-v1.png`;
 
 function pageUrl(path) {
@@ -11,7 +14,10 @@ function pageUrl(path) {
 }
 
 function xmlEscape(value) {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function htmlEscape(value) {
@@ -24,7 +30,9 @@ function htmlEscape(value) {
 
 function writeSitemap() {
   const urls = indexableRoutes
-    .map(({ path }) => `  <url>\n    <loc>${xmlEscape(pageUrl(path))}</loc>\n  </url>`)
+    .map(
+      ({ path }) => `  <url>\n    <loc>${xmlEscape(pageUrl(path))}</loc>\n  </url>`,
+    )
     .join("\n");
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
   writeFileSync(resolve("public/sitemap.xml"), sitemap);
@@ -38,25 +46,84 @@ function replaceMeta(html, route, noIndex) {
   const robots = noIndex
     ? "noindex, nofollow"
     : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+  const socialImage = route.socialImage
+    ? `${SITE_URL}${route.socialImage}`
+    : DEFAULT_IMAGE;
+  const socialImageAlt = htmlEscape(route.socialImageAlt || route.title);
+  const socialImageType = route.socialImageType || "image/png";
+  const socialImageWidth = String(route.socialImageWidth || 1200);
+  const socialImageHeight = String(route.socialImageHeight || 630);
 
-  return html
+  let output = html
     .replace(/<html lang="[^"]*">/, `<html lang="${route.language || "es"}">`)
     .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
-    .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${description}" />`)
-    .replace(/<meta name="robots"[^>]*>/, `<meta name="robots" content="${robots}" />`)
-    .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${url}" />`)
-    .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}" />`)
-    .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}" />`)
-    .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${url}" />`)
-    .replace(/<meta property="og:type"[^>]*>/, `<meta property="og:type" content="${route.type || "website"}" />`)
-    .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${DEFAULT_IMAGE}" />`)
-    .replace(/<meta property="og:image:secure_url"[^>]*>/, `<meta property="og:image:secure_url" content="${DEFAULT_IMAGE}" />`)
-    .replace(/<meta property="og:image:type"[^>]*>/, '<meta property="og:image:type" content="image/png" />')
-    .replace(/<meta property="og:image:width"[^>]*>/, '<meta property="og:image:width" content="1200" />')
-    .replace(/<meta property="og:image:height"[^>]*>/, '<meta property="og:image:height" content="630" />')
-    .replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}" />`)
-    .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}" />`)
-    .replace(/<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${DEFAULT_IMAGE}" />`);
+    .replace(
+      /<meta name="description"[^>]*>/, `<meta name="description" content="${description}" />`,
+    )
+    .replace(
+      /<meta name="robots"[^>]*>/, `<meta name="robots" content="${robots}" />`,
+    )
+    .replace(
+      /<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${url}" />`,
+    )
+    .replace(
+      /<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}" />`,
+    )
+    .replace(
+      /<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}" />`,
+    )
+    .replace(
+      /<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${url}" />`,
+    )
+    .replace(
+      /<meta property="og:type"[^>]*>/, `<meta property="og:type" content="${route.type || "website"}" />`,
+    )
+    .replace(
+      /<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${socialImage}" />`,
+    )
+    .replace(
+      /<meta property="og:image:secure_url"[^>]*>/, `<meta property="og:image:secure_url" content="${socialImage}" />`,
+    )
+    .replace(
+      /<meta property="og:image:type"[^>]*>/,
+      `<meta property="og:image:type" content="${socialImageType}" />`,
+    )
+    .replace(
+      /<meta property="og:image:width"[^>]*>/,
+      `<meta property="og:image:width" content="${socialImageWidth}" />`,
+    )
+    .replace(
+      /<meta property="og:image:height"[^>]*>/,
+      `<meta property="og:image:height" content="${socialImageHeight}" />`,
+    )
+    .replace(
+      /<meta property="og:image:alt"[^>]*>/,
+      `<meta property="og:image:alt" content="${socialImageAlt}" />`,
+    )
+    .replace(
+      /<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}" />`,
+    )
+    .replace(
+      /<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}" />`,
+    )
+    .replace(
+      /<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${socialImage}" />`,
+    )
+    .replace(
+      /<meta name="twitter:image:alt"[^>]*>/,
+      `<meta name="twitter:image:alt" content="${socialImageAlt}" />`,
+    );
+
+  if (route.jsonLd) {
+    const jsonLd = JSON.stringify(route.jsonLd).replaceAll("<", "\u003c");
+    output = output.replace(
+      "</head>",
+      `    <script type="application/ld+json">${jsonLd}</script>
+  </head>`,
+    );
+  }
+
+  return output;
 }
 
 function writeRouteFile(path, html) {
@@ -87,7 +154,9 @@ function writeStaticPages() {
 
   for (const route of indexableRoutes) {
     if (route.path === "/") {
-      writeFileSync(resolve("dist/index.html"), replaceMeta(template, route, false));
+      writeFileSync(
+        resolve("dist/index.html"), replaceMeta(template, route, false),
+      );
     } else {
       writeRouteFile(route.path, replaceMeta(template, route, false));
     }
@@ -100,7 +169,9 @@ function writeStaticPages() {
   }
 
   writeFileSync(resolve("dist/.nojekyll"), "");
-  console.log(`Static entry pages written (${indexableRoutes.length - 1} canonical, ${noIndexRoutes.length} noindex, ${redirects.length} redirects)`);
+  console.log(
+    `Static entry pages written (${indexableRoutes.length - 1} canonical, ${noIndexRoutes.length} noindex, ${redirects.length} redirects)`,
+  );
 }
 
 if (process.argv.includes("--sitemap")) writeSitemap();

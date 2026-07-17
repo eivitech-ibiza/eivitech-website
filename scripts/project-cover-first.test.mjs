@@ -14,6 +14,6 @@ test("every project detail gallery starts with the project cover", () => {
 });
 
 test("gallery captions stay aligned after the cover slide is inserted", () => {
-  assert.match(captions, /if \(index === 0\) return undefined;/);
+  assert.match(captions, /if \(index === 0\) return coverCaption;/);
   assert.match(captions, /captions\[slug\]\?\.\[index - 1\]/);
 });

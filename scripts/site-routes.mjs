@@ -4,11 +4,12 @@ const service = (slug, title, description) => ({
   description,
 });
 
-const project = (slug, title, description) => ({
+const project = (slug, title, description, metadata = {}) => ({
   path: `/transformations/${slug}`,
   title,
   description,
   type: "article",
+  ...metadata,
 });
 
 export const indexableRoutes = [
@@ -27,25 +28,78 @@ export const indexableRoutes = [
     title: "Servicios de reformas e instalaciones en Ibiza | Eivitech",
     description: "Reformas integrales, instalaciones, carpintería, exteriores y locales comerciales en Ibiza.",
   },
-  service("reformas-integrales", "Reformas integrales en Ibiza | Eivitech", "Reformas integrales en Ibiza: coordinación, calidad y atención al detalle para viviendas, villas, apartamentos y locales. Solicita valoración."),
-  service("electricidad-iluminacion", "Electricidad e iluminación en Ibiza | Eivitech", "Instalaciones eléctricas e iluminación a medida en Ibiza para reformas, obra nueva y proyectos decorativos."),
-  service("albanileria-acabados", "Albañilería y acabados en Ibiza | Eivitech", "Albañilería, microcemento, pladur, escayola y acabados decorativos en Ibiza."),
-  service("fontaneria", "Fontanería en Ibiza | Eivitech", "Instalaciones de fontanería para reformas integrales, baños y cocinas en Ibiza."),
-  service("cocinas-banos", "Reformas de cocinas y baños en Ibiza | Eivitech", "Reformas de cocinas y baños en Ibiza con diseño, carpintería e instalaciones coordinadas."),
-  service("carpinteria", "Carpintería a medida en Ibiza | Eivitech", "Carpintería a medida en Ibiza: cocinas, armarios, revestimientos y soluciones exteriores en madera."),
-  service("terrazas-exteriores", "Terrazas y exteriores en Ibiza | Eivitech", "Terrazas, porches e iluminación exterior en Ibiza con madera, piedra y soluciones a medida."),
-  service("locales-comerciales", "Reformas de locales comerciales en Ibiza | Eivitech", "Reformas de bares, restaurantes y locales comerciales en Ibiza con enfoque funcional y estético."),
+  service(
+    "reformas-integrales", "Reformas integrales en Ibiza | Eivitech", "Reformas integrales en Ibiza: coordinación, calidad y atención al detalle para viviendas, villas, apartamentos y locales. Solicita valoración.",
+  ),
+  service(
+    "electricidad-iluminacion", "Electricidad e iluminación en Ibiza | Eivitech", "Instalaciones eléctricas e iluminación a medida en Ibiza para reformas, obra nueva y proyectos decorativos.",
+  ),
+  service(
+    "albanileria-acabados", "Albañilería y acabados en Ibiza | Eivitech", "Albañilería, microcemento, pladur, escayola y acabados decorativos en Ibiza.",
+  ),
+  service(
+    "fontaneria", "Fontanería en Ibiza | Eivitech", "Instalaciones de fontanería para reformas integrales, baños y cocinas en Ibiza.",
+  ),
+  service(
+    "cocinas-banos", "Reformas de cocinas y baños en Ibiza | Eivitech", "Reformas de cocinas y baños en Ibiza con diseño, carpintería e instalaciones coordinadas.",
+  ),
+  service(
+    "carpinteria", "Carpintería a medida en Ibiza | Eivitech", "Carpintería a medida en Ibiza: cocinas, armarios, revestimientos y soluciones exteriores en madera.",
+  ),
+  service(
+    "terrazas-exteriores", "Terrazas y exteriores en Ibiza | Eivitech", "Terrazas, porches e iluminación exterior en Ibiza con madera, piedra y soluciones a medida.",
+  ),
+  service(
+    "locales-comerciales", "Reformas de locales comerciales en Ibiza | Eivitech", "Reformas de bares, restaurantes y locales comerciales en Ibiza con enfoque funcional y estético.",
+  ),
   {
     path: "/transformations",
     title: "Transformaciones de propiedades en Ibiza | Eivitech",
     description: "Seis casos seleccionados de Eivitech en Ibiza: apartamentos, villas, fincas, exteriores y reformas orientadas a valor.",
   },
-  project("investment-oriented-villa-makeover", "Ibiza Villa Value Makeover | Eivitech Ibiza", "Makeover de villa en Ibiza para elevar su valor percibido mediante microcemento, cocina ibicenca, exteriores y jardín."),
-  project("luxury-mediterranean-villa-renovation", "Luxury Mediterranean Villa Renovation | Eivitech Ibiza", "Reforma completa de villa en Ibiza con espacios personalizados, instalaciones actualizadas, aerotermia, carpintería y acabados a medida."),
-  project("warm-contemporary-apartment-transformation", "Premium Apartment Renovation – Marina Botafoc | Eivitech", "Renovación de apartamento en Marina Botafoc con cocina abierta, microcemento, madera, tonos cálidos y luz indirecta."),
-  project("authentic-ibiza-finca-restoration", "Rustic Finca Restoration – Ibiza Countryside | Eivitech", "Restauración de finca rústica en Ibiza con piedra antigua, mortero de cal, drenaje, travertino y madera natural."),
-  project("modern-minimal-apartment-marina-botafoch", "Modern Minimal Apartment – Marina Botafoc | Eivitech", "Reforma minimalista en Marina Botafoc con mejor distribución, cocina a medida, líneas rectas y luz cálida."),
-  project("low-maintenance-mediterranean-landscape", "Desert Style Outdoor Renovation | Eivitech Ibiza", "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural, cactus y aparcamiento integrado."),
+  project(
+    "investment-oriented-villa-makeover", "Ibiza Villa Value Makeover | Eivitech Ibiza", "Makeover de villa en Ibiza para elevar su valor percibido mediante microcemento, cocina ibicenca, exteriores y jardín.",
+  ),
+  project(
+    "luxury-mediterranean-villa-renovation", "Luxury Mediterranean Villa Renovation | Eivitech Ibiza", "Reforma completa de villa en Ibiza con espacios personalizados, instalaciones actualizadas, aerotermia, carpintería y acabados a medida.",
+  ),
+  project(
+    "warm-contemporary-apartment-transformation", "Premium Apartment Renovation – Marina Botafoc | Eivitech", "Renovación de apartamento en Marina Botafoc con cocina abierta, microcemento, madera, tonos cálidos y luz indirecta.",
+  ),
+  project(
+    "authentic-ibiza-finca-restoration", "Rustic Finca Restoration – Ibiza Countryside | Eivitech", "Restauración de finca rústica en Ibiza con piedra antigua, mortero de cal, drenaje, travertino y madera natural.",
+  ),
+  project(
+    "modern-minimal-apartment-marina-botafoch", "Modern Minimal Apartment – Marina Botafoc | Eivitech", "Reforma minimalista en Marina Botafoc con mejor distribución, cocina a medida, líneas rectas y luz cálida.",
+  ),
+  project(
+    "low-maintenance-mediterranean-landscape", "Desert Style Outdoor Renovation | Eivitech Ibiza", "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural, cactus y aparcamiento integrado.",
+    {
+      socialImage:
+        "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
+      socialImageAlt:
+        "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
+      socialImageType: "image/webp",
+      socialImageWidth: 1600,
+      socialImageHeight: 1200,
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "CreativeWork",
+        name: "Desert Style Outdoor Renovation",
+        description:
+          "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural y cactus.",
+        url: "https://eivitech.com/transformations/low-maintenance-mediterranean-landscape/",
+        image: {
+          "@type": "ImageObject",
+          url: "https://eivitech.com/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
+          caption:
+            "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
+          width: 1600,
+          height: 1200,
+        },
+      },
+    },
+  ),
   {
     path: "/the-eivitech-way",
     title: "The Eivitech Way | Un referente para tu reforma en Ibiza",
@@ -95,16 +149,22 @@ export const indexableRoutes = [
 ];
 
 export const noIndexRoutes = [
-  { path: "/gracias", title: "Gracias | Eivitech Ibiza", description: "Hemos recibido tu solicitud." },
-  { path: "/dashboard", title: "CRM privado | Eivitech Ibiza", description: "Área privada de Eivitech." },
+  { path: "/gracias", title: "Gracias | Eivitech Ibiza", description: "Hemos recibido tu solicitud.", },
+  { path: "/dashboard", title: "CRM privado | Eivitech Ibiza", description: "Área privada de Eivitech.", },
 ];
 
 export const redirects = [
   ["/proyectos", "/transformations"],
   ["/privacidad", "/privacy-policy"],
   ["/cookies", "/cookie-policy"],
-  ["/proyectos/casa-sant-josep", "/transformations/investment-oriented-villa-makeover"],
-  ["/proyectos/apartamento-marina-botafoch", "/transformations/modern-minimal-apartment-marina-botafoch"],
+  [
+    "/proyectos/casa-sant-josep",
+    "/transformations/investment-oriented-villa-makeover",
+  ],
+  [
+    "/proyectos/apartamento-marina-botafoch",
+    "/transformations/modern-minimal-apartment-marina-botafoch",
+  ],
   ["/proyectos/true-bar", "/transformations"],
   ["/proyectos/urbanizacion-valverde", "/transformations"],
 ];

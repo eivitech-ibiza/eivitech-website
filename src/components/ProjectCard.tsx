@@ -22,7 +22,7 @@ export function getProjectPath(project: Project) {
   return `/transformations/${project.slug}`;
 }
 
-export function ProjectCard({ project, priority = false }: { project: Project; priority?: boolean }) {
+export function ProjectCard({ project, priority = false, }: { project: Project; priority?: boolean; }) {
   const cover = withBase(project.cover || project.image);
 
   return (
@@ -30,7 +30,7 @@ export function ProjectCard({ project, priority = false }: { project: Project; p
       <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-muted">
         <img
           src={cover}
-          alt={project.name}
+          alt={project.coverAlt || project.name}
           loading={priority ? "eager" : "lazy"}
           onError={(event) => {
             event.currentTarget.src = fallbackImage;
@@ -45,9 +45,16 @@ export function ProjectCard({ project, priority = false }: { project: Project; p
           <div className="text-[10px] uppercase tracking-[0.2em] opacity-80">
             {project.type} · {project.intervention}
           </div>
-          <h3 className="mt-2 font-display text-2xl leading-tight md:text-3xl">{project.name}</h3>
-          {project.zone && <div className="mt-1 text-xs opacity-80">{project.zone}</div>}
-          <div className="mt-3 text-xs opacity-85">{tr("Ver transformación", "Vedi trasformazione", "View transformation")}</div>
+          <h3 className="mt-2 font-display text-2xl leading-tight md:text-3xl">
+            {project.name}
+          </h3>
+          {project.zone && ( <div className="mt-1 text-xs opacity-80">{project.zone}</div>
+          )}
+          <div className="mt-3 text-xs opacity-85">
+            {tr(
+              "Ver transformación", "Vedi trasformazione", "View transformation",
+            )}
+          </div>
         </div>
         <div className="absolute right-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-foreground transition-transform group-hover:rotate-45">
           <ArrowUpRight size={16} />
