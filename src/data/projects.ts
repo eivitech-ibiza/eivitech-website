@@ -9,6 +9,7 @@ export type Project = {
   zone?: string;
   image: string;
   cover: string;
+  coverAlt?: string;
   gallery: string[];
   folderHint: string;
   category: string;
@@ -248,9 +249,24 @@ export const PROJECTS: Project[] = [
     zone: "Ibiza",
     category: tr("Exterior", "Esterno", "Outdoor"),
     style: tr("Desert style mediterráneo", "Desert style mediterraneo", "Mediterranean desert style"),
-    cover: media("proyecto-paisajismo-exterior", "cover.jpg"),
-    image: media("proyecto-paisajismo-exterior", "cover.jpg"),
-    gallery: ["paisajismo-01.jpg", "paisajismo-02.jpg", "paisajismo-03.jpg", "paisajismo-04.jpg", "paisajismo-05.jpg", "paisajismo-06.jpg", "paisajismo-07.jpg", "paisajismo-08.jpg"].map((f) => media("proyecto-paisajismo-exterior", f)),
+    cover: media("proyecto-paisajismo-exterior", "paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp"),
+coverAlt: tr(
+  "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
+  "Giardino desert style con cactus, ghiaia chiara e una composizione paesaggistica a bassa manutenzione.",
+  "Desert-style garden with cactus, light gravel and a low-maintenance landscape composition.",
+  "Deserttuin met cactussen, licht grind en een onderhoudsarme landschappelijke compositie."
+),
+    image: media("proyecto-paisajismo-exterior", "paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp"),
+    gallery: [
+  "paisajismo-exterior-ibiza-low-maintenance-mediterranean-landscape-cover.webp",
+  "paisajismo-exterior-ibiza-gravel-driveway-natural-stone-wall.webp",
+  "paisajismo-exterior-ibiza-gravel-garden-plant-island.webp",
+  "paisajismo-exterior-ibiza-mediterranean-gravel-paths.webp",
+  "paisajismo-exterior-ibiza-cactus-sand-garden.webp",
+  "paisajismo-exterior-ibiza-potted-plant-detail.webp",
+  "paisajismo-exterior-ibiza-hammock-relax-area.webp",
+  "paisajismo-exterior-ibiza-villa-terrace-tropical-plants.webp",
+].map((f) => media("proyecto-paisajismo-exterior", f)),
     folderHint: "public/media/projects/proyecto-paisajismo-exterior/",
     short: tr("De un exterior árido y vacío a una zona con efecto wow, diseñada para verse bien con la menor manutención posible.", "Da esterno arido e vuoto a zona con effetto wow, progettata per apparire curata con la minore manutenzione possibile.", "From an arid, empty exterior to a wow-effect outdoor area designed to look good with as little maintenance as possible."),
     situation: tr("Antes no había una lectura clara del exterior: era un espacio seco, vacío y sin una intención visual fuerte.", "Prima non c'era una lettura chiara dell'esterno: era uno spazio secco, vuoto e senza una forte intenzione visiva.", "Before, the exterior had no clear reading: it was dry, empty and lacked a strong visual intention."),

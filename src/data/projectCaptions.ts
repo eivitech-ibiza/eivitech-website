@@ -133,44 +133,52 @@ const captions: Record<string, string[]> = {
 
   "low-maintenance-mediterranean-landscape": [
     tr(
+    "Composición de grava gris y marrón separada en zonas definidas, con piedra natural y una lectura paisajística ordenada.",
+    "Composizione di ghiaia grigia e marrone separata in zone definite, con pietra naturale e una lettura paesaggistica ordinata.",
+    "Grey and brown gravel arranged in distinct areas, with natural stone and a clearly structured landscape composition.",
+    "Grijs en bruin grind in duidelijk gescheiden zones, met natuursteen en een geordende landschappelijke compositie."
+  ),
+  tr(
       "Camino de grava clara y muro de piedra natural: orden, impacto y mantenimiento reducido.",
       "Vialetto in ghiaia chiara e muro in pietra naturale: ordine, impatto e manutenzione ridotta.",
-      "Light gravel driveway and natural stone wall: order, impact and reduced maintenance."
+      "Light gravel driveway and natural stone wall: order, impact and reduced maintenance.",
+    "Oprit met licht grind en een natuurstenen muur: orde, uitstraling en beperkt onderhoud."
     ),
     tr(
-      "Isla verde dentro de la grava decorativa, para dar ritmo al paisaje sin crear un jardín complejo.",
-      "Isola verde dentro la ghiaia decorativa, per dare ritmo al paesaggio senza creare un giardino complesso.",
-      "Green island within decorative gravel, adding rhythm to the landscape without creating a complex garden."
+      "Isla vegetal integrada en la grava decorativa para dar ritmo al paisaje sin crear un jardín complejo.",
+      "Isola vegetale integrata nella ghiaia decorativa per dare ritmo al paesaggio senza creare un giardino complesso.",
+    "Planting island integrated into decorative gravel, adding rhythm without creating a complex garden.",
+    "Beplantingseiland geïntegreerd in decoratief grind, voor ritme zonder een complexe tuin te creëren."
     ),
     tr(
-      "Senderos de grava y piedra, pensados para organizar el exterior con una lectura sencilla y mediterránea.",
-      "Percorsi in ghiaia e pietra, pensati per organizzare l'esterno con una lettura semplice e mediterranea.",
-      "Gravel and stone paths designed to organise the exterior with a simple Mediterranean reading."
+      "Senderos de grava y piedra organizan el exterior con una lectura sencilla y mediterránea.",
+      "Percorsi in ghiaia e pietra organizzano l'esterno con una lettura semplice e mediterranea.",
+      "Gravel and stone paths organise the exterior with a simple Mediterranean character.",
+    "Paden van grind en steen ordenen de buitenruimte met een eenvoudig mediterraan karakter."
     ),
     tr(
-      "Jardín seco con arena, cactus y piedras decorativas: efecto escenográfico y gestión práctica.",
-      "Giardino secco con sabbia, cactus e pietre decorative: effetto scenografico e gestione pratica.",
-      "Dry garden with sand, cactus and decorative stones: a scenic effect with practical upkeep."
+    "Cactus, grava clara y rocas decorativas forman un jardín desert style de bajo mantenimiento.",
+    "Cactus, ghiaia chiara e rocce decorative formano un giardino desert style a bassa manutenzione.",
+    "Cactus, light gravel and decorative rocks form a low-maintenance desert-style garden.",
+    "Cactussen, licht grind en decoratieve rotsen vormen een onderhoudsarme deserttuin."
     ),
     tr(
-      "Cactus y arena clara construyen un paisaje resistente, coherente con el clima y el estilo de Ibiza.",
-      "Cactus e sabbia chiara costruiscono un paesaggio resistente, coerente con il clima e lo stile di Ibiza.",
-      "Cactus and light sand create a resilient landscape aligned with Ibiza’s climate and style."
+    "Detalle de vegetación en maceta integrado en la terraza mediante materiales y tonos naturales.",
+    "Dettaglio di vegetazione in vaso integrato nella terrazza attraverso materiali e tonalità naturali.",
+    "Potted planting detail integrated into the terrace through natural materials and tones.",
+    "Detail van beplanting in een pot, geïntegreerd in het terras met natuurlijke materialen en tinten."
     ),
     tr(
-      "Área de piscina con vela de sombra y cactus, donde relax y paisajismo low maintenance trabajan juntos.",
-      "Area piscina con vela ombreggiante e cactus, dove relax e paesaggio low maintenance lavorano insieme.",
-      "Pool area with shade sail and cactus, where relaxation and low-maintenance landscaping work together."
+      "Área relax con hamaca, grava clara y vegetación integrada: un exterior sencillo y fácil de mantener.",
+      "Area relax con amaca, ghiaia chiara e vegetazione integrata: un esterno semplice e facile da mantenere.",
+    "Relaxation area with a lounger, light gravel and integrated planting: simple and easy to maintain.",
+    "Ontspanningszone met ligstoel, licht grind en geïntegreerde beplanting: eenvoudig en onderhoudsvriendelijk."
     ),
     tr(
-      "Área relax con hamaca, arena y plantas mediterráneas: un exterior sencillo, veraniego y fácil de mantener.",
-      "Area relax con amaca, sabbia e piante mediterranee: un esterno semplice, estivo e facile da mantenere.",
-      "Relax area with hammock, sand and Mediterranean plants: simple, summery and easy to maintain."
-    ),
-    tr(
-      "Terraza de la villa con plantas tropicales y detalles naturales, para conectar arquitectura y paisaje.",
-      "Terrazza della villa con piante tropicali e dettagli naturali, per collegare architettura e paesaggio.",
-      "Villa terrace with tropical plants and natural details, connecting architecture and landscape."
+      "Terraza de la villa con vegetación en maceta y detalles naturales que conectan arquitectura y paisaje.",
+      "Terrazza della villa con vegetazione in vaso e dettagli naturali che collegano architettura e paesaggio.",
+      "Villa terrace with potted planting and natural details connecting architecture and landscape.",
+    "Villaterras met beplanting in potten en natuurlijke details die architectuur en landschap verbinden."
     ),
   ],
 
@@ -232,7 +240,7 @@ const captions: Record<string, string[]> = {
   ],
 };
 
-export function getProjectGalleryCaption(slug: string, index: number) {
-  if (index === 0) return undefined;
+export function getProjectGalleryCaption(slug: string, index: number, coverCaption?: string) {
+  if (index === 0) return coverCaption;
   return captions[slug]?.[index - 1];
 }
