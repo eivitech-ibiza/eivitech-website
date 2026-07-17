@@ -106,24 +106,28 @@ const captions: Record<string, string[]> = {
 
   "authentic-ibiza-finca-restoration": [
     tr(
-      "Dos estancias conectadas por un volumen de piedra original, con vigas vistas y travertino continuo.",
-      "Due ambienti collegati da un volume in pietra originale, con travi a vista e travertino continuo.",
-      "Two rooms connected by an original stone volume, with exposed beams and continuous travertine."
-    ),
-    tr(
-      "Fachada original de piedra restaurada para conservar la presencia histórica de la finca.",
-      "Facciata originale in pietra restaurata per conservare la presenza storica della finca.",
-      "Original stone façade restored to preserve the historic presence of the finca."
+      "Dos estancias conectadas por un volumen de piedra original, con vigas vistas y travertino colocado en un patrón de cinco formatos, ensamblados según el esquema preciso definido en el proyecto.",
+      "Due ambienti collegati da un volume in pietra originale, con travi a vista e travertino posato secondo un pattern a cinque pezzature, assemblate secondo lo schema preciso definito nel progetto.",
+      "Two rooms connected by an original stone volume, with exposed beams and travertine laid in a five-size pattern assembled according to the precise layout defined for the project.",
+      "Twee ruimtes verbonden door een oorspronkelijk stenen volume, met zichtbare balken en travertin gelegd in een patroon van vijf formaten, samengesteld volgens het nauwkeurig vastgelegde ontwerp."
     ),
     tr(
       "Muro de piedra con estantes integrados, donde la intervención contemporánea respeta la materia existente.",
       "Muro in pietra con mensole integrate, dove l'intervento contemporaneo rispetta la materia esistente.",
-      "Stone wall with integrated shelves, where the contemporary intervention respects the existing material."
+      "Stone wall with integrated shelves, where the contemporary intervention respects the existing material.",
+      "Stenen muur met geïntegreerde planken, waar de hedendaagse ingreep het bestaande materiaal respecteert."
     ),
     tr(
-      "Paso hacia el baño con microcemento, madera y piedra, integrado dentro del lenguaje rústico de la casa.",
-      "Passaggio verso il bagno con microcemento, legno e pietra, integrato nel linguaggio rustico della casa.",
-      "Passage to the bathroom with microcement, wood and stone, integrated into the home's rustic language."
+      "Fachada original de piedra restaurada para conservar la presencia histórica de la finca.",
+      "Facciata originale in pietra restaurata per conservare la presenza storica della finca.",
+      "Original stone façade restored to preserve the historic presence of the finca.",
+      "Oorspronkelijke stenen gevel gerestaureerd om de historische uitstraling van de finca te behouden."
+    ),
+    tr(
+      "Paso hacia el baño con mortero decorativo, madera y piedra, integrado dentro del lenguaje rústico de la casa.",
+      "Passaggio verso il bagno con malta decorativa, legno e pietra, integrato nel linguaggio rustico della casa.",
+      "Passage to the bathroom with decorative mortar, wood and stone, integrated into the home's rustic language.",
+      "Doorgang naar de badkamer met decoratieve mortel, hout en steen, geïntegreerd in de rustieke vormentaal van het huis."
     ),
   ],
 
