@@ -3,34 +3,34 @@ import { tr } from "@/lib/i18n";
 const captions: Record<string, string[]> = {
   "modern-minimal-apartment-marina-botafoch": [
     tr(
-      "Living abierto hacia la terraza de Marina Botafoc, con luz natural y una distribución más limpia.",
-      "Living aperto verso la terrazza di Marina Botafoc, con luce naturale e una distribuzione più pulita.",
-      "Open living area facing the Marina Botafoc terrace, with natural light and a cleaner layout."
+      "Cocina minimalista a medida con madera natural, encimera oscura y una distribución pensada para aprovechar mejor cada metro.",
+      "Cucina minimalista su misura con legno naturale, piano scuro e una distribuzione progettata per sfruttare meglio ogni metro.",
+      "Bespoke minimalist kitchen with natural wood, a dark worktop and a layout designed to make better use of every metre.",
+      "Minimalistische keuken op maat met natuurlijk hout, een donker werkblad en een indeling die elke meter beter benut."
     ),
     tr(
-      "Zona living a medida con tonos claros, textiles cálidos y una lectura más ordenada del espacio.",
-      "Zona living su misura con toni chiari, tessuti caldi e una lettura più ordinata dello spazio.",
-      "Tailored living area with light tones, warm textiles and a more ordered reading of the space."
+      "Zona living acogedora con sofá y elementos realizados a medida, tonalidades cálidas y mobiliario integrado en el espacio.",
+      "Zona living accogliente con divano ed elementi realizzati su misura, tonalità calde e arredi integrati nello spazio.",
+      "Welcoming living area with a bespoke sofa and elements, warm tones and furnishings integrated into the space.",
+      "Sfeervolle leefruimte met een bank en elementen op maat, warme tinten en meubilair dat in de ruimte is geïntegreerd."
     ),
     tr(
-      "Cocina minimalista con madera natural, encimera oscura y una distribución pensada para aprovechar mejor cada metro.",
-      "Cucina minimal con legno naturale, piano scuro e una distribuzione pensata per sfruttare meglio ogni metro.",
-      "Minimal kitchen with natural wood, a dark worktop and a layout designed to make better use of every metre."
+      "Baño con lavabo de apoyo sobre un plano suspendido de madera, superficies de microcemento e iluminación LED integrada.",
+      "Bagno con lavabo da appoggio su piano sospeso in legno, superfici in microcemento e illuminazione LED integrata.",
+      "Bathroom with a countertop basin on a suspended wooden counter, microcement surfaces and integrated LED lighting.",
+      "Badkamer met opzetwastafel op een zwevend houten blad, microcementoppervlakken en geïntegreerde ledverlichting."
     ),
     tr(
-      "Baño con lavabo sobre encimera, mueble de madera y acabado efecto piedra para una sensación más contemporánea.",
-      "Bagno con lavabo da appoggio, piano in legno e finitura effetto pietra per una sensazione più contemporanea.",
-      "Bathroom with countertop basin, wooden vanity and stone-effect finish for a more contemporary feeling."
+      "Ducha walk-in revestida en microcemento, con superficies continuas, nicho integrado y luz LED perimetral.",
+      "Doccia walk-in rivestita in microcemento, con superfici continue, nicchia integrata e luce LED perimetrale.",
+      "Walk-in shower finished in microcement, with continuous surfaces, an integrated niche and perimeter LED lighting.",
+      "Inloopdouche afgewerkt met microcement, met doorlopende oppervlakken, een geïntegreerde nis en ledverlichting rondom."
     ),
     tr(
-      "Ducha walk-in con paredes texturizadas y luz LED integrada como detalle técnico y atmosférico.",
-      "Doccia walk-in con pareti materiche e luce LED integrata come dettaglio tecnico e atmosferico.",
-      "Walk-in shower with textured walls and integrated LED light as both a technical and atmospheric detail."
-    ),
-    tr(
-      "Jacuzzi privada integrada en la terraza: un detalle wellness que completa la experiencia del apartamento.",
-      "Jacuzzi privata integrata nella terrazza: un dettaglio wellness che completa l'esperienza dell'appartamento.",
-      "Private jacuzzi integrated into the terrace: a wellness detail that completes the apartment experience."
+      "Jacuzzi privada con cromoterapia e iluminación subacuática de color, integrada en la zona de bienestar del apartamento.",
+      "Jacuzzi privata con cromoterapia e illuminazione subacquea colorata, integrata nella zona wellness dell'appartamento.",
+      "Private jacuzzi with chromotherapy and coloured underwater lighting, integrated into the apartment's wellness area.",
+      "Privéjacuzzi met chromotherapie en gekleurde onderwaterverlichting, geïntegreerd in de wellnessruimte van het appartement."
     ),
   ],
 
