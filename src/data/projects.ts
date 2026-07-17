@@ -211,9 +211,8 @@ export const PROJECTS: Project[] = [
     cover: media("modern-minimal-apartment-marina-botafoch", "modern-minimal-apartment-marina-botafoch-ibiza-cover.webp"),
     image: media("modern-minimal-apartment-marina-botafoch", "modern-minimal-apartment-marina-botafoch-ibiza-cover.webp"),
     gallery: [
-      "modern-minimal-apartment-marina-botafoch-ibiza-living-terrace.webp",
-      "modern-minimal-apartment-marina-botafoch-ibiza-living-room.webp",
       "modern-minimal-apartment-marina-botafoch-ibiza-kitchen.webp",
+      "modern-minimal-apartment-marina-botafoch-ibiza-living-room.webp",
       "modern-minimal-apartment-marina-botafoch-ibiza-bathroom.webp",
       "modern-minimal-apartment-marina-botafoch-ibiza-bathroom-shower.webp",
       "modern-minimal-apartment-marina-botafoch-ibiza-jacuzzi.webp",
