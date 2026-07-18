@@ -21,10 +21,21 @@ declare global {
   }
 }
 
-const authorizedCrmEmails = new Set([
+const approvedCrmEmails = new Set([
   "lncoachmrc@gmail.com",
   "info@eivitech.com",
 ]);
+
+const configuredBootstrapEmails = (process.env.BOOTSTRAP_ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter((email) => approvedCrmEmails.has(email));
+
+const authorizedCrmEmails = new Set(
+  configuredBootstrapEmails.length > 0
+    ? configuredBootstrapEmails
+    : [...approvedCrmEmails]
+);
 
 export async function requireCrmUser(req: Request, res: Response, next: NextFunction) {
   try {
