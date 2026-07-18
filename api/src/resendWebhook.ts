@@ -113,8 +113,16 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
       const errorMessage = eventErrorMessage(event);
       await query(
         `UPDATE crm_email_notifications
-         SET status = $1,
-             last_event_at = $2::timestamptz,
+         SET status = CASE
+               WHEN $1 IN ('sent', 'delayed')
+                 AND status IN ('delivered', 'bounced', 'failed', 'complained', 'suppressed')
+                 THEN status
+               WHEN $1 = 'delivered'
+                 AND status IN ('bounced', 'failed', 'complained', 'suppressed')
+                 THEN status
+               ELSE $1
+             END,
+             last_event_at = GREATEST(COALESCE(last_event_at, $2::timestamptz), $2::timestamptz),
              delivered_at = CASE WHEN $1 = 'delivered' THEN $2::timestamptz ELSE delivered_at END,
              bounced_at = CASE WHEN $1 = 'bounced' THEN $2::timestamptz ELSE bounced_at END,
              failed_at = CASE WHEN $1 = 'failed' THEN $2::timestamptz ELSE failed_at END,
