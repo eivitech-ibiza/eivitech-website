@@ -10,6 +10,7 @@ import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { requireCrmUser } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
+import { handleResendOwnerWebhook } from "./resendWebhook.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -22,6 +23,11 @@ const app = express();
 
 app.set("trust proxy", 1);
 app.use(helmet());
+app.post(
+  "/api/webhooks/resend/owner",
+  express.raw({ type: "application/json", limit: "256kb" }),
+  handleResendOwnerWebhook
+);
 app.use(express.json({ limit: "100kb" }));
 app.use(cors({
   origin(origin, callback) {

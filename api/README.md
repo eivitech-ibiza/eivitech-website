@@ -34,20 +34,23 @@ By default:
 - owner channel → `info@eivitech.com`
 - Luciano channel → `lncoachmrc@gmail.com`
 
-The sender configured in each `*_FROM` variable must be verified inside the Resend account that owns the corresponding API key. The two internal channels may use separate Resend accounts or the same verified account and sender domain.
+The sender configured in each `*_FROM` variable must be verified inside the Resend account that owns the matching API key. The two internal channels may use separate Resend accounts or the same verified account and sender domain.
 
 Requester confirmation variables:
 
 - `RESEND_REQUESTER_FROM` (optional; defaults to `RESEND_OWNER_FROM`)
 - `RESEND_REQUESTER_REPLY_TO` (optional; defaults to `RESEND_OWNER_TO`)
+- `RESEND_REQUESTER_TEMPLATE_IT_ID` (optional; defaults to the published Italian confirmation template)
 - `PUBLIC_SITE_URL` (optional; defaults to `https://www.eivitech.com`)
 
 The confirmation sent to the person who completes the form reuses `RESEND_OWNER_API_KEY`; no third API key is required.
 
-Webhook variables reserved for delivery tracking:
+Webhook variables for delivery tracking:
 
 - `RESEND_OWNER_WEBHOOK_SECRET`
 - `RESEND_LUCIANO_WEBHOOK_SECRET`
+
+The owner Resend webhook should point to `https://ibiza-project-accelerator-production.up.railway.app/api/webhooks/resend/owner` and subscribe to sent, delivered, delayed, bounced, failed, complained, suppressed, and opened email events. The API verifies the Svix signature, stores events idempotently by `svix-id`, and updates `crm_email_notifications` with the real delivery state. A `200` response from the Resend send endpoint means the message was accepted for processing; final delivery, suppression, bounce, or failure is determined by these lifecycle events.
 
 Optional variables:
 
@@ -64,6 +67,7 @@ Public:
 - `GET /health`
 - `GET /api/health`
 - `POST /api/leads`
+- `POST /api/webhooks/resend/owner` (signed Resend delivery events)
 
 Protected by Clerk + CRM user authorization:
 
@@ -82,9 +86,10 @@ When either the client form or the professional collaborator form creates a lead
 3. the Luciano channel sends a separate internal notification to `lncoachmrc@gmail.com`;
 4. the owner Resend account sends a confirmation to the email address entered in the form;
 5. the confirmation contains the request reference, submission date, a summary of the submitted data, the website address, and a reply path to Eivitech;
-6. the confirmation language follows the landing-page prefix (`/it`, `/es`, or `/en`) and defaults to Italian;
-7. each result is stored independently in `crm_email_notifications` with account keys `owner`, `luciano`, and `requester`;
-8. one failed email does not block the other emails or delete the lead.
+6. the confirmation language follows the landing-page prefix/query language and defaults to Italian;
+7. each send result is stored independently in `crm_email_notifications` with account keys `owner`, `luciano`, and `requester`;
+8. Resend webhook lifecycle events update the real message state to `delivered`, `suppressed`, `bounced`, `failed`, `delayed`, or `complained`;
+9. one failed or suppressed email does not block the other emails or delete the lead.
 
 ## Security note
 
