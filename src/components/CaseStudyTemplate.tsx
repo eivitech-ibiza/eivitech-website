@@ -300,7 +300,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                   <button
                     type="button"
                     onClick={showPreviousHeroImage}
-                    className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-background/90 text-3xl leading-none text-foreground shadow-lg backdrop-blur-sm transition hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:left-5 md:h-12 md:w-12"
+                    className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/15 text-3xl leading-none text-white shadow-sm backdrop-blur-md transition hover:bg-black/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 md:left-5 md:h-12 md:w-12"
                     aria-label={tr(
                       "Imagen anterior", "Immagine precedente", "Previous image",
                     )}
@@ -310,7 +310,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                   <button
                     type="button"
                     onClick={showNextHeroImage}
-                    className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-background/90 text-3xl leading-none text-foreground shadow-lg backdrop-blur-sm transition hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:right-5 md:h-12 md:w-12"
+                    className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/15 text-3xl leading-none text-white shadow-sm backdrop-blur-md transition hover:bg-black/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 md:right-5 md:h-12 md:w-12"
                     aria-label={tr(
                       "Imagen siguiente", "Immagine successiva", "Next image",
                     )}
@@ -542,7 +542,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                 <button
                   type="button"
                   onClick={showPreviousImage}
-                  className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-3xl text-white transition hover:bg-black/75"
+                  className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/15 text-3xl text-white shadow-sm backdrop-blur-md transition hover:bg-black/25"
                   aria-label={tr(
                     "Imagen anterior", "Immagine precedente", "Previous image",
                   )}
@@ -552,7 +552,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                 <button
                   type="button"
                   onClick={showNextImage}
-                  className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-3xl text-white transition hover:bg-black/75"
+                  className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/15 text-3xl text-white shadow-sm backdrop-blur-md transition hover:bg-black/25"
                   aria-label={tr(
                     "Imagen siguiente", "Immagine successiva", "Next image",
                   )}
