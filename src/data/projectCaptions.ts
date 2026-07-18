@@ -27,10 +27,10 @@ const captions: Record<string, string[]> = {
       "Inloopdouche afgewerkt met microcement, met doorlopende oppervlakken, een geïntegreerde nis en ledverlichting rondom."
     ),
     tr(
-      "Jacuzzi privada con cromoterapia e iluminación subacuática de color, integrada en la zona de bienestar del apartamento.",
-      "Jacuzzi privata con cromoterapia e illuminazione subacquea colorata, integrata nella zona wellness dell'appartamento.",
-      "Private jacuzzi with chromotherapy and coloured underwater lighting, integrated into the apartment's wellness area.",
-      "Privéjacuzzi met chromotherapie en gekleurde onderwaterverlichting, geïntegreerd in de wellnessruimte van het appartement."
+      "Jacuzzi privada con panel de control, integrada en la zona de bienestar del apartamento.",
+      "Jacuzzi privata con pannello di controllo, integrata nella zona wellness dell'appartamento.",
+      "Private jacuzzi with a control panel, integrated into the apartment's wellness area.",
+      "Privéjacuzzi met bedieningspaneel, geïntegreerd in de wellnessruimte van het appartement."
     ),
   ],
 
@@ -112,16 +112,16 @@ const captions: Record<string, string[]> = {
       "Twee ruimtes verbonden door een oorspronkelijk stenen volume, met zichtbare balken en travertin gelegd in een patroon van vijf formaten, samengesteld volgens het nauwkeurig vastgelegde ontwerp."
     ),
     tr(
-      "Muro de piedra con estantes integrados, donde la intervención contemporánea respeta la materia existente.",
-      "Muro in pietra con mensole integrate, dove l'intervento contemporaneo rispetta la materia esistente.",
-      "Stone wall with integrated shelves, where the contemporary intervention respects the existing material.",
-      "Stenen muur met geïntegreerde planken, waar de hedendaagse ingreep het bestaande materiaal respecteert."
-    ),
-    tr(
       "Fachada original de piedra restaurada para conservar la presencia histórica de la finca.",
       "Facciata originale in pietra restaurata per conservare la presenza storica della finca.",
       "Original stone façade restored to preserve the historic presence of the finca.",
       "Oorspronkelijke stenen gevel gerestaureerd om de historische uitstraling van de finca te behouden."
+    ),
+    tr(
+      "Muro de piedra con estantes integrados, donde la intervención contemporánea respeta la materia existente.",
+      "Muro in pietra con mensole integrate, dove l'intervento contemporaneo rispetta la materia esistente.",
+      "Stone wall with integrated shelves, where the contemporary intervention respects the existing material.",
+      "Stenen muur met geïntegreerde planken, waar de hedendaagse ingreep het bestaande materiaal respecteert."
     ),
     tr(
       "Paso hacia el baño con mortero decorativo, madera y piedra, integrado dentro del lenguaje rústico de la casa.",

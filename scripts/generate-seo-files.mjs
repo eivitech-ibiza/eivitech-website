@@ -7,6 +7,12 @@ const SITE_URL = (process.env.SITE_URL || "https://eivitech.com").replace(
   "",
 );
 const DEFAULT_IMAGE = `${SITE_URL}/media/social/eivitech-og-brand-preview-v1.png`;
+const OG_LOCALE_BY_LANGUAGE = {
+  es: "es_ES",
+  it: "it_IT",
+  en: "en_GB",
+  nl: "nl_NL",
+};
 
 function pageUrl(path) {
   if (path === "/") return `${SITE_URL}/`;
@@ -49,6 +55,7 @@ function replaceMeta(html, route, noIndex) {
   const socialImage = route.socialImage
     ? `${SITE_URL}${route.socialImage}`
     : DEFAULT_IMAGE;
+  const ogLocale = OG_LOCALE_BY_LANGUAGE[route.language || "es"] || "es_ES";
   const socialImageAlt = htmlEscape(route.socialImageAlt || route.title);
   const socialImageType = route.socialImageType || "image/png";
   const socialImageWidth = String(route.socialImageWidth || 1200);
@@ -56,69 +63,72 @@ function replaceMeta(html, route, noIndex) {
 
   let output = html
     .replace(/<html lang="[^"]*">/, `<html lang="${route.language || "es"}">`)
-    .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+    .replace(/<title[^>]*>[^<]*<\/title>/, `<title data-rh="true">${title}</title>`)
     .replace(
-      /<meta name="description"[^>]*>/, `<meta name="description" content="${description}" />`,
+      /<meta name="description"[^>]*>/, `<meta name="description" content="${description}" data-rh="true" />`,
     )
     .replace(
-      /<meta name="robots"[^>]*>/, `<meta name="robots" content="${robots}" />`,
+      /<meta name="robots"[^>]*>/, `<meta name="robots" content="${robots}" data-rh="true" />`,
     )
     .replace(
-      /<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${url}" />`,
+      /<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${url}" data-rh="true" />`,
     )
     .replace(
-      /<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}" />`,
+      /<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}" data-rh="true" />`,
     )
     .replace(
-      /<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}" />`,
+      /<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}" data-rh="true" />`,
     )
     .replace(
-      /<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${url}" />`,
+      /<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${url}" data-rh="true" />`,
     )
     .replace(
-      /<meta property="og:type"[^>]*>/, `<meta property="og:type" content="${route.type || "website"}" />`,
+      /<meta property="og:locale"[^>]*>/, `<meta property="og:locale" content="${ogLocale}" data-rh="true" />`,
     )
     .replace(
-      /<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${socialImage}" />`,
+      /<meta property="og:type"[^>]*>/, `<meta property="og:type" content="${route.type || "website"}" data-rh="true" />`,
     )
     .replace(
-      /<meta property="og:image:secure_url"[^>]*>/, `<meta property="og:image:secure_url" content="${socialImage}" />`,
+      /<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${socialImage}" data-rh="true" />`,
+    )
+    .replace(
+      /<meta property="og:image:secure_url"[^>]*>/, `<meta property="og:image:secure_url" content="${socialImage}" data-rh="true" />`,
     )
     .replace(
       /<meta property="og:image:type"[^>]*>/,
-      `<meta property="og:image:type" content="${socialImageType}" />`,
+      `<meta property="og:image:type" content="${socialImageType}" data-rh="true" />`,
     )
     .replace(
       /<meta property="og:image:width"[^>]*>/,
-      `<meta property="og:image:width" content="${socialImageWidth}" />`,
+      `<meta property="og:image:width" content="${socialImageWidth}" data-rh="true" />`,
     )
     .replace(
       /<meta property="og:image:height"[^>]*>/,
-      `<meta property="og:image:height" content="${socialImageHeight}" />`,
+      `<meta property="og:image:height" content="${socialImageHeight}" data-rh="true" />`,
     )
     .replace(
       /<meta property="og:image:alt"[^>]*>/,
-      `<meta property="og:image:alt" content="${socialImageAlt}" />`,
+      `<meta property="og:image:alt" content="${socialImageAlt}" data-rh="true" />`,
     )
     .replace(
-      /<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}" />`,
+      /<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}" data-rh="true" />`,
     )
     .replace(
-      /<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}" />`,
+      /<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}" data-rh="true" />`,
     )
     .replace(
-      /<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${socialImage}" />`,
+      /<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${socialImage}" data-rh="true" />`,
     )
     .replace(
       /<meta name="twitter:image:alt"[^>]*>/,
-      `<meta name="twitter:image:alt" content="${socialImageAlt}" />`,
+      `<meta name="twitter:image:alt" content="${socialImageAlt}" data-rh="true" />`,
     );
 
   if (route.jsonLd) {
     const jsonLd = JSON.stringify(route.jsonLd).replaceAll("<", "\u003c");
     output = output.replace(
       "</head>",
-      `    <script type="application/ld+json">${jsonLd}</script>
+      `    <script type="application/ld+json" data-rh="true">${jsonLd}</script>
   </head>`,
     );
   }

@@ -10,6 +10,8 @@ export type Project = {
   image: string;
   cover: string;
   coverAlt?: string;
+  coverWidth?: number;
+  coverHeight?: number;
   gallery: string[];
   folderHint: string;
   category: string;
@@ -46,6 +48,14 @@ export const PROJECTS: Project[] = [
     style: tr("Ibiza rustic luxury", "Ibiza rustic luxury", "Ibiza rustic luxury"),
     cover: media("casa-vadella", "casa-vadella-ibiza-mediterranean-garden-cover.webp"),
     image: media("casa-vadella", "casa-vadella-ibiza-mediterranean-garden-cover.webp"),
+    coverAlt: tr(
+      "Jardín mediterráneo de la villa en Cala Carbó, con vegetación y zonas de grava.",
+      "Giardino mediterraneo della villa a Cala Carbó, con vegetazione e zone in ghiaia.",
+      "Mediterranean garden of the villa in Cala Carbó, with planting and gravel areas.",
+      "Mediterrane tuin van de villa in Cala Carbó, met beplanting en grindzones.",
+    ),
+    coverWidth: 1024,
+    coverHeight: 768,
     gallery: [
       "casa-vadella-ibiza-blue-bathroom-detail.webp",
       "casa-vadella-ibiza-blue-microcement-bathroom.webp",
@@ -90,6 +100,14 @@ export const PROJECTS: Project[] = [
     style: tr("Mediterráneo personalizado", "Mediterraneo personalizzato", "Tailored Mediterranean"),
     cover: media("casa-vinya", "casa-vinya-ibiza-open-plan-living-cover.webp"),
     image: media("casa-vinya", "casa-vinya-ibiza-open-plan-living-cover.webp"),
+    coverAlt: tr(
+      "Living open plan de la villa en San Antonio, con cocina integrada, madera natural y grandes aperturas al exterior.",
+      "Living open space della villa a San Antonio, con cucina integrata, legno naturale e grandi aperture verso l'esterno.",
+      "Open-plan living area of the villa in San Antonio, with an integrated kitchen, natural wood and large openings to the outdoors.",
+      "Open leefruimte van de villa in San Antonio, met geïntegreerde keuken, natuurlijk hout en grote openingen naar buiten.",
+    ),
+    coverWidth: 2400,
+    coverHeight: 1800,
     gallery: [
       "casa-vinya-ibiza-long-kitchen-wood-cabinetry.webp",
       "casa-vinya-ibiza-kitchen-island-storage.webp",
@@ -132,6 +150,14 @@ export const PROJECTS: Project[] = [
     style: tr("Cálido ibicenco", "Caldo ibizenco", "Warm Ibiza style"),
     cover: media("casa-mediterraneo", "casa-mediterraneo-ibiza-kitchen-front-cover.webp"),
     image: media("casa-mediterraneo", "casa-mediterraneo-ibiza-kitchen-front-cover.webp"),
+    coverAlt: tr(
+      "Cocina a medida del apartamento en Marina Botafoc, con frentes de madera natural y electrodomésticos integrados.",
+      "Cucina su misura dell'appartamento a Marina Botafoc, con frontali in legno naturale ed elettrodomestici integrati.",
+      "Bespoke kitchen in the Marina Botafoc apartment, with natural-wood fronts and integrated appliances.",
+      "Keuken op maat in het appartement in Marina Botafoc, met fronten van natuurlijk hout en geïntegreerde apparatuur.",
+    ),
+    coverWidth: 1080,
+    coverHeight: 1350,
     gallery: [
       "casa-mediterraneo-ibiza-warm-living-room.webp",
       "casa-mediterraneo-ibiza-custom-dining-kitchen.webp",
@@ -172,6 +198,14 @@ export const PROJECTS: Project[] = [
     style: tr("Rústico auténtico", "Rustico autentico", "Authentic rustic"),
     cover: media("casa-charlie", "casa-charlie-ibiza-rustic-finca-exterior-cover.webp"),
     image: media("casa-charlie", "casa-charlie-ibiza-rustic-finca-exterior-cover.webp"),
+    coverAlt: tr(
+      "Exterior de la finca rústica restaurada en el campo de Ibiza, con fachada blanca y piedra original.",
+      "Esterno della finca rustica restaurata nella campagna di Ibiza, con facciata bianca e pietra originale.",
+      "Exterior of the restored rustic finca in the Ibiza countryside, with a white façade and original stone.",
+      "Buitenzijde van de gerestaureerde rustieke finca op het platteland van Ibiza, met witte gevel en oorspronkelijke steen.",
+    ),
+    coverWidth: 2400,
+    coverHeight: 1800,
     gallery: [
       "casa-charlie-ibiza-stone-interior-connected-rooms.webp",
       "casa-charlie-ibiza-original-stone-facade.webp",
@@ -211,6 +245,14 @@ export const PROJECTS: Project[] = [
     style: tr("Minimal moderno", "Minimal moderno", "Modern minimal"),
     cover: media("modern-minimal-apartment-marina-botafoch", "modern-minimal-apartment-marina-botafoch-ibiza-cover.webp"),
     image: media("modern-minimal-apartment-marina-botafoch", "modern-minimal-apartment-marina-botafoch-ibiza-cover.webp"),
+    coverAlt: tr(
+      "Zona living minimalista abierta hacia la terraza en Marina Botafoc, con luz natural y mobiliario integrado.",
+      "Zona living minimalista aperta verso la terrazza a Marina Botafoc, con luce naturale e arredi integrati.",
+      "Minimalist living area opening onto the terrace in Marina Botafoc, with natural light and integrated furnishings.",
+      "Minimalistische leefruimte die uitkomt op het terras in Marina Botafoc, met natuurlijk licht en geïntegreerd meubilair.",
+    ),
+    coverWidth: 1600,
+    coverHeight: 1000,
     gallery: [
       "modern-minimal-apartment-marina-botafoch-ibiza-kitchen.webp",
       "modern-minimal-apartment-marina-botafoch-ibiza-living-room.webp",
@@ -250,12 +292,14 @@ export const PROJECTS: Project[] = [
     category: tr("Exterior", "Esterno", "Outdoor"),
     style: tr("Desert style mediterráneo", "Desert style mediterraneo", "Mediterranean desert style"),
     cover: media("proyecto-paisajismo-exterior", "paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp"),
-coverAlt: tr(
-  "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
-  "Giardino desert style con cactus, ghiaia chiara e una composizione paesaggistica a bassa manutenzione.",
-  "Desert-style garden with cactus, light gravel and a low-maintenance landscape composition.",
-  "Deserttuin met cactussen, licht grind en een onderhoudsarme landschappelijke compositie."
-),
+    coverAlt: tr(
+      "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
+      "Giardino desert style con cactus, ghiaia chiara e una composizione paesaggistica a bassa manutenzione.",
+      "Desert-style garden with cactus, light gravel and a low-maintenance landscape composition.",
+      "Deserttuin met cactussen, licht grind en een onderhoudsarme landschappelijke compositie.",
+    ),
+    coverWidth: 1600,
+    coverHeight: 1200,
     image: media("proyecto-paisajismo-exterior", "paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp"),
     gallery: [
   "paisajismo-exterior-ibiza-low-maintenance-mediterranean-landscape-cover.webp",

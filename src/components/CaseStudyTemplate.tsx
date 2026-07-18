@@ -19,12 +19,30 @@ function withBase(path: string) {
   return `${import.meta.env.BASE_URL}${resolvedPath.replace(/^\//, "")}`;
 }
 
-function ProjectImage({ src, alt, priority = false, className = "", }: { src: string; alt: string; priority?: boolean; className?: string; }) {
+function ProjectImage({
+  src,
+  alt,
+  priority = false,
+  width,
+  height,
+  className = "",
+}: {
+  src: string;
+  alt: string;
+  priority?: boolean;
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
   return (
     <img
       src={withBase(src)}
       alt={alt}
+      width={width}
+      height={height}
       loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
+      decoding="async"
       onError={(event) => {
         event.currentTarget.src = fallbackImage;
       }}
@@ -54,24 +72,29 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
   const others = PROJECTS.filter((p) => p.slug !== project.slug).slice(0, 3);
   const path = getProjectPath(project);
   const gallery = project.gallery?.length ? project.gallery : [project.cover];
-  const projectJsonLd =
-    project.slug === "low-maintenance-mediterranean-landscape"
-      ? {
-          "@context": "https://schema.org",
-          "@type": "CreativeWork",
-          name: project.name,
-          description: project.metaDescription,
-          url: canonicalUrl(path),
-          image: {
-            "@type": "ImageObject",
-            url: absoluteUrl(withBase(project.cover)),
-            caption: project.coverAlt || project.name,
-          },
-        }
-      : undefined;
+  const projectJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: project.name,
+    description: project.metaDescription,
+    url: canonicalUrl(path),
+    ...(project.zone
+      ? { contentLocation: { "@type": "Place", name: project.zone } }
+      : {}),
+    image: {
+      "@type": "ImageObject",
+      url: absoluteUrl(withBase(project.cover)),
+      caption: project.coverAlt || project.name,
+      ...(project.coverWidth ? { width: project.coverWidth } : {}),
+      ...(project.coverHeight ? { height: project.coverHeight } : {}),
+    },
+  };
   const [heroIndex, setHeroIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const touchStartX = useRef<number | null>(null);
+  const lightboxRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const activeSrc = lightboxIndex === null ? null : gallery[lightboxIndex];
   const activeCaption = lightboxIndex === null ? "" : getProjectGalleryCaption(
           project.slug,
@@ -86,7 +109,14 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
   const showNextHeroImage = () => setHeroIndex((current) =>
       current === gallery.length - 1 ? 0 : current + 1,
     );
-  const closeLightbox = () => setLightboxIndex(null);
+  const openLightbox = (index: number) => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    setLightboxIndex(index);
+  };
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+    window.requestAnimationFrame(() => previouslyFocusedRef.current?.focus());
+  };
   const showPreviousImage = () => setLightboxIndex((current) => {
     if (current === null) return current;
     return current === 0 ? gallery.length - 1 : current - 1;
@@ -106,11 +136,44 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeLightbox();
-      if (event.key === "ArrowLeft") showPreviousImage();
-      if (event.key === "ArrowRight") showNextImage();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setLightboxIndex(null);
+        window.requestAnimationFrame(() => previouslyFocusedRef.current?.focus());
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setLightboxIndex((current) =>
+          current === null ? current : current === 0 ? gallery.length - 1 : current - 1,
+        );
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setLightboxIndex((current) =>
+          current === null ? current : current === gallery.length - 1 ? 0 : current + 1,
+        );
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = lightboxRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -148,6 +211,9 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         trackPayload={{ project: project.slug, interest: project.crmInterest }}
         ogImage={withBase(project.cover)}
         ogImageAlt={project.coverAlt}
+        ogImageType="image/webp"
+        ogImageWidth={project.coverWidth}
+        ogImageHeight={project.coverHeight}
         ogType="article"
         jsonLd={projectJsonLd}
       />
@@ -212,7 +278,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
             >
               <button
                 type="button"
-                onClick={() => setLightboxIndex(heroIndex)}
+                onClick={() => openLightbox(heroIndex)}
                 className="block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 aria-label={tr(
                   "Ampliar imagen actual", "Ingrandisci immagine corrente", "Enlarge current image",
@@ -223,6 +289,8 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                   src={gallery[heroIndex]}
                   alt={heroCaption}
                   priority
+                  width={heroIndex === 0 ? project.coverWidth : undefined}
+                  height={heroIndex === 0 ? project.coverHeight : undefined}
                   className="h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in motion-safe:duration-500"
                 />
               </button>
@@ -407,7 +475,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                 >
                   <button
                     type="button"
-                    onClick={() => setLightboxIndex(index)}
+                    onClick={() => openLightbox(index)}
                     className="block h-full w-full cursor-zoom-in text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                     aria-label={tr(
                       "Ampliar imagen del proyecto", "Ingrandisci immagine del progetto", "Enlarge project image",
@@ -417,6 +485,8 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
                       src={src}
                       alt={caption}
                       priority={index === 0}
+                      width={index === 0 ? project.coverWidth : undefined}
+                      height={index === 0 ? project.coverHeight : undefined}
                       className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
                     />
                     <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm leading-snug text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -445,6 +515,7 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
 
       {activeSrc && (
         <div
+          ref={lightboxRef}
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4 opacity-100 backdrop-blur-sm animate-in fade-in duration-200 md:p-8"
           role="dialog"
           aria-modal="true"
@@ -457,9 +528,10 @@ export function CaseStudyTemplate({ project }: { project: Project }) {
         >
           <div className="relative flex max-h-[92vh] w-full max-w-6xl scale-100 flex-col overflow-hidden rounded-sm bg-background shadow-2xl animate-in zoom-in-95 duration-200">
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={closeLightbox}
-              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white transition hover:bg-black/80"
+              className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white transition hover:bg-black/80"
               aria-label={tr("Cerrar imagen", "Chiudi immagine", "Close image")}
             >
               ×

@@ -60,7 +60,7 @@ const Contacto = () => (
         </a>
         <div className="rounded-sm bg-accent p-5 text-sm text-muted-foreground leading-relaxed">
           {tr("Recopilamos solo los datos necesarios para responder a tu solicitud. Más información en la", "Raccogliamo solo i dati necessari per rispondere alla tua richiesta. Maggiori informazioni nella", "We collect only the data needed to respond to your request. More information in the")} {" "}
-          <a href="/privacidad" className="underline hover:text-foreground">{tr("política de privacidad", "privacy policy", "privacy policy")}</a>.
+          <a href="/privacy-policy" className="underline hover:text-foreground">{tr("política de privacidad", "privacy policy", "privacy policy")}</a>.
         </div>
       </aside>
     </section>

@@ -12,6 +12,32 @@ const project = (slug, title, description, metadata = {}) => ({
   ...metadata,
 });
 
+const projectMetadata = ({ slug, name, description, zone, image, imageAlt, width, height }) => ({
+  socialImage: image,
+  socialImageAlt: imageAlt,
+  socialImageType: "image/webp",
+  socialImageWidth: width,
+  socialImageHeight: height,
+  jsonLd: {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name,
+    description,
+    url: `https://eivitech.com/transformations/${slug}/`,
+    contentLocation: {
+      "@type": "Place",
+      name: zone,
+    },
+    image: {
+      "@type": "ImageObject",
+      url: `https://eivitech.com${image}`,
+      caption: imageAlt,
+      width,
+      height,
+    },
+  },
+});
+
 export const indexableRoutes = [
   {
     path: "/",
@@ -58,47 +84,94 @@ export const indexableRoutes = [
     description: "Seis casos seleccionados de Eivitech en Ibiza: apartamentos, villas, fincas, exteriores y reformas orientadas a valor.",
   },
   project(
-    "investment-oriented-villa-makeover", "Ibiza Villa Value Makeover | Eivitech Ibiza", "Makeover de villa en Ibiza para elevar su valor percibido mediante microcemento, cocina ibicenca, exteriores y jardín.",
+    "investment-oriented-villa-makeover",
+    "Ibiza Villa Value Makeover – Cala Carbó | Eivitech Ibiza",
+    "Makeover de villa en Cala Carbó para elevar el valor percibido mediante microcemento, cocina ibicenca, exteriores y jardín sin cambiar la estructura principal.",
+    projectMetadata({
+      slug: "investment-oriented-villa-makeover",
+      name: "Ibiza Villa Value Makeover",
+      description: "Makeover de villa en Cala Carbó para elevar el valor percibido mediante microcemento, cocina ibicenca, exteriores y jardín sin cambiar la estructura principal.",
+      zone: "Cala Carbó, Ibiza",
+      image: "/media/projects/casa-vadella/casa-vadella-ibiza-mediterranean-garden-cover.webp",
+      imageAlt: "Jardín mediterráneo de la villa en Cala Carbó, con vegetación y zonas de grava.",
+      width: 1024,
+      height: 768,
+    }),
   ),
   project(
-    "luxury-mediterranean-villa-renovation", "Luxury Mediterranean Villa Renovation | Eivitech Ibiza", "Reforma completa de villa en Ibiza con espacios personalizados, instalaciones actualizadas, aerotermia, carpintería y acabados a medida.",
+    "luxury-mediterranean-villa-renovation",
+    "Luxury Mediterranean Villa Renovation – San Antonio | Eivitech Ibiza",
+    "Reforma completa de villa en San Antonio con espacios personalizados, vestidor, instalaciones eléctricas y climatización, carpintería y acabados a medida.",
+    projectMetadata({
+      slug: "luxury-mediterranean-villa-renovation",
+      name: "Luxury Mediterranean Villa Renovation",
+      description: "Reforma completa de villa en San Antonio con espacios personalizados, vestidor, instalaciones eléctricas y climatización, carpintería y acabados a medida.",
+      zone: "San Antonio, Ibiza",
+      image: "/media/projects/casa-vinya/casa-vinya-ibiza-open-plan-living-cover.webp",
+      imageAlt: "Living open plan de la villa en San Antonio, con cocina integrada, madera natural y grandes aperturas al exterior.",
+      width: 2400,
+      height: 1800,
+    }),
   ),
   project(
-    "warm-contemporary-apartment-transformation", "Premium Apartment Renovation – Marina Botafoc | Eivitech", "Renovación de apartamento en Marina Botafoc con cocina abierta, microcemento, madera, tonos cálidos y luz indirecta.",
+    "warm-contemporary-apartment-transformation",
+    "Premium Apartment Renovation – Marina Botafoc | Eivitech",
+    "Renovación de apartamento en Marina Botafoc con cocina abierta, microcemento, madera, tonos cálidos y luz indirecta.",
+    projectMetadata({
+      slug: "warm-contemporary-apartment-transformation",
+      name: "Premium Apartment Renovation – Marina Botafoc",
+      description: "Renovación de apartamento en Marina Botafoc con cocina abierta, microcemento, madera, tonos cálidos y luz indirecta.",
+      zone: "Marina Botafoc, Ibiza",
+      image: "/media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-kitchen-front-cover.webp",
+      imageAlt: "Cocina a medida del apartamento en Marina Botafoc, con frentes de madera natural y electrodomésticos integrados.",
+      width: 1080,
+      height: 1350,
+    }),
   ),
   project(
-    "authentic-ibiza-finca-restoration", "Rustic Finca Restoration – Ibiza Countryside | Eivitech", "Restauración de finca rústica en Ibiza con piedra antigua, mortero de cal, drenaje, travertino y madera natural.",
+    "authentic-ibiza-finca-restoration",
+    "Rustic Finca Restoration – Ibiza Countryside | Eivitech",
+    "Restauración de finca rústica en Ibiza con piedra antigua, mortero de cal natural, drenaje perimetral, travertino y madera natural.",
+    projectMetadata({
+      slug: "authentic-ibiza-finca-restoration",
+      name: "Rustic Finca Restoration – Ibiza Countryside",
+      description: "Restauración de finca rústica en Ibiza con piedra antigua, mortero de cal natural, drenaje perimetral, travertino y madera natural.",
+      zone: "Ibiza countryside",
+      image: "/media/projects/casa-charlie/casa-charlie-ibiza-rustic-finca-exterior-cover.webp",
+      imageAlt: "Exterior de la finca rústica restaurada en el campo de Ibiza, con fachada blanca y piedra original.",
+      width: 2400,
+      height: 1800,
+    }),
   ),
   project(
-    "modern-minimal-apartment-marina-botafoch", "Modern Minimal Apartment – Marina Botafoc | Eivitech", "Reforma minimalista en Marina Botafoc con mejor distribución, cocina a medida, líneas rectas y luz cálida.",
+    "modern-minimal-apartment-marina-botafoch",
+    "Modern Minimal Apartment – Marina Botafoc | Eivitech",
+    "Reforma minimalista en Marina Botafoc con mejor distribución, cocina a medida, líneas rectas, microcemento y luz cálida.",
+    projectMetadata({
+      slug: "modern-minimal-apartment-marina-botafoch",
+      name: "Modern Minimal Apartment – Marina Botafoc",
+      description: "Reforma minimalista en Marina Botafoc con mejor distribución, cocina a medida, líneas rectas, microcemento y luz cálida.",
+      zone: "Marina Botafoc, Ibiza",
+      image: "/media/projects/modern-minimal-apartment-marina-botafoch/modern-minimal-apartment-marina-botafoch-ibiza-cover.webp",
+      imageAlt: "Zona living minimalista abierta hacia la terraza en Marina Botafoc, con luz natural y mobiliario integrado.",
+      width: 1600,
+      height: 1000,
+    }),
   ),
   project(
-    "low-maintenance-mediterranean-landscape", "Desert Style Outdoor Renovation | Eivitech Ibiza", "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural, cactus y aparcamiento integrado.",
-    {
-      socialImage:
-        "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
-      socialImageAlt:
-        "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
-      socialImageType: "image/webp",
-      socialImageWidth: 1600,
-      socialImageHeight: 1200,
-      jsonLd: {
-        "@context": "https://schema.org",
-        "@type": "CreativeWork",
-        name: "Desert Style Outdoor Renovation",
-        description:
-          "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural y cactus.",
-        url: "https://eivitech.com/transformations/low-maintenance-mediterranean-landscape/",
-        image: {
-          "@type": "ImageObject",
-          url: "https://eivitech.com/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
-          caption:
-            "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
-          width: 1600,
-          height: 1200,
-        },
-      },
-    },
+    "low-maintenance-mediterranean-landscape",
+    "Desert Style Outdoor Renovation | Eivitech Ibiza",
+    "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural, cactus y aparcamiento integrado.",
+    projectMetadata({
+      slug: "low-maintenance-mediterranean-landscape",
+      name: "Desert Style Outdoor Renovation",
+      description: "Renovación exterior de bajo mantenimiento en Ibiza con grava, arena, piedra natural, cactus y aparcamiento integrado.",
+      zone: "Ibiza",
+      image: "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
+      imageAlt: "Jardín desert style con cactus, grava clara y una composición paisajística de bajo mantenimiento.",
+      width: 1600,
+      height: 1200,
+    }),
   ),
   {
     path: "/the-eivitech-way",

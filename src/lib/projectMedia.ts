@@ -8,7 +8,6 @@ export function resolveProjectMediaPath(path: string) {
     "/media/projects/casa-vinya/IMG_2612.jpg": "/media/projects/casa-vinya/casa-vinya-ibiza-bedroom-terrace.webp",
     "/media/projects/casa-vinya/IMG_2614.jpg": "/media/projects/casa-vinya/casa-vinya-ibiza-bathroom-freestanding-tub.webp",
     "/media/projects/casa-vinya/IMG_2616.jpg": "/media/projects/casa-vinya/casa-vinya-ibiza-double-vanity.webp",
-    "/media/projects/casa-vinya/IMG_2622.jpg": "/media/projects/casa-vinya/casa-vinya-ibiza-stone-shower-detail.webp",
 
     "/media/projects/casa-mediterraneo/cover.jpg": "/media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-warm-contemporary-apartment-cover.webp",
     "/media/projects/casa-mediterraneo/mediterraneo-01.jpg": "/media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-dining-kitchen.webp",
@@ -22,11 +21,11 @@ export function resolveProjectMediaPath(path: string) {
 
     "/media/projects/casa-vadella/cover.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-investment-villa-makeover-cover.webp",
     "/media/projects/casa-vadella/vadella-01.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-open-plan-living-room.webp",
-    "/media/projects/casa-vadella/vadella-02.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-dining-living-space.webp",
+    "/media/projects/casa-vadella/vadella-02.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-covered-terrace.webp",
     "/media/projects/casa-vadella/vadella-03.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-fireplace-living-detail.webp",
     "/media/projects/casa-vadella/vadella-04.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-covered-terrace.webp",
     "/media/projects/casa-vadella/vadella-05.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-mediterranean-landscape.webp",
-    "/media/projects/casa-vadella/vadella-06.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-bathroom-blue-microcement.webp",
+    "/media/projects/casa-vadella/vadella-06.jpg": "/media/projects/casa-vadella/casa-vadella-ibiza-blue-bathroom-detail.webp",
 
     "/media/projects/casa-charlie/cover.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-authentic-finca-restoration-cover.webp",
     "/media/projects/casa-charlie/charlie-01.jpg": "/media/projects/casa-charlie/casa-charlie-ibiza-stone-interior-hall.webp",
@@ -44,7 +43,7 @@ export function resolveProjectMediaPath(path: string) {
     "/media/projects/proyecto-paisajismo-exterior/paisajismo-03.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-mediterranean-gravel-paths.webp",
     "/media/projects/proyecto-paisajismo-exterior/paisajismo-04.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-dry-beach-cactus-garden.webp",
     "/media/projects/proyecto-paisajismo-exterior/paisajismo-05.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-cactus-sand-garden.webp",
-    "/media/projects/proyecto-paisajismo-exterior/paisajismo-06.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-pool-shade-sail-cactus-landscape.webp",
+    "/media/projects/proyecto-paisajismo-exterior/paisajismo-06.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-potted-plant-detail.webp",
     "/media/projects/proyecto-paisajismo-exterior/paisajismo-07.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-hammock-relax-area.webp",
     "/media/projects/proyecto-paisajismo-exterior/paisajismo-08.jpg": "/media/projects/proyecto-paisajismo-exterior/paisajismo-exterior-ibiza-villa-terrace-tropical-plants.webp",
   };

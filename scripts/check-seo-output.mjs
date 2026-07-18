@@ -13,6 +13,7 @@ const SOCIAL_IMAGE_PATH = "media/social/eivitech-og-brand-preview-v1.png";
 const SOCIAL_IMAGE_URL = `${SITE_URL}/${SOCIAL_IMAGE_PATH}`;
 const MAX_ENTRY_RAW_BYTES = 450_000;
 const MAX_ENTRY_GZIP_BYTES = 145_000;
+const OG_LOCALE_BY_LANGUAGE = { es: "es_ES", it: "it_IT", en: "en_GB", nl: "nl_NL" };
 
 function pageUrl(path) {
   return path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path.replace(/\/+$/, "")}/`;
@@ -53,6 +54,15 @@ for (const route of indexableRoutes) {
     html.includes(`<link rel="canonical" href="${canonical}"`), `Wrong canonical for ${route.path}`,
   );
   assert.ok(
+    html.includes(`<link rel="canonical" href="${canonical}" data-rh="true"`),
+    `Canonical is not marked for Helmet reconciliation: ${route.path}`,
+  );
+  const expectedLocale = OG_LOCALE_BY_LANGUAGE[route.language || "es"] || "es_ES";
+  assert.ok(
+    html.includes(`<meta property="og:locale" content="${expectedLocale}" data-rh="true"`),
+    `Wrong Open Graph locale for ${route.path}`,
+  );
+  assert.ok(
     html.includes(`<meta property="og:url" content="${canonical}"`), `Wrong Open Graph URL for ${route.path}`,
   );
   const expectedSocialImage = route.socialImage
@@ -84,6 +94,10 @@ for (const route of indexableRoutes) {
     assert.ok(
       html.includes(JSON.stringify(route.jsonLd)),
       `Structured data missing for ${route.path}`,
+    );
+    assert.ok(
+      html.includes('<script type="application/ld+json" data-rh="true">'),
+      `Structured data is not marked for Helmet reconciliation: ${route.path}`,
     );
   }
   assert.ok(

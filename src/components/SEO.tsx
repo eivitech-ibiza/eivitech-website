@@ -11,6 +11,9 @@ type Props = {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   ogImage?: string;
   ogImageAlt?: string;
+  ogImageType?: string;
+  ogImageWidth?: number;
+  ogImageHeight?: number;
   trackAs?: Parameters<typeof track>[0];
   trackPayload?: Record<string, unknown>;
   noIndex?: boolean;
@@ -26,6 +29,9 @@ export function SEO({
   jsonLd,
   ogImage,
   ogImageAlt,
+  ogImageType,
+  ogImageWidth,
+  ogImageHeight,
   trackAs = "page_view",
   trackPayload,
   noIndex = false,
@@ -40,6 +46,9 @@ export function SEO({
   const usesDefaultSocialImage = !ogImage;
   const socialImage = absoluteUrl(ogImage || DEFAULT_OG_IMAGE);
   const socialImageAlt = ogImageAlt || title;
+  const socialImageType = ogImageType || (usesDefaultSocialImage ? "image/png" : "image/webp");
+  const socialImageWidth = ogImageWidth || (usesDefaultSocialImage ? 1200 : undefined);
+  const socialImageHeight = ogImageHeight || (usesDefaultSocialImage ? 630 : undefined);
   const robots = noIndex
     ? "noindex, nofollow"
     : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
@@ -58,12 +67,9 @@ export function SEO({
       <meta property="og:locale" content={openGraphLocaleByLanguage[CURRENT_LANGUAGE]} />
       <meta property="og:image" content={socialImage} />
       <meta property="og:image:secure_url" content={socialImage} />
-      {usesDefaultSocialImage && ( <meta property="og:image:type" content="image/png" />
-      )}
-      {usesDefaultSocialImage && ( <meta property="og:image:width" content="1200" />
-      )}
-      {usesDefaultSocialImage && ( <meta property="og:image:height" content="630" />
-      )}
+      <meta property="og:image:type" content={socialImageType} />
+      {socialImageWidth && <meta property="og:image:width" content={String(socialImageWidth)} />}
+      {socialImageHeight && <meta property="og:image:height" content={String(socialImageHeight)} />}
       <meta property="og:image:alt" content={socialImageAlt} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
