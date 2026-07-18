@@ -31,7 +31,11 @@ export function ProjectCard({ project, priority = false, }: { project: Project; 
         <img
           src={cover}
           alt={project.coverAlt || project.name}
+          width={project.coverWidth}
+          height={project.coverHeight}
           loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          decoding="async"
           onError={(event) => {
             event.currentTarget.src = fallbackImage;
           }}

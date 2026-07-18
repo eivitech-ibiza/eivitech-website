@@ -43,7 +43,7 @@ export function ServicePageTemplate({ service }: { service: Service }) {
             <Link to="/contacto" className="inline-flex items-center rounded-sm bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
               {tr("Solicitar valoración", "Richiedi una valutazione", "Request an assessment")}
             </Link>
-            <Link to="/proyectos" className="inline-flex items-center rounded-sm border border-foreground/20 px-6 py-3.5 text-sm font-medium hover:bg-foreground/5">
+            <Link to="/transformations" className="inline-flex items-center rounded-sm border border-foreground/20 px-6 py-3.5 text-sm font-medium hover:bg-foreground/5">
               {tr("Ver proyectos", "Vedi progetti", "View projects")}
             </Link>
           </div>
@@ -92,7 +92,7 @@ export function ServicePageTemplate({ service }: { service: Service }) {
                 <div className="eyebrow">{tr("Proyectos relacionados", "Progetti correlati", "Related projects")}</div>
                 <h2 className="display-md mt-3">{tr("Casos donde aplicamos este servicio", "Casi in cui applichiamo questo servizio", "Cases where we apply this service")}</h2>
               </div>
-              <Link to="/proyectos" className="hidden md:inline-flex text-sm text-primary hover:underline">{tr("Ver todos", "Vedi tutti", "View all")}</Link>
+              <Link to="/transformations" className="hidden md:inline-flex text-sm text-primary hover:underline">{tr("Ver todos", "Vedi tutti", "View all")}</Link>
             </div>
             <div className="grid gap-6 md:grid-cols-2">
               {related.map((p) => <ProjectCard key={p.slug} project={p} />)}

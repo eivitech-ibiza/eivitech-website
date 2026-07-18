@@ -72,7 +72,15 @@ const Index = () => (
 
     <section className="relative isolate min-h-[86vh] overflow-hidden">
       <div className="absolute inset-0 -z-10">
-        <img src={heroImg} alt={tr("Transformación de propiedad Eivitech en Ibiza", "Trasformazione immobiliare Eivitech a Ibiza", "Eivitech property transformation in Ibiza")} className="h-full w-full object-cover" />
+        <img
+          src={heroImg}
+          alt={tr("Transformación de propiedad Eivitech en Ibiza", "Trasformazione immobiliare Eivitech a Ibiza", "Eivitech property transformation in Ibiza")}
+          width={1668}
+          height={725}
+          fetchPriority="high"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
         <div className="absolute inset-0 bg-black/45" />
       </div>
       <div className="container-x flex min-h-[86vh] items-end pb-16 pt-28 md:pb-24">
@@ -174,7 +182,15 @@ const Index = () => (
     <section className="section">
       <div className="container-x grid gap-10 lg:grid-cols-2 lg:items-center">
         <div className="aspect-[4/3] overflow-hidden rounded-sm bg-muted">
-          <img src={materialsAtmosphereImg} alt={tr("Lavabo de piedra natural y grifería mural en un baño Eivitech en Ibiza", "Lavabo in pietra naturale e rubinetteria a parete in un bagno Eivitech a Ibiza", "Natural stone basin and wall-mounted tapware in an Eivitech bathroom in Ibiza")} className="h-full w-full object-cover" />
+          <img
+            src={materialsAtmosphereImg}
+            alt={tr("Lavabo de piedra natural y grifería mural en un baño Eivitech en Ibiza", "Lavabo in pietra naturale e rubinetteria a parete in un bagno Eivitech a Ibiza", "Natural stone basin and wall-mounted tapware in an Eivitech bathroom in Ibiza")}
+            width={1600}
+            height={1200}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         </div>
         <div>
           <div className="eyebrow">{tr("Materiales y atmósfera", "Materiali e atmosfera", "Materials & atmosphere")}</div>

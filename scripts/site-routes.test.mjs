@@ -22,7 +22,11 @@ test("the sitemap inventory contains 27 unique canonical routes", () => {
   assert.equal(indexableRoutes.length, 27);
 
   const paths = indexableRoutes.map((route) => route.path);
+  const titles = indexableRoutes.map((route) => route.title);
+  const descriptions = indexableRoutes.map((route) => route.description);
   assert.equal(new Set(paths).size, paths.length, "Canonical routes must be unique");
+  assert.equal(new Set(titles).size, titles.length, "Indexable title tags must be unique");
+  assert.equal(new Set(descriptions).size, descriptions.length, "Indexable meta descriptions must be unique");
 
   for (const route of indexableRoutes) {
     assert.match(route.path, /^\//, `Invalid route path: ${route.path}`);

@@ -2,6 +2,7 @@ export type Language = "es" | "it" | "en" | "nl";
 export type LanguageSelection = Language | "auto";
 
 const FALLBACK_LANGUAGE: Language = "es";
+const UNSUPPORTED_BROWSER_FALLBACK: Language = "en";
 const STORAGE_KEY = "eivitech_language";
 const SUPPORTED_LANGUAGES: Language[] = ["es", "it", "en", "nl"];
 
@@ -45,7 +46,7 @@ export function detectLanguage(): Language {
     if (lang) return lang;
   }
 
-  return FALLBACK_LANGUAGE;
+  return UNSUPPORTED_BROWSER_FALLBACK;
 }
 
 export const CURRENT_LANGUAGE: Language = detectLanguage();
