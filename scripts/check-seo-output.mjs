@@ -31,6 +31,11 @@ function readRoute(path) {
   return readFileSync(file, "utf8");
 }
 
+function routeStructuredData(route) {
+  if (!route.jsonLd) return [];
+  return Array.isArray(route.jsonLd) ? route.jsonLd : [route.jsonLd];
+}
+
 assert.equal(
   existsSync(DIST), true, "dist/ does not exist; run npm run build first",
 );
@@ -90,11 +95,25 @@ for (const route of indexableRoutes) {
       `Wrong Twitter image alt for ${route.path}`,
     );
   }
-  if (route.jsonLd) {
+
+  assert.ok(
+    html.includes('"@type":"WebPage"'),
+    `WebPage structured data missing for ${route.path}`,
+  );
+  if (route.path !== "/") {
     assert.ok(
-      html.includes(JSON.stringify(route.jsonLd)),
-      `Structured data missing for ${route.path}`,
+      html.includes('"@type":"BreadcrumbList"'),
+      `Breadcrumb structured data missing for ${route.path}`,
     );
+  }
+
+  for (const block of routeStructuredData(route)) {
+    assert.ok(
+      html.includes(JSON.stringify(block)),
+      `Structured data block missing for ${route.path}: ${block["@type"] || "unknown"}`,
+    );
+  }
+  if (route.jsonLd) {
     assert.ok(
       html.includes('<script type="application/ld+json" data-rh="true">'),
       `Structured data is not marked for Helmet reconciliation: ${route.path}`,
@@ -112,6 +131,9 @@ for (const route of noIndexRoutes) {
   const html = readRoute(route.path);
   assert.ok(
     html.includes("noindex, nofollow"), `Private route is indexable: ${route.path}`,
+  );
+  assert.equal(
+    html.includes('"@type":"WebPage"'), false, `Noindex route exposes indexable WebPage JSON-LD: ${route.path}`,
   );
 }
 

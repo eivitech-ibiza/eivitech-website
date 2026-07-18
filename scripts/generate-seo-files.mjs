@@ -7,11 +7,19 @@ const SITE_URL = (process.env.SITE_URL || "https://eivitech.com").replace(
   "",
 );
 const DEFAULT_IMAGE = `${SITE_URL}/media/social/eivitech-og-brand-preview-v1.png`;
+const ORGANIZATION_ID = `${SITE_URL}/#organization`;
+const WEBSITE_ID = `${SITE_URL}/#website`;
 const OG_LOCALE_BY_LANGUAGE = {
   es: "es_ES",
   it: "it_IT",
   en: "en_GB",
   nl: "nl_NL",
+};
+const HTML_LOCALE_BY_LANGUAGE = {
+  es: "es-ES",
+  it: "it-IT",
+  en: "en-GB",
+  nl: "nl-NL",
 };
 
 function pageUrl(path) {
@@ -32,6 +40,104 @@ function htmlEscape(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function breadcrumbTitle(title) {
+  return title
+    .replace(/\s*[|–]\s*Eivitech(?:\s+Ibiza)?\s*$/i, "")
+    .trim();
+}
+
+function breadcrumbEntries(route) {
+  if (route.path === "/") return [];
+
+  const home = { name: "Eivitech", path: "/" };
+  const current = { name: breadcrumbTitle(route.title), path: route.path };
+
+  if (route.path.startsWith("/servicios/")) {
+    return [home, { name: "Servicios", path: "/servicios" }, current];
+  }
+
+  if (route.path.startsWith("/transformations/")) {
+    return [home, { name: "Transformaciones", path: "/transformations" }, current];
+  }
+
+  return [home, current];
+}
+
+function buildWebPageJsonLd(route, url, socialImage) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": `${url}#webpage`,
+    url,
+    name: route.title,
+    description: route.description,
+    inLanguage: HTML_LOCALE_BY_LANGUAGE[route.language || "es"] || "es-ES",
+    isPartOf: { "@id": WEBSITE_ID },
+    about: { "@id": ORGANIZATION_ID },
+    primaryImageOfPage: {
+      "@type": "ImageObject",
+      url: socialImage,
+    },
+  };
+}
+
+function buildBreadcrumbJsonLd(route) {
+  const entries = breadcrumbEntries(route);
+  if (entries.length < 2) return null;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: entries.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: pageUrl(item.path),
+    })),
+  };
+}
+
+function enrichStructuredData(block, url) {
+  if (!block || typeof block !== "object") return block;
+  const pageId = `${url}#webpage`;
+
+  if (block["@type"] === "CreativeWork") {
+    return {
+      ...block,
+      "@id": block["@id"] || `${url}#project`,
+      mainEntityOfPage: block.mainEntityOfPage || { "@id": pageId },
+      creator: block.creator || { "@id": ORGANIZATION_ID },
+    };
+  }
+
+  if (block["@type"] === "Service") {
+    return {
+      ...block,
+      "@id": block["@id"] || `${url}#service`,
+      url: block.url || url,
+      mainEntityOfPage: block.mainEntityOfPage || { "@id": pageId },
+      provider: block.provider || { "@id": ORGANIZATION_ID },
+    };
+  }
+
+  return block;
+}
+
+function structuredDataBlocks(route, noIndex, url, socialImage) {
+  if (noIndex) return [];
+
+  const supplied = route.jsonLd
+    ? (Array.isArray(route.jsonLd) ? route.jsonLd : [route.jsonLd])
+    : [];
+  const breadcrumb = buildBreadcrumbJsonLd(route);
+
+  return [
+    buildWebPageJsonLd(route, url, socialImage),
+    ...(breadcrumb ? [breadcrumb] : []),
+    ...supplied.map((block) => enrichStructuredData(block, url)),
+  ];
 }
 
 function writeSitemap() {
@@ -124,13 +230,13 @@ function replaceMeta(html, route, noIndex) {
       `<meta name="twitter:image:alt" content="${socialImageAlt}" data-rh="true" />`,
     );
 
-  if (route.jsonLd) {
-    const jsonLd = JSON.stringify(route.jsonLd).replaceAll("<", "\u003c");
-    output = output.replace(
-      "</head>",
-      `    <script type="application/ld+json" data-rh="true">${jsonLd}</script>
-  </head>`,
-    );
+  const jsonLd = structuredDataBlocks(route, noIndex, url, socialImage)
+    .map((block) => JSON.stringify(block).replaceAll("<", "\\u003c"))
+    .map((block) => `    <script type="application/ld+json" data-rh="true">${block}</script>`)
+    .join("\n");
+
+  if (jsonLd) {
+    output = output.replace("</head>", `${jsonLd}\n  </head>`);
   }
 
   return output;
