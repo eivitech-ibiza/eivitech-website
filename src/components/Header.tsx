@@ -177,27 +177,34 @@ export function Header() {
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-border bg-background">
-          <div className="container-x py-4 flex flex-col gap-1">
-            {NAV.map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.to === "/"}
-                className={({ isActive }) =>
-                  `py-3 text-base ${isActive ? "text-foreground" : "text-muted-foreground"}`
-                }
+        <div className="absolute right-4 top-full z-50 w-[min(20rem,calc(100vw-2rem))] md:hidden">
+          <nav
+            aria-label={tr("Navegación móvil", "Navigazione mobile", "Mobile navigation", "Mobiele navigatie")}
+            className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-sm border border-border bg-background p-2 shadow-xl"
+          >
+            <div className="flex flex-col gap-1">
+              {NAV.map((n) => (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  end={n.to === "/"}
+                  className={({ isActive }) =>
+                    `rounded-sm px-4 py-3 text-base transition-colors hover:bg-accent/60 ${
+                      isActive ? "bg-accent/40 text-foreground" : "text-muted-foreground"
+                    }`
+                  }
+                >
+                  {n.label}
+                </NavLink>
+              ))}
+              <Link
+                to="/contacto"
+                className="mt-2 inline-flex items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
               >
-                {n.label}
-              </NavLink>
-            ))}
-            <Link
-              to="/contacto"
-              className="mt-3 inline-flex items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
-            >
-              {ctaLabel}
-            </Link>
-          </div>
+                {ctaLabel}
+              </Link>
+            </div>
+          </nav>
         </div>
       )}
     </header>
