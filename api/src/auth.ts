@@ -21,10 +21,21 @@ declare global {
   }
 }
 
-const bootstrapEmails = (process.env.BOOTSTRAP_ADMIN_EMAILS ?? "")
+const approvedCrmEmails = new Set([
+  "lncoachmrc@gmail.com",
+  "info@eivitech.com",
+]);
+
+const configuredBootstrapEmails = (process.env.BOOTSTRAP_ADMIN_EMAILS ?? "")
   .split(",")
   .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+  .filter((email) => approvedCrmEmails.has(email));
+
+const authorizedCrmEmails = new Set(
+  configuredBootstrapEmails.length > 0
+    ? configuredBootstrapEmails
+    : [...approvedCrmEmails]
+);
 
 export async function requireCrmUser(req: Request, res: Response, next: NextFunction) {
   try {
@@ -42,16 +53,20 @@ export async function requireCrmUser(req: Request, res: Response, next: NextFunc
       return res.status(403).json({ error: "Authenticated user has no primary email" });
     }
 
+    if (!authorizedCrmEmails.has(email)) {
+      return res.status(403).json({ error: "User is not authorized for CRM access" });
+    }
+
     let result = await query<CrmUser>(
       "SELECT id, clerk_user_id, email, name, role, active FROM crm_users WHERE clerk_user_id = $1 OR email = $2 LIMIT 1",
       [auth.userId, email]
     );
 
-    if (result.rows.length === 0 && bootstrapEmails.includes(email)) {
+    if (result.rows.length === 0) {
       result = await query<CrmUser>(
         `INSERT INTO crm_users (clerk_user_id, email, name, role, active)
          VALUES ($1, $2, $3, 'admin', true)
-         ON CONFLICT (email) DO UPDATE SET clerk_user_id = EXCLUDED.clerk_user_id, updated_at = now()
+         ON CONFLICT (email) DO UPDATE SET clerk_user_id = EXCLUDED.clerk_user_id, active = true, updated_at = now()
          RETURNING id, clerk_user_id, email, name, role, active`,
         [auth.userId, email, name]
       );
