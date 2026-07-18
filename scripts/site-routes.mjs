@@ -1,8 +1,53 @@
-const service = (slug, title, description) => ({
-  path: `/servicios/${slug}`,
-  title,
-  description,
-});
+const SITE_URL = "https://eivitech.com";
+const ORGANIZATION_ID = `${SITE_URL}/#organization`;
+const WEBSITE_ID = `${SITE_URL}/#website`;
+
+const organizationMetadata = {
+  "@context": "https://schema.org",
+  "@type": "HomeAndConstructionBusiness",
+  "@id": ORGANIZATION_ID,
+  name: "Eivitech",
+  alternateName: "Eivitech Ibiza",
+  url: `${SITE_URL}/`,
+  description:
+    "Empresa de reformas, instalaciones, acabados e interiores a medida para villas, apartamentos, fincas y espacios comerciales en Ibiza.",
+  logo: `${SITE_URL}/media/brand/eivitech-logo.svg`,
+  image: `${SITE_URL}/media/hero/eivitech-ibiza-ristrutturazione-villa-mediterranea-top-banner.webp`,
+  telephone: "+34 674 735 188",
+  email: "info@eivitech.com",
+  areaServed: { "@type": "Place", name: "Ibiza, España" },
+  address: { "@type": "PostalAddress", addressLocality: "Ibiza", addressCountry: "ES" },
+};
+
+const websiteMetadata = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": WEBSITE_ID,
+  url: `${SITE_URL}/`,
+  name: "Eivitech Ibiza",
+  publisher: { "@id": ORGANIZATION_ID },
+  inLanguage: ["es-ES", "it-IT", "en-GB", "nl-NL"],
+};
+
+const service = (slug, title, description) => {
+  const url = `${SITE_URL}/servicios/${slug}/`;
+  return {
+    path: `/servicios/${slug}`,
+    title,
+    description,
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "@id": `${url}#service`,
+      serviceType: title.split("|")[0].trim(),
+      url,
+      description,
+      provider: { "@id": ORGANIZATION_ID },
+      areaServed: { "@type": "Place", name: "Ibiza, España" },
+      mainEntityOfPage: { "@id": `${url}#webpage` },
+    },
+  };
+};
 
 const project = (slug, title, description, metadata = {}) => ({
   path: `/transformations/${slug}`,
@@ -12,42 +57,50 @@ const project = (slug, title, description, metadata = {}) => ({
   ...metadata,
 });
 
-const projectMetadata = ({ slug, name, description, zone, image, imageAlt, width, height }) => ({
-  socialImage: image,
-  socialImageAlt: imageAlt,
-  socialImageType: "image/webp",
-  socialImageWidth: width,
-  socialImageHeight: height,
-  jsonLd: {
-    "@context": "https://schema.org",
-    "@type": "CreativeWork",
-    name,
-    description,
-    url: `https://eivitech.com/transformations/${slug}/`,
-    contentLocation: {
-      "@type": "Place",
-      name: zone,
+const projectMetadata = ({ slug, name, description, zone, image, imageAlt, width, height }) => {
+  const url = `${SITE_URL}/transformations/${slug}/`;
+  return {
+    socialImage: image,
+    socialImageAlt: imageAlt,
+    socialImageType: "image/webp",
+    socialImageWidth: width,
+    socialImageHeight: height,
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "CreativeWork",
+      "@id": `${url}#project`,
+      name,
+      description,
+      url,
+      mainEntityOfPage: { "@id": `${url}#webpage` },
+      creator: { "@id": ORGANIZATION_ID },
+      contentLocation: {
+        "@type": "Place",
+        name: zone,
+      },
+      image: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}${image}`,
+        caption: imageAlt,
+        width,
+        height,
+      },
     },
-    image: {
-      "@type": "ImageObject",
-      url: `https://eivitech.com${image}`,
-      caption: imageAlt,
-      width,
-      height,
-    },
-  },
-});
+  };
+};
 
 export const indexableRoutes = [
   {
     path: "/",
     title: "Eivitech Ibiza | Transformaciones y reformas de propiedades",
     description: "Reformas completas, interiores a medida y transformaciones exteriores en Ibiza, con materiales naturales, luz cálida y gestión completa del proyecto.",
+    jsonLd: [organizationMetadata, websiteMetadata],
   },
   {
     path: "/empresa",
     title: "Empresa de reformas en Ibiza | Eivitech",
     description: "Eivitech acompaña cada reforma en Ibiza desde la idea inicial hasta el último detalle, con coordinación, atención personalizada y acabados cuidados.",
+    jsonLd: organizationMetadata,
   },
   {
     path: "/servicios",
