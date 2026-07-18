@@ -62,6 +62,7 @@ type ConfirmationCopy = {
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_SITE_URL = "https://www.eivitech.com";
+const DEFAULT_REQUESTER_TEMPLATE_IT_ID = "b42fd5b2-ed86-49e5-a779-20023e47ea35";
 
 function resendChannels(lead: LeadEmailInput): ResendChannel[] {
   const fallbackFrom = process.env.LEAD_NOTIFICATION_FROM || "Eivitech Website <website@notifications.eivitech.com>";
@@ -241,7 +242,7 @@ const confirmationCopy: Record<ConfirmationLanguage, ConfirmationCopy> = {
     budget: "Presupuesto",
     message: "Mensaje",
     contact: "Para añadir información o documentos, puedes responder directamente a este correo.",
-    closing: "Hasta pronto,\nel equipo de Eivitech",
+    closing: "Hasta pronto,\nel equipo Eivitech",
   },
   en: {
     subjectClient: "We received your request — Eivitech",
@@ -297,6 +298,28 @@ function formatSubmissionDate(timestamp: string | null | undefined, language: Co
     timeStyle: "short",
     timeZone: "Europe/Madrid",
   }).format(date);
+}
+
+function formatRequesterTemplate(lead: LeadEmailInput) {
+  if (confirmationLanguage(lead) !== "it" || isPartnerRequest(lead)) return null;
+
+  const templateId = process.env.RESEND_REQUESTER_TEMPLATE_IT_ID?.trim() || DEFAULT_REQUESTER_TEMPLATE_IT_ID;
+
+  return {
+    id: templateId,
+    variables: {
+      NAME: safe(lead.nombre),
+      REFERENCE: lead.leadId,
+      SUBMITTED_AT: formatSubmissionDate(lead.timestamp, "it"),
+      CLIENT_TYPE: localizedLeadValue(lead.tipoCliente, "it"),
+      PROPERTY_TYPE: localizedLeadValue(lead.tipoPropiedad, "it"),
+      AREA: safe(lead.zona),
+      INTERVENTION: localizedLeadValue(lead.intervencion, "it"),
+      TIMING: localizedLeadValue(lead.plazo, "it"),
+      BUDGET: safe(lead.presupuesto),
+      MESSAGE: safe(lead.mensaje),
+    },
+  };
 }
 
 function formatRequesterConfirmation(lead: LeadEmailInput) {
@@ -427,6 +450,7 @@ function apiKeyVariableName(channel: ResendChannel) {
 
 async function sendLeadEmail(channel: ResendChannel, lead: LeadEmailInput) {
   const requestType = labelTipoRichiesta(lead);
+  const requesterTemplate = channel.kind === "requester_confirmation" ? formatRequesterTemplate(lead) : null;
   const confirmation = channel.kind === "requester_confirmation" ? formatRequesterConfirmation(lead) : null;
   const subject = confirmation?.subject || `Nuova richiesta Eivitech — ${requestType} — ${lead.nombre || "senza nome"}`;
   const text = confirmation?.text || formatLeadEmailText(lead);
@@ -441,6 +465,7 @@ async function sendLeadEmail(channel: ResendChannel, lead: LeadEmailInput) {
     replyTo: channel.replyTo,
     subject,
     leadId: lead.leadId,
+    templateId: requesterTemplate?.id || null,
   };
 
   if (!channel.apiKey) {
@@ -470,9 +495,10 @@ async function sendLeadEmail(channel: ResendChannel, lead: LeadEmailInput) {
       body: JSON.stringify({
         from: channel.from,
         to: [channel.to],
-        subject,
-        text,
         reply_to: channel.replyTo,
+        ...(requesterTemplate
+          ? { template: requesterTemplate }
+          : { subject, text }),
         tags: [
           { name: "lead_id", value: lead.leadId },
           { name: "account", value: channel.key },
