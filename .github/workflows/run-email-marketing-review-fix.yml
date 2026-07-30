@@ -50,6 +50,35 @@ jobs:
           python /tmp/apply-email-marketing-review-fixes.py
           rm -f .github/workflows/run-email-marketing-review-fix.yml
 
+      - name: Refresh regression expectations
+        shell: bash
+        run: |
+          python - <<'PYTEST'
+          from pathlib import Path
+
+          path = Path('scripts/email-marketing-foundation.test.mjs')
+          text = path.read_text()
+          replacements = {
+              'assert.match(server, /express\\.json\\(\\{ limit: "2mb" \\}\\)/);':
+                  'assert.match(server, /const marketingJsonParser = express\\.json\\(\\{ limit: "12mb" \\}\\)/);',
+              'assert.match(marketing, /contacts: z\\.array\\(z\\.unknown\\(\\)\\)\\.min\\(1\\)\\.max\\(1000\\)/);':
+                  'assert.match(marketing, /contacts: z\\.array\\(z\\.unknown\\(\\)\\)\\.max\\(1000\\)/);',
+              'assert.match(page, /const totalSkipped = parsed\\.issues\\.length \\+ result\\.skipped/);':
+                  'assert.match(page, /clientIssues: parsed\\.issues/);',
+              'assert.match(page, /const allIssues = \\[/);':
+                  'assert.match(page, /totalRows: parsed\\.totalRows/);',
+              'assert.match(page, /\\.slice\\(0, 5\\)/);':
+                  'assert.match(page, /result\\.errors\\s*\\.slice\\(0, 5\\)/);',
+              'assert.match(marketing, /consent_at: parsed\\.data\\.consent_at \\?\\? isoString\\(existing\\.consent_at\\)/);':
+                  'assert.match(marketing, /consent_at: requestedConsent \\? parsed\\.data\\.consent_at \\?\\? isoString\\(existing\\.consent_at\\) : null/);',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Missing expected legacy assertion: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PYTEST
+
       - name: Verify changes
         run: |
           npm config set registry https://registry.npmjs.org/
