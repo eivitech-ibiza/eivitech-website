@@ -8,9 +8,10 @@ import { z } from "zod";
 import { query } from "./db.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
-import { requireCrmUser } from "./auth.js";
+import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
+import { marketingRouter } from "./marketing.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -28,7 +29,6 @@ app.post(
   express.raw({ type: "application/json", limit: "256kb" }),
   handleResendOwnerWebhook
 );
-app.use(express.json({ limit: "100kb" }));
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
@@ -37,6 +37,10 @@ app.use(cors({
   },
 }));
 app.use(clerkMiddleware());
+
+const publicJsonParser = express.json({ limit: "100kb" });
+const crmJsonParser = express.json({ limit: "100kb" });
+const marketingJsonParser = express.json({ limit: "12mb" });
 
 const publicLeadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -94,7 +98,15 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "eivitech-crm-api" });
 });
 
-app.post("/api/leads", publicLeadLimiter, async (req, res) => {
+app.use(
+  "/api/marketing",
+  requireCrmUser,
+  requireRole(["admin", "manager"]),
+  marketingJsonParser,
+  marketingRouter
+);
+
+app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => {
   const parsed = leadSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -176,6 +188,8 @@ app.post("/api/leads", publicLeadLimiter, async (req, res) => {
     return res.status(500).json({ error: "Failed to create lead" });
   }
 });
+
+app.use("/api/leads", crmJsonParser);
 
 app.get("/api/leads", requireCrmUser, async (_req, res) => {
   const result = await query(
