@@ -1,0 +1,35 @@
+name: Email marketing foundation CI
+
+on:
+  push:
+    branches:
+      - feat/free-email-marketing-foundation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: email-marketing-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm config set registry https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          SITE_URL: https://eivitech.com
+          VITE_SITE_URL: https://eivitech.com
+      - run: npm --prefix api install
+      - run: npm --prefix api run build
+      - run: npm run seo:check
+      - run: npm run audit:prod
