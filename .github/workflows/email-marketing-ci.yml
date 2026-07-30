@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feat/free-email-marketing-foundation
+    paths-ignore:
+      - ci/email-marketing-foundation-verified.txt
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: email-marketing-foundation-${{ github.ref }}
@@ -17,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: feat/free-email-marketing-foundation
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -33,3 +37,16 @@ jobs:
       - run: npm --prefix api run build
       - run: npm run seo:check
       - run: npm run audit:prod
+      - name: Publish successful verification marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci
+          printf 'verified_source_sha=%s\nverified_at=%s\n' "${GITHUB_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > ci/email-marketing-foundation-verified.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ci/email-marketing-foundation-verified.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: record email marketing CI success"
+            git push origin HEAD:feat/free-email-marketing-foundation
+          fi
