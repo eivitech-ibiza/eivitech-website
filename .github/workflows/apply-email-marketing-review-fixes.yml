@@ -1,0 +1,771 @@
+name: Apply email marketing review fixes
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-email-marketing-review-fixes-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    if: github.head_ref == 'feat/free-email-marketing-foundation'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one exact match in {path}, found {count}: {old[:80]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          def replace_regex(path: str, pattern: str, replacement: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"Expected one regex match in {path}, found {count}: {pattern[:100]!r}")
+              file.write_text(updated)
+
+          server = "api/src/server.ts"
+          replace_once(server, 'app.use(express.json({ limit: "2mb" }));\n', '')
+          replace_once(
+              server,
+              'app.use(clerkMiddleware());\n',
+              'app.use(clerkMiddleware());\n\n'
+              'const publicJsonParser = express.json({ limit: "100kb" });\n'
+              'const crmJsonParser = express.json({ limit: "100kb" });\n'
+              'const marketingJsonParser = express.json({ limit: "12mb" });\n'
+          )
+          replace_once(
+              server,
+              '  requireRole(["admin", "manager"]),\n  marketingRouter\n',
+              '  requireRole(["admin", "manager"]),\n  marketingJsonParser,\n  marketingRouter\n'
+          )
+          replace_once(
+              server,
+              'app.post("/api/leads", publicLeadLimiter, async (req, res) => {',
+              'app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => {'
+          )
+          replace_once(
+              server,
+              '  }\n});\n\napp.get("/api/leads", requireCrmUser, async (_req, res) => {',
+              '  }\n});\n\napp.use("/api/leads", crmJsonParser);\n\napp.get("/api/leads", requireCrmUser, async (_req, res) => {'
+          )
+
+          marketing = "api/src/marketing.ts"
+          replace_regex(
+              marketing,
+              r'const importSchema = z\.object\(\{.*?\n\}\);\n\nconst segmentSchema',
+              '''const importIssueSchema = z.object({
+  row: z.number().int().min(2).max(1001),
+  email: z.string().trim().max(254).optional(),
+  message: z.string().trim().min(1).max(500),
+});
+
+const importSchema = z.object({
+  file_name: optionalText(255),
+  contacts: z.array(z.unknown()).max(1000),
+  contact_rows: z.array(z.number().int().min(2).max(1001)).max(1000).optional(),
+  client_issues: z.array(importIssueSchema).max(1000).optional(),
+  total_rows: z.number().int().min(0).max(1000).optional(),
+}).superRefine((data, ctx) => {
+  const clientIssueCount = data.client_issues?.length ?? 0;
+  const accountedRows = data.contacts.length + clientIssueCount;
+  const totalRows = data.total_rows ?? accountedRows;
+
+  if (accountedRows === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "The import contains no data rows" });
+  }
+  if (data.contact_rows && data.contact_rows.length !== data.contacts.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "contact_rows must match contacts length" });
+  }
+  if (totalRows !== accountedRows) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "total_rows must equal valid contacts plus client issues" });
+  }
+});
+
+const segmentSchema'''
+          )
+          replace_once(
+              marketing,
+              '  consent_at: Date | string | null;\n  suppression_reason: string | null;\n',
+              '  consent_at: Date | string | null;\n  unsubscribed_at: Date | string | null;\n  suppressed_at: Date | string | null;\n  suppression_reason: string | null;\n'
+          )
+          replace_regex(
+              marketing,
+              r'function normalizeContact\(data: z\.infer<typeof contactSchema>\) \{.*?\n\}\n\nasync function upsertContact',
+              '''function normalizeContact(data: z.infer<typeof contactSchema>) {
+  const explicitStatus = data.status;
+  const terminalStatus = explicitStatus === "unsubscribed" || explicitStatus === "suppressed"
+    ? explicitStatus
+    : null;
+  const stateProvided = explicitStatus !== undefined || data.marketing_consent !== undefined;
+  const marketingConsent = terminalStatus
+    ? false
+    : data.marketing_consent ?? explicitStatus === "subscribed";
+  const status = terminalStatus ?? (marketingConsent ? "subscribed" : "pending");
+  const now = new Date().toISOString();
+
+  return {
+    email: data.email.toLowerCase(),
+    firstName: cleanText(data.first_name),
+    lastName: cleanText(data.last_name),
+    phone: cleanText(data.phone),
+    address: cleanText(data.address),
+    region: cleanText(data.region),
+    countryCode: cleanText(data.country_code)?.toLowerCase() || null,
+    language: data.language || null,
+    contactType: cleanText(data.contact_type),
+    source: cleanText(data.source),
+    sourceFile: cleanText(data.source_file),
+    status,
+    tags: normalizeTags(data.tags),
+    tagsProvided: data.tags !== undefined,
+    stateProvided,
+    marketingConsent,
+    consentSource: cleanText(data.consent_source),
+    consentAt: marketingConsent ? data.consent_at || now : null,
+    unsubscribedAt: status === "unsubscribed" ? now : null,
+    suppressedAt: status === "suppressed" ? now : null,
+    suppressionReason: status === "suppressed" ? cleanText(data.suppression_reason) : null,
+  };
+}
+
+async function upsertContact'''
+          )
+          replace_regex(
+              marketing,
+              r'async function upsertContact\(.*?\n\}\n\nexport const marketingRouter = Router\(\);',
+              '''async function upsertContact(
+  data: z.infer<typeof contactSchema>,
+  createdBy: string | null,
+  eventType: ContactEventType,
+  sourceMetadata: Record<string, unknown> = {},
+  client: DbClient = pool,
+  allowTerminalRestore = false
+) {
+  const contact = normalizeContact(data);
+  const restoreTerminal = allowTerminalRestore && contact.status === "subscribed" && contact.marketingConsent;
+  const preserveExistingState = !contact.stateProvided;
+  const result = await client.query(
+    `INSERT INTO crm_marketing_contacts (
+       email, first_name, last_name, phone, address, region, country_code, language,
+       contact_type, source, source_file, status, tags, marketing_consent, consent_source,
+       consent_at, unsubscribed_at, suppressed_at, suppression_reason, created_by
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8,
+       $9, $10, $11, $12, $13::jsonb, $14, $15,
+       $16, $17, $18, $19, $20
+     )
+     ON CONFLICT (email) DO UPDATE SET
+       first_name = COALESCE(EXCLUDED.first_name, crm_marketing_contacts.first_name),
+       last_name = COALESCE(EXCLUDED.last_name, crm_marketing_contacts.last_name),
+       phone = COALESCE(EXCLUDED.phone, crm_marketing_contacts.phone),
+       address = COALESCE(EXCLUDED.address, crm_marketing_contacts.address),
+       region = COALESCE(EXCLUDED.region, crm_marketing_contacts.region),
+       country_code = COALESCE(EXCLUDED.country_code, crm_marketing_contacts.country_code),
+       language = COALESCE(EXCLUDED.language, crm_marketing_contacts.language),
+       contact_type = COALESCE(EXCLUDED.contact_type, crm_marketing_contacts.contact_type),
+       source = COALESCE(EXCLUDED.source, crm_marketing_contacts.source),
+       source_file = COALESCE(EXCLUDED.source_file, crm_marketing_contacts.source_file),
+       status = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.status
+         WHEN $22 THEN crm_marketing_contacts.status
+         ELSE EXCLUDED.status
+       END,
+       tags = CASE WHEN $23 THEN EXCLUDED.tags ELSE crm_marketing_contacts.tags END,
+       marketing_consent = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN false
+         WHEN $22 THEN crm_marketing_contacts.marketing_consent
+         ELSE EXCLUDED.marketing_consent
+       END,
+       consent_source = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.consent_source
+         WHEN $22 THEN crm_marketing_contacts.consent_source
+         ELSE EXCLUDED.consent_source
+       END,
+       consent_at = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN NULL
+         WHEN $22 THEN crm_marketing_contacts.consent_at
+         ELSE EXCLUDED.consent_at
+       END,
+       unsubscribed_at = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.unsubscribed_at
+         WHEN $22 THEN crm_marketing_contacts.unsubscribed_at
+         ELSE EXCLUDED.unsubscribed_at
+       END,
+       suppressed_at = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.suppressed_at
+         WHEN $22 THEN crm_marketing_contacts.suppressed_at
+         ELSE EXCLUDED.suppressed_at
+       END,
+       suppression_reason = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.suppression_reason
+         WHEN $22 THEN crm_marketing_contacts.suppression_reason
+         ELSE EXCLUDED.suppression_reason
+       END,
+       updated_at = now()
+     RETURNING *, (xmax = 0) AS inserted`,
+    [
+      contact.email,
+      contact.firstName,
+      contact.lastName,
+      contact.phone,
+      contact.address,
+      contact.region,
+      contact.countryCode,
+      contact.language,
+      contact.contactType,
+      contact.source,
+      contact.sourceFile,
+      contact.status,
+      JSON.stringify(contact.tags),
+      contact.marketingConsent,
+      contact.consentSource,
+      contact.consentAt,
+      contact.unsubscribedAt,
+      contact.suppressedAt,
+      contact.suppressionReason,
+      createdBy,
+      restoreTerminal,
+      preserveExistingState,
+      contact.tagsProvided,
+    ]
+  );
+
+  const saved = result.rows[0] as { id: string; inserted: boolean; status: string };
+  await client.query(
+    `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata, created_by)
+     VALUES ($1, $2, $3, $4::jsonb, $5)`,
+    [
+      saved.id,
+      eventType,
+      contact.consentSource || contact.source,
+      JSON.stringify({
+        ...sourceMetadata,
+        resultingStatus: saved.status,
+        terminalRestoreAllowed: restoreTerminal,
+        stateProvided: contact.stateProvided,
+        preservedExistingState: preserveExistingState,
+      }),
+      createdBy,
+    ]
+  );
+
+  return saved;
+}
+
+export const marketingRouter = Router();'''
+          )
+          replace_regex(
+              marketing,
+              r'marketingRouter\.patch\("/contacts/:id".*?\n\}\)\);\n\nmarketingRouter\.post\("/contacts/import"',
+              '''marketingRouter.patch("/contacts/:id", asyncRoute(async (req, res) => {
+  const parsed = contactUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid marketing contact update", details: parsed.error.flatten() });
+
+  const current = await query<ExistingContact>(`SELECT * FROM crm_marketing_contacts WHERE id = $1`, [req.params.id]);
+  if (current.rows.length === 0) return res.status(404).json({ error: "Marketing contact not found" });
+
+  const existing = current.rows[0];
+  const requestedStatus = parsed.data.status ?? existing.status;
+  const requestedIsTerminal = requestedStatus === "unsubscribed" || requestedStatus === "suppressed";
+  const requestedConsent = requestedIsTerminal
+    ? false
+    : parsed.data.marketing_consent ?? existing.marketing_consent;
+  const terminal = existing.status === "unsubscribed" || existing.status === "suppressed";
+  const allowResubscribe = terminal
+    && parsed.data.allow_resubscribe === true
+    && requestedStatus === "subscribed"
+    && requestedConsent === true;
+
+  if (terminal && !requestedIsTerminal && !allowResubscribe) {
+    return res.status(409).json({
+      error: "Explicit resubscription confirmation is required",
+      code: "RESUBSCRIBE_CONFIRMATION_REQUIRED",
+    });
+  }
+
+  const merged = contactSchema.parse({
+    email: parsed.data.email ?? existing.email,
+    first_name: parsed.data.first_name ?? existing.first_name,
+    last_name: parsed.data.last_name ?? existing.last_name,
+    phone: parsed.data.phone ?? existing.phone,
+    address: parsed.data.address ?? existing.address,
+    region: parsed.data.region ?? existing.region,
+    country_code: parsed.data.country_code ?? existing.country_code,
+    language: parsed.data.language ?? existing.language,
+    contact_type: parsed.data.contact_type ?? existing.contact_type,
+    source: parsed.data.source ?? existing.source,
+    source_file: parsed.data.source_file ?? existing.source_file,
+    status: requestedStatus,
+    tags: parsed.data.tags ?? existing.tags,
+    marketing_consent: requestedConsent,
+    consent_source: parsed.data.consent_source ?? existing.consent_source,
+    consent_at: requestedConsent ? parsed.data.consent_at ?? isoString(existing.consent_at) : null,
+    suppression_reason: parsed.data.suppression_reason ?? existing.suppression_reason,
+  });
+
+  const normalized = normalizeContact(merged);
+  const now = new Date().toISOString();
+  const unsubscribedAt = normalized.status === "unsubscribed"
+    ? isoString(existing.unsubscribed_at) || now
+    : null;
+  const suppressedAt = normalized.status === "suppressed"
+    ? isoString(existing.suppressed_at) || now
+    : null;
+  const suppressionReason = normalized.status === "suppressed"
+    ? normalized.suppressionReason || existing.suppression_reason || "Manual suppression"
+    : null;
+  const eventType: ContactEventType = allowResubscribe
+    ? "restored"
+    : normalized.status === "unsubscribed"
+      ? "unsubscribed"
+      : normalized.status === "suppressed"
+        ? "suppressed"
+        : normalized.marketingConsent
+          ? "subscribed"
+          : "updated";
+
+  const result = await query(
+    `UPDATE crm_marketing_contacts SET
+       email = $1,
+       first_name = $2,
+       last_name = $3,
+       phone = $4,
+       address = $5,
+       region = $6,
+       country_code = $7,
+       language = $8,
+       contact_type = $9,
+       source = $10,
+       source_file = $11,
+       status = $12,
+       tags = $13::jsonb,
+       marketing_consent = $14,
+       consent_source = $15,
+       consent_at = $16,
+       unsubscribed_at = $17,
+       suppressed_at = $18,
+       suppression_reason = $19,
+       updated_at = now()
+     WHERE id = $20
+     RETURNING *`,
+    [
+      normalized.email,
+      normalized.firstName,
+      normalized.lastName,
+      normalized.phone,
+      normalized.address,
+      normalized.region,
+      normalized.countryCode,
+      normalized.language,
+      normalized.contactType,
+      normalized.source,
+      normalized.sourceFile,
+      normalized.status,
+      JSON.stringify(normalized.tags),
+      normalized.marketingConsent,
+      normalized.consentSource,
+      normalized.marketingConsent ? normalized.consentAt : null,
+      unsubscribedAt,
+      suppressedAt,
+      suppressionReason,
+      req.params.id,
+    ]
+  );
+
+  await query(
+    `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata, created_by)
+     VALUES ($1, $2, $3, $4::jsonb, $5)`,
+    [
+      req.params.id,
+      eventType,
+      normalized.consentSource || normalized.source,
+      JSON.stringify({
+        method: "manual-update",
+        contactId: req.params.id,
+        previousStatus: existing.status,
+        resultingStatus: normalized.status,
+        terminalRestoreAllowed: allowResubscribe,
+        emailChanged: normalized.email !== existing.email,
+      }),
+      req.crmUser?.id || null,
+    ]
+  );
+
+  return res.json({ contact: result.rows[0] });
+}));
+
+marketingRouter.post("/contacts/import"'''
+          )
+          replace_regex(
+              marketing,
+              r'marketingRouter\.post\("/contacts/import".*?\n\}\)\);\n\nmarketingRouter\.get\("/segments"',
+              '''marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
+  const parsed = importSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid contact import", details: parsed.error.flatten() });
+
+  const client = await pool.connect();
+  const clientIssues = parsed.data.client_issues || [];
+  const contactRows = parsed.data.contact_rows || parsed.data.contacts.map((_contact, index) => index + 2);
+  const totalRows = parsed.data.total_rows ?? parsed.data.contacts.length + clientIssues.length;
+  const errors: { row: number; email?: string; message: string }[] = clientIssues.map((issue) => ({ ...issue }));
+  let inserted = 0;
+  let updated = 0;
+
+  try {
+    await client.query("BEGIN");
+
+    for (let index = 0; index < parsed.data.contacts.length; index += 1) {
+      const originalRow = contactRows[index] ?? index + 2;
+      const row = contactSchema.safeParse(parsed.data.contacts[index]);
+      if (!row.success) {
+        const candidate = parsed.data.contacts[index] as { email?: unknown } | null;
+        errors.push({
+          row: originalRow,
+          email: typeof candidate?.email === "string" ? candidate.email : undefined,
+          message: row.error.issues.map((issue) => issue.message).join("; "),
+        });
+        continue;
+      }
+
+      const saved = await upsertContact(
+        { ...row.data, source_file: row.data.source_file || parsed.data.file_name || undefined },
+        req.crmUser?.id || null,
+        "imported",
+        { method: "csv-import", row: originalRow, fileName: parsed.data.file_name || null },
+        client,
+        false
+      );
+      if (saved.inserted) inserted += 1;
+      else updated += 1;
+    }
+
+    const skipped = errors.length;
+    const job = await client.query(
+      `INSERT INTO crm_marketing_import_jobs (
+         file_name, total_rows, inserted_rows, updated_rows, skipped_rows, errors, imported_by
+       ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+       RETURNING *`,
+      [
+        cleanText(parsed.data.file_name),
+        totalRows,
+        inserted,
+        updated,
+        skipped,
+        JSON.stringify(errors.slice(0, 200)),
+        req.crmUser?.id || null,
+      ]
+    );
+
+    await client.query("COMMIT");
+    return res.status(201).json({ importJob: job.rows[0], inserted, updated, skipped, errors });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+marketingRouter.get("/segments"'''
+          )
+
+          csv_path = "src/lib/marketingCsv.ts"
+          replace_once(
+              csv_path,
+              '''export type MarketingCsvIssue = {
+  row: number;
+  message: string;
+};
+
+export type MarketingCsvResult = {
+  contacts: MarketingContactInput[];
+  issues: MarketingCsvIssue[];
+};''',
+              '''export type MarketingCsvIssue = {
+  row: number;
+  email?: string;
+  message: string;
+};
+
+export type MarketingCsvResult = {
+  contacts: MarketingContactInput[];
+  contactRows: number[];
+  issues: MarketingCsvIssue[];
+  totalRows: number;
+};'''
+          )
+          replace_regex(
+              csv_path,
+              r'export function parseMarketingContactsCsv\(text: string\): MarketingCsvResult \{.*\Z',
+              '''export function parseMarketingContactsCsv(text: string): MarketingCsvResult {
+  const normalizedText = text.replace(/^\\uFEFF/, "");
+  const rows = parseRows(normalizedText, detectDelimiter(normalizedText));
+  if (rows.length === 0) return { contacts: [], contactRows: [], issues: [{ row: 1, message: "CSV vuoto" }], totalRows: 0 };
+
+  const totalRows = Math.max(rows.length - 1, 0);
+  if (totalRows > 1000) {
+    return {
+      contacts: [],
+      contactRows: [],
+      issues: [{ row: 1002, message: `Il file contiene ${totalRows} righe: il massimo consentito è 1000` }],
+      totalRows,
+    };
+  }
+
+  const headers = rows[0].map((header) => HEADER_ALIASES[normalizeHeader(header)]);
+  const emailIndex = headers.findIndex((header) => header === "email");
+  if (emailIndex < 0) {
+    return { contacts: [], contactRows: [], issues: [{ row: 1, message: "Colonna email non trovata" }], totalRows };
+  }
+
+  const hasStatusColumn = headers.includes("status");
+  const hasConsentColumn = headers.includes("consent");
+  const hasTagsColumn = headers.includes("tags");
+  const contacts: MarketingContactInput[] = [];
+  const contactRows: number[] = [];
+  const issues: MarketingCsvIssue[] = [];
+
+  for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+    const values = rows[rowIndex];
+    const raw: Record<string, string> = {};
+
+    headers.forEach((header, index) => {
+      if (header) raw[header] = values[index] || "";
+    });
+
+    const email = clean(raw.email)?.toLowerCase();
+    if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      issues.push({ row: rowIndex + 1, email: clean(raw.email), message: `Email non valida: ${raw.email || "vuota"}` });
+      continue;
+    }
+
+    const status = hasStatusColumn ? normalizeStatus(raw.status) : undefined;
+    const rawConsent = hasConsentColumn ? raw.consent?.trim() : "";
+    let marketingConsent: boolean | undefined;
+    if (status === "subscribed") marketingConsent = true;
+    else if (status === "unsubscribed" || status === "suppressed" || status === "pending") marketingConsent = false;
+    else if (rawConsent) marketingConsent = normalizeBoolean(raw.consent);
+
+    const contact: MarketingContactInput = {
+      email,
+      first_name: clean(raw.first_name),
+      last_name: clean(raw.last_name),
+      phone: clean(raw.phone),
+      address: clean(raw.address),
+      region: clean(raw.region),
+      country_code: clean(raw.country_code)?.toLowerCase(),
+      language: normalizeLanguage(raw.language) || normalizeLanguage(raw.country_code),
+      contact_type: clean(raw.contact_type),
+      source: clean(raw.source) || "csv-import",
+      source_file: clean(raw.source_file),
+    };
+
+    if (status !== undefined) contact.status = status;
+    if (hasTagsColumn) contact.tags = splitTags(raw.tags);
+    if (marketingConsent !== undefined) {
+      contact.marketing_consent = marketingConsent;
+      if (marketingConsent) {
+        contact.consent_source = "csv-import";
+        contact.consent_at = new Date().toISOString();
+      }
+    }
+    if (status === "suppressed") contact.suppression_reason = "Imported suppression status";
+
+    contacts.push(contact);
+    contactRows.push(rowIndex + 1);
+  }
+
+  return { contacts, contactRows, issues, totalRows };
+}
+'''
+          )
+
+          client_path = "src/lib/marketing.ts"
+          replace_once(
+              client_path,
+              '''export function importMarketingContacts(token: string, fileName: string, contacts: MarketingContactInput[]) {
+  return marketingRequest<{
+    importJob: Record<string, unknown>;
+    inserted: number;
+    updated: number;
+    skipped: number;
+    errors: { row: number; email?: string; message: string }[];
+  }>("/contacts/import", { method: "POST", token, body: { file_name: fileName, contacts } });
+}''',
+              '''export type MarketingImportIssue = { row: number; email?: string; message: string };
+
+export type MarketingImportMetadata = {
+  contactRows: number[];
+  clientIssues: MarketingImportIssue[];
+  totalRows: number;
+};
+
+export function importMarketingContacts(
+  token: string,
+  fileName: string,
+  contacts: MarketingContactInput[],
+  metadata: MarketingImportMetadata
+) {
+  return marketingRequest<{
+    importJob: Record<string, unknown>;
+    inserted: number;
+    updated: number;
+    skipped: number;
+    errors: MarketingImportIssue[];
+  }>("/contacts/import", {
+    method: "POST",
+    token,
+    body: {
+      file_name: fileName,
+      contacts,
+      contact_rows: metadata.contactRows,
+      client_issues: metadata.clientIssues,
+      total_rows: metadata.totalRows,
+    },
+  });
+}'''
+          )
+
+          page = "src/pages/EmailMarketing.tsx"
+          replace_regex(
+              page,
+              r'  async function importCsv\(file: File\) \{.*?\n  \}\n\n  async function changeContactStatus',
+              '''  async function importCsv(file: File) {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const parsed = parseMarketingContactsCsv(await file.text());
+      if (parsed.totalRows === 0) {
+        throw new Error(parsed.issues.map((issue) => issue.message).join("; ") || "No data rows");
+      }
+      if (parsed.totalRows > 1000) {
+        throw new Error(parsed.issues.map((issue) => issue.message).join("; ") || "Maximum 1000 rows");
+      }
+      const token = await tokenOrThrow();
+      const result = await importMarketingContacts(token, file.name, parsed.contacts, {
+        contactRows: parsed.contactRows,
+        clientIssues: parsed.issues,
+        totalRows: parsed.totalRows,
+      });
+      const issueDetails = result.errors
+        .slice(0, 5)
+        .map((issue) => `${tr("Fila", "Riga", "Row", "Rij")} ${issue.row}: ${issue.message}`)
+        .join(" · ");
+      const summary = tr(
+        `Importados: ${result.inserted}; actualizados: ${result.updated}; omitidos: ${result.skipped}.`,
+        `Importati: ${result.inserted}; aggiornati: ${result.updated}; saltati: ${result.skipped}.`,
+        `Imported: ${result.inserted}; updated: ${result.updated}; skipped: ${result.skipped}.`,
+        `Geïmporteerd: ${result.inserted}; bijgewerkt: ${result.updated}; overgeslagen: ${result.skipped}.`,
+      );
+      setNotice(issueDetails ? `${summary} ${issueDetails}` : summary);
+      await loadWorkspace();
+    } catch (err) {
+      console.error("[email-marketing] CSV import failed", err);
+      setError(err instanceof Error ? err.message : tr("Importación fallida.", "Importazione non riuscita.", "Import failed.", "Importeren mislukt."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeContactStatus'''
+          )
+
+          tests = Path("scripts/email-marketing.test.mjs")
+          test_text = tests.read_text()
+          marker = 'test("marketing consent and import safeguards cover final review findings"'
+          if marker not in test_text:
+              test_text += '''
+
+test("marketing consent and import safeguards cover final review findings", () => {
+  const marketing = read("api/src/marketing.ts");
+  const client = read("src/lib/marketing.ts");
+  const parser = read("src/lib/marketingCsv.ts");
+  assert.match(marketing, /const marketingConsent = terminalStatus[\\s\\S]*?\\? false/);
+  assert.match(marketing, /preserveExistingState = !contact\\.stateProvided/);
+  assert.match(marketing, /client_issues/);
+  assert.match(marketing, /contact_rows/);
+  assert.match(marketing, /total_rows/);
+  const patchRoute = marketing.match(/marketingRouter\\.patch\\("\\/contacts\\/:id"[\\s\\S]*?marketingRouter\\.post\\("\\/contacts\\/import"/)?.[0] || "";
+  assert.match(patchRoute, /UPDATE crm_marketing_contacts/);
+  assert.match(patchRoute, /WHERE id = \\$20/);
+  assert.doesNotMatch(patchRoute, /upsertContact\\(/);
+  assert.match(client, /contact_rows: metadata\\.contactRows/);
+  assert.match(client, /client_issues: metadata\\.clientIssues/);
+  assert.match(parser, /contactRows/);
+  assert.match(parser, /totalRows/);
+  assert.match(parser, /hasConsentColumn/);
+});
+
+test("large marketing bodies are parsed only after CRM authorization", () => {
+  const server = read("api/src/server.ts");
+  assert.doesNotMatch(server, /app\\.use\\(express\\.json/);
+  assert.match(server, /const marketingJsonParser = express\\.json\\(\\{ limit: "12mb" \\}\\)/);
+  assert.match(server, /"\\/api\\/marketing",[\\s\\S]*?requireCrmUser,[\\s\\S]*?requireRole\\(\\["admin", "manager"\\]\\),[\\s\\S]*?marketingJsonParser/);
+  assert.match(server, /app\\.post\\("\\/api\\/leads", publicLeadLimiter, publicJsonParser/);
+  assert.match(server, /app\\.use\\("\\/api\\/leads", crmJsonParser\\)/);
+});
+'''
+              tests.write_text(test_text)
+
+          workflow = Path(".github/workflows/apply-email-marketing-review-fixes.yml")
+          if workflow.exists():
+              workflow.unlink()
+          PY
+
+      - name: Verify changes
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+          npm --prefix api install
+          npm --prefix api run build
+          npm run seo:check
+          npm run audit:prod
+        env:
+          SITE_URL: https://eivitech.com
+          VITE_SITE_URL: https://eivitech.com
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: address final email marketing review findings"
+          git push origin HEAD:${{ github.head_ref }}
