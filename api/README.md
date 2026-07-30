@@ -1,6 +1,6 @@
 # Eivitech CRM API
 
-Backend API for the Eivitech CRM funnel.
+Backend API for the Eivitech CRM funnel and the integrated email marketing workspace.
 
 ## Railway deployment
 
@@ -76,6 +76,40 @@ Protected by Clerk + CRM user authorization:
 - `PATCH /api/leads/:id`
 - `POST /api/leads/:id/activities`
 - `GET /api/dashboard/stats`
+
+Protected by Clerk and restricted to `admin` or `manager` roles:
+
+- `GET /api/marketing/stats`
+- `GET /api/marketing/contacts`
+- `POST /api/marketing/contacts`
+- `PATCH /api/marketing/contacts/:id`
+- `POST /api/marketing/contacts/import`
+- `GET /api/marketing/segments`
+- `POST /api/marketing/segments`
+- `PATCH /api/marketing/segments/:id`
+- `POST /api/marketing/segments/:id/members`
+- `GET /api/marketing/campaigns`
+- `POST /api/marketing/campaigns`
+- `PATCH /api/marketing/campaigns/:id`
+
+## Free email marketing foundation
+
+The first phase uses only code already hosted in the Eivitech repository and the existing PostgreSQL database. It adds no paid dependency and requires no new external account.
+
+Implemented in this phase:
+
+- contact directory with consent, language, tags, status, suppression and unsubscribe token;
+- CSV import compatible with common Mailchimp exports and the Digitalempower WordPress plugin columns;
+- deduplication by email;
+- consent event audit trail;
+- segments and segment memberships;
+- campaign drafts with HTML, language, sender data, topic and segment;
+- a protected CRM workspace at `/dashboard/email-marketing`;
+- safeguards that deliberately keep bulk sending disabled until unsubscribe handling, Resend marketing sync and a final send confirmation are implemented.
+
+No lead is automatically subscribed to marketing. A contact becomes `subscribed` only when documented marketing consent is explicitly supplied.
+
+Future sending can use the existing Resend free marketing tier, but the database and draft workflow are provider-independent. No marketing API key is required in this first phase.
 
 ## Notification behavior
 
