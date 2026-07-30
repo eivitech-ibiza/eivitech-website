@@ -1,0 +1,45 @@
+name: Update email marketing security dependencies
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-email-marketing-dependencies-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-lockfile:
+    if: github.head_ref == 'feat/free-email-marketing-foundation'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Use patched React Router v6 line
+        run: npm install --save react-router-dom@6.30.4 postcss@8.5.23
+
+      - name: Commit package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: use patched React Router v6 release"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
