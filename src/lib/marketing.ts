@@ -22,6 +22,7 @@ export type MarketingContactInput = {
   consent_source?: string | null;
   consent_at?: string | null;
   suppression_reason?: string | null;
+  allow_resubscribe?: boolean;
 };
 
 export type MarketingContact = MarketingContactInput & {
