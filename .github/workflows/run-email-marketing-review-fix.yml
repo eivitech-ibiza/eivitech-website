@@ -36,7 +36,12 @@ jobs:
           end = source.index("\n          PY", start)
           embedded = source[start:end]
           lines = [line[10:] if line.startswith('          ') else line for line in embedded.splitlines()]
-          Path('/tmp/apply-email-marketing-review-fixes.py').write_text('\n'.join(lines) + '\n')
+          script = '\n'.join(lines) + '\n'
+          script = script.replace(
+              "re.subn(pattern, replacement, text, count=1, flags=re.S)",
+              "re.subn(pattern, lambda _match: replacement, text, count=1, flags=re.S)",
+          )
+          Path('/tmp/apply-email-marketing-review-fixes.py').write_text(script)
           PYRUN
           python /tmp/apply-email-marketing-review-fixes.py
           rm -f .github/workflows/run-email-marketing-review-fix.yml
