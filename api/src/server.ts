@@ -115,7 +115,7 @@ app.post("/api/leads", publicLeadLimiter, async (req, res) => {
     intervencion: data.intervencion,
     tipo_propiedad: data.tipoPropiedad,
     tiene_fotos: data.tieneFotos,
-    tiene_progetto: data.tieneProyecto,
+    tiene_proyecto: data.tieneProyecto,
     presupuesto: data.presupuesto || null,
     source: data.source || null,
     utm_source: data.utm_source || null,
@@ -129,7 +129,7 @@ app.post("/api/leads", publicLeadLimiter, async (req, res) => {
     const result = await query(
       `INSERT INTO crm_leads (
         status, priority, score, nombre, email, telefono, tipo_cliente, tipo_propiedad, zona,
-        intervencion, tiene_fotos, tiene_progetto, plazo, presupuesto, mensaje, source,
+        intervencion, tiene_fotos, tiene_proyecto, plazo, presupuesto, mensaje, source,
         landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         consent_privacy, next_action
       ) VALUES (
