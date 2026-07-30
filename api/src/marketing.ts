@@ -1,5 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { Router } from "express";
+import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { pool, query } from "./db.js";
 
@@ -29,7 +30,9 @@ const contactSchema = z.object({
   suppression_reason: optionalText(300),
 });
 
-const contactUpdateSchema = contactSchema.partial();
+const contactUpdateSchema = contactSchema.partial().extend({
+  allow_resubscribe: z.boolean().optional(),
+});
 
 const importSchema = z.object({
   file_name: optionalText(255),
@@ -65,6 +68,29 @@ const campaignSchema = z.object({
 
 const campaignUpdateSchema = campaignSchema.partial();
 
+type ContactEventType = "created" | "updated" | "subscribed" | "unsubscribed" | "suppressed" | "restored" | "imported";
+type DbClient = Pool | PoolClient;
+type ExistingContact = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  address: string | null;
+  region: string | null;
+  country_code: string | null;
+  language: "es" | "it" | "en" | "nl" | null;
+  contact_type: string | null;
+  source: string | null;
+  source_file: string | null;
+  status: "pending" | "subscribed" | "unsubscribed" | "suppressed";
+  tags: string[];
+  marketing_consent: boolean;
+  consent_source: string | null;
+  consent_at: Date | string | null;
+  suppression_reason: string | null;
+};
+
 function asyncRoute(handler: (req: Request, res: Response, next: NextFunction) => unknown): RequestHandler {
   return (req, res, next) => {
     Promise.resolve(handler(req, res, next)).catch(next);
@@ -74,6 +100,12 @@ function asyncRoute(handler: (req: Request, res: Response, next: NextFunction) =
 function cleanText(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed || null;
+}
+
+function isoString(value: unknown) {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string" && value.trim()) return value;
+  return null;
 }
 
 function normalizeTags(tags?: string[]) {
@@ -121,11 +153,13 @@ function normalizeContact(data: z.infer<typeof contactSchema>) {
 async function upsertContact(
   data: z.infer<typeof contactSchema>,
   createdBy: string | null,
-  eventType: "created" | "updated" | "subscribed" | "unsubscribed" | "suppressed" | "restored" | "imported",
+  eventType: ContactEventType,
   sourceMetadata: Record<string, unknown> = {},
-  client = pool
+  client: DbClient = pool,
+  allowTerminalRestore = false
 ) {
   const contact = normalizeContact(data);
+  const restoreTerminal = allowTerminalRestore && contact.status === "subscribed" && contact.marketingConsent;
   const result = await client.query(
     `INSERT INTO crm_marketing_contacts (
        email, first_name, last_name, phone, address, region, country_code, language,
@@ -147,14 +181,42 @@ async function upsertContact(
        contact_type = EXCLUDED.contact_type,
        source = COALESCE(EXCLUDED.source, crm_marketing_contacts.source),
        source_file = COALESCE(EXCLUDED.source_file, crm_marketing_contacts.source_file),
-       status = EXCLUDED.status,
+       status = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.status
+         ELSE EXCLUDED.status
+       END,
        tags = EXCLUDED.tags,
-       marketing_consent = EXCLUDED.marketing_consent,
-       consent_source = EXCLUDED.consent_source,
-       consent_at = EXCLUDED.consent_at,
-       unsubscribed_at = EXCLUDED.unsubscribed_at,
-       suppressed_at = EXCLUDED.suppressed_at,
-       suppression_reason = EXCLUDED.suppression_reason,
+       marketing_consent = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN false
+         ELSE EXCLUDED.marketing_consent
+       END,
+       consent_source = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.consent_source
+         ELSE EXCLUDED.consent_source
+       END,
+       consent_at = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.consent_at
+         ELSE EXCLUDED.consent_at
+       END,
+       unsubscribed_at = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.unsubscribed_at
+         ELSE EXCLUDED.unsubscribed_at
+       END,
+       suppressed_at = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.suppressed_at
+         ELSE EXCLUDED.suppressed_at
+       END,
+       suppression_reason = CASE
+         WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
+           THEN crm_marketing_contacts.suppression_reason
+         ELSE EXCLUDED.suppression_reason
+       END,
        updated_at = now()
      RETURNING *, (xmax = 0) AS inserted`,
     [
@@ -178,14 +240,21 @@ async function upsertContact(
       contact.suppressedAt,
       contact.suppressionReason,
       createdBy,
+      restoreTerminal,
     ]
   );
 
-  const saved = result.rows[0] as { id: string; inserted: boolean };
+  const saved = result.rows[0] as { id: string; inserted: boolean; status: string };
   await client.query(
     `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata, created_by)
      VALUES ($1, $2, $3, $4::jsonb, $5)`,
-    [saved.id, eventType, contact.consentSource || contact.source, JSON.stringify(sourceMetadata), createdBy]
+    [
+      saved.id,
+      eventType,
+      contact.consentSource || contact.source,
+      JSON.stringify({ ...sourceMetadata, resultingStatus: saved.status, terminalRestoreAllowed: restoreTerminal }),
+      createdBy,
+    ]
   );
 
   return saved;
@@ -274,7 +343,7 @@ marketingRouter.post("/contacts", asyncRoute(async (req, res) => {
   const parsed = contactSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid marketing contact", details: parsed.error.flatten() });
 
-  const eventType = parsed.data.status === "unsubscribed"
+  const eventType: ContactEventType = parsed.data.status === "unsubscribed"
     ? "unsubscribed"
     : parsed.data.status === "suppressed"
       ? "suppressed"
@@ -289,10 +358,25 @@ marketingRouter.patch("/contacts/:id", asyncRoute(async (req, res) => {
   const parsed = contactUpdateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid marketing contact update", details: parsed.error.flatten() });
 
-  const current = await query(`SELECT * FROM crm_marketing_contacts WHERE id = $1`, [req.params.id]);
+  const current = await query<ExistingContact>(`SELECT * FROM crm_marketing_contacts WHERE id = $1`, [req.params.id]);
   if (current.rows.length === 0) return res.status(404).json({ error: "Marketing contact not found" });
 
-  const existing = current.rows[0] as Record<string, unknown>;
+  const existing = current.rows[0];
+  const requestedStatus = parsed.data.status ?? existing.status;
+  const requestedConsent = parsed.data.marketing_consent ?? existing.marketing_consent;
+  const terminal = existing.status === "unsubscribed" || existing.status === "suppressed";
+  const allowResubscribe = terminal
+    && parsed.data.allow_resubscribe === true
+    && requestedStatus === "subscribed"
+    && requestedConsent === true;
+
+  if (terminal && requestedStatus === "subscribed" && requestedConsent && !allowResubscribe) {
+    return res.status(409).json({
+      error: "Explicit resubscription confirmation is required",
+      code: "RESUBSCRIBE_CONFIRMATION_REQUIRED",
+    });
+  }
+
   const merged = contactSchema.parse({
     email: parsed.data.email ?? existing.email,
     first_name: parsed.data.first_name ?? existing.first_name,
@@ -305,24 +389,31 @@ marketingRouter.patch("/contacts/:id", asyncRoute(async (req, res) => {
     contact_type: parsed.data.contact_type ?? existing.contact_type,
     source: parsed.data.source ?? existing.source,
     source_file: parsed.data.source_file ?? existing.source_file,
-    status: parsed.data.status ?? existing.status,
+    status: requestedStatus,
     tags: parsed.data.tags ?? existing.tags,
-    marketing_consent: parsed.data.marketing_consent ?? existing.marketing_consent,
+    marketing_consent: requestedConsent,
     consent_source: parsed.data.consent_source ?? existing.consent_source,
-    consent_at: parsed.data.consent_at ?? existing.consent_at,
+    consent_at: parsed.data.consent_at ?? isoString(existing.consent_at),
     suppression_reason: parsed.data.suppression_reason ?? existing.suppression_reason,
   });
 
-  const eventType = merged.status === "unsubscribed"
-    ? "unsubscribed"
-    : merged.status === "suppressed"
-      ? "suppressed"
-      : existing.status === "unsubscribed" || existing.status === "suppressed"
-        ? "restored"
+  const eventType: ContactEventType = allowResubscribe
+    ? "restored"
+    : merged.status === "unsubscribed"
+      ? "unsubscribed"
+      : merged.status === "suppressed"
+        ? "suppressed"
         : merged.marketing_consent
           ? "subscribed"
           : "updated";
-  const contact = await upsertContact(merged, req.crmUser?.id || null, eventType, { method: "manual-update", contactId: req.params.id });
+  const contact = await upsertContact(
+    merged,
+    req.crmUser?.id || null,
+    eventType,
+    { method: "manual-update", contactId: req.params.id, previousStatus: existing.status },
+    pool,
+    allowResubscribe
+  );
   return res.json({ contact });
 }));
 
@@ -355,7 +446,8 @@ marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
         req.crmUser?.id || null,
         "imported",
         { method: "csv-import", row: index + 2, fileName: parsed.data.file_name || null },
-        client
+        client,
+        false
       );
       if (saved.inserted) inserted += 1;
       else updated += 1;
@@ -553,7 +645,7 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
       data.topic === undefined ? existing.topic : cleanText(data.topic),
       JSON.stringify(data.editor_json ?? existing.editor_json ?? {}),
       data.html ?? existing.html,
-      data.scheduled_at === undefined ? existing.scheduled_at : data.scheduled_at,
+      data.scheduled_at === undefined ? isoString(existing.scheduled_at) : data.scheduled_at,
       req.params.id,
     ]
   );
@@ -562,8 +654,14 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
 
 marketingRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error("[marketing] request failed", error);
-  if (error instanceof Error && "code" in error && error.code === "23505") {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : null;
+  if (code === "23505") {
     return res.status(409).json({ error: "A record with the same unique value already exists" });
+  }
+  if (code === "23503") {
+    return res.status(400).json({ error: "A referenced marketing record does not exist" });
   }
   return res.status(500).json({ error: "Email marketing request failed" });
 });
