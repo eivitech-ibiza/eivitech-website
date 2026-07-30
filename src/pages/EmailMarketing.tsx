@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton, useAuth, useUser } from "@clerk/clerk-react";
-import { ArrowLeft, FileText, Layers3, Lock, Mail, Plus, RefreshCw, ShieldCheck, Upload, Users } from "lucide-react";
+import { ArrowLeft, FileText, Layers3, Lock, Mail, Plus, RefreshCw, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SEO } from "@/components/SEO";
 import { CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
@@ -75,10 +75,6 @@ function displayName(contact: MarketingContact) {
   return [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "—";
 }
 
-function statusLabel(status?: MarketingContactStatus) {
-  return STATUS_OPTIONS.find((option) => option.value === status)?.label || status || "—";
-}
-
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
@@ -146,7 +142,7 @@ function EmailMarketingShell() {
 
   const filteredContacts = useMemo(() => contacts, [contacts]);
 
-  async function saveContact(event: React.FormEvent) {
+  async function saveContact(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError(null);
@@ -156,9 +152,7 @@ function EmailMarketingShell() {
       const payload: MarketingContactInput = {
         ...contactForm,
         email: contactForm.email.trim().toLowerCase(),
-        tags: typeof contactForm.tags === "string"
-          ? String(contactForm.tags).split(",").map((tag) => tag.trim()).filter(Boolean)
-          : contactForm.tags,
+        tags: contactForm.tags,
         status: contactForm.marketing_consent ? "subscribed" : contactForm.status || "pending",
         consent_at: contactForm.marketing_consent ? new Date().toISOString() : null,
       };
@@ -166,8 +160,7 @@ function EmailMarketingShell() {
       setContacts((current) => [result.contact, ...current.filter((item) => item.id !== result.contact.id)]);
       setContactForm(EMPTY_CONTACT);
       setNotice(tr("Contacto guardado.", "Contatto salvato.", "Contact saved.", "Contact opgeslagen."));
-      const updatedStats = await fetchMarketingStats(token);
-      setStats(updatedStats);
+      setStats(await fetchMarketingStats(token));
     } catch (err) {
       console.error("[email-marketing] contact save failed", err);
       setError(tr("No se ha podido guardar el contacto.", "Non è stato possibile salvare il contatto.", "Could not save the contact.", "Het contact kon niet worden opgeslagen."));
@@ -187,12 +180,22 @@ function EmailMarketingShell() {
       }
       const token = await tokenOrThrow();
       const result = await importMarketingContacts(token, file.name, parsed.contacts);
-      setNotice(tr(
-        `Importados: ${result.inserted}; actualizados: ${result.updated}; omitidos: ${result.skipped}.`,
-        `Importati: ${result.inserted}; aggiornati: ${result.updated}; saltati: ${result.skipped}.`,
-        `Imported: ${result.inserted}; updated: ${result.updated}; skipped: ${result.skipped}.`,
-        `Geïmporteerd: ${result.inserted}; bijgewerkt: ${result.updated}; overgeslagen: ${result.skipped}.`,
-      ));
+      const allIssues = [
+        ...parsed.issues.map((issue) => ({ row: issue.row, message: issue.message })),
+        ...result.errors,
+      ];
+      const totalSkipped = parsed.issues.length + result.skipped;
+      const issueDetails = allIssues
+        .slice(0, 5)
+        .map((issue) => `${tr("Fila", "Riga", "Row", "Rij")} ${issue.row}: ${issue.message}`)
+        .join(" · ");
+      const summary = tr(
+        `Importados: ${result.inserted}; actualizados: ${result.updated}; omitidos: ${totalSkipped}.`,
+        `Importati: ${result.inserted}; aggiornati: ${result.updated}; saltati: ${totalSkipped}.`,
+        `Imported: ${result.inserted}; updated: ${result.updated}; skipped: ${totalSkipped}.`,
+        `Geïmporteerd: ${result.inserted}; bijgewerkt: ${result.updated}; overgeslagen: ${totalSkipped}.`,
+      );
+      setNotice(issueDetails ? `${summary} ${issueDetails}` : summary);
       await loadWorkspace();
     } catch (err) {
       console.error("[email-marketing] CSV import failed", err);
@@ -204,6 +207,19 @@ function EmailMarketingShell() {
 
   async function changeContactStatus(contact: MarketingContact, status: MarketingContactStatus) {
     setError(null);
+    const terminal = contact.status === "unsubscribed" || contact.status === "suppressed";
+    const allowResubscribe = terminal && status === "subscribed";
+
+    if (allowResubscribe) {
+      const confirmed = window.confirm(tr(
+        "Este contacto se había dado de baja o estaba suprimido. Confirma que existe un nuevo consentimiento explícito y documentado.",
+        "Questo contatto era disiscritto o soppresso. Conferma che esiste un nuovo consenso esplicito e documentato.",
+        "This contact was unsubscribed or suppressed. Confirm that new explicit and documented consent exists.",
+        "Dit contact was uitgeschreven of geblokkeerd. Bevestig dat er nieuwe, expliciete en gedocumenteerde toestemming is.",
+      ));
+      if (!confirmed) return;
+    }
+
     try {
       const token = await tokenOrThrow();
       const result = await updateMarketingContact(token, contact.id, {
@@ -211,9 +227,13 @@ function EmailMarketingShell() {
         marketing_consent: status === "subscribed",
         consent_source: status === "subscribed" ? "manual-crm" : contact.consent_source,
         consent_at: status === "subscribed" ? new Date().toISOString() : contact.consent_at,
+        allow_resubscribe: allowResubscribe,
       });
       setContacts((current) => current.map((item) => (item.id === contact.id ? result.contact : item)));
       setStats(await fetchMarketingStats(token));
+      setNotice(allowResubscribe
+        ? tr("Reinscripción registrada en el historial de consentimiento.", "Reiscrizione registrata nello storico del consenso.", "Resubscription recorded in the consent history.", "Herinschrijving vastgelegd in de toestemmingsgeschiedenis.")
+        : null);
     } catch (err) {
       console.error("[email-marketing] status update failed", err);
       setError(tr("No se ha podido actualizar el estado.", "Non è stato possibile aggiornare lo stato.", "Could not update the status.", "De status kon niet worden bijgewerkt."));
@@ -234,7 +254,7 @@ function EmailMarketingShell() {
     }
   }
 
-  async function saveSegment(event: React.FormEvent) {
+  async function saveSegment(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError(null);
@@ -253,7 +273,7 @@ function EmailMarketingShell() {
     }
   }
 
-  async function saveCampaign(event: React.FormEvent) {
+  async function saveCampaign(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError(null);
@@ -506,7 +526,7 @@ function EmailMarketingShell() {
   );
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
+function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
     <div className="rounded-sm border border-border bg-card p-5 shadow-soft">
       <Icon size={19} className="text-primary" />
@@ -516,7 +536,7 @@ function Metric({ icon: Icon, label, value }: { icon: typeof Users; label: strin
   );
 }
 
-function Tab({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof Users; label: string; onClick: () => void }) {
+function Tab({ active, icon: Icon, label, onClick }: { active: boolean; icon: LucideIcon; label: string; onClick: () => void }) {
   return <button onClick={onClick} className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-sm ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}><Icon size={15} />{label}</button>;
 }
 
