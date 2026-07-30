@@ -21,6 +21,10 @@
 
       PAGINA NON INDICIZZATA:
       Condividere esclusivamente tramite il collegamento diretto.
+
+      DISISCRIZIONE:
+      {{{RESEND_UNSUBSCRIBE_URL}}} viene sostituito automaticamente da Resend
+      con il collegamento personale del destinatario nelle campagne reali.
     -->
     <style>
       html,
@@ -262,6 +266,19 @@
             </tr>
 
             <tr>
+              <td class="mobile-pad" style="padding:18px 42px; background:#f6f2ed; border-top:1px solid #e2dcd5; font-family:'Inter', Arial, Helvetica, sans-serif; font-size:11px; line-height:18px; color:#6d6055; text-align:center;">
+                <a href="https://eivitech.com/aviso-legal?lang=it" style="color:#a65030; text-decoration:underline;">Termini e condizioni</a>
+                <span aria-hidden="true" style="padding:0 7px; color:#b9afa7;">·</span>
+                <a href="https://eivitech.com/privacy-policy?lang=it" style="color:#a65030; text-decoration:underline;">Privacy Policy</a>
+                <span aria-hidden="true" style="padding:0 7px; color:#b9afa7;">·</span>
+                <a id="unsubscribe-link" href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#a65030; text-decoration:underline;">Disiscriviti dalla mailing list</a>
+                <div style="margin-top:8px;">
+                  Puoi interrompere in qualsiasi momento le comunicazioni promozionali di Eivitech.
+                </div>
+              </td>
+            </tr>
+
+            <tr>
               <td class="mobile-pad" style="padding:16px 42px 20px; background:#f1eeea; border-top:1px solid #e2dcd5; font-family:'Inter', Arial, Helvetica, sans-serif; font-size:10px; line-height:16px; color:#6d6055;">
                 Le indicazioni fornite durante la visita sono preliminari e non costituiscono una relazione tecnica, una verifica urbanistica o un preventivo vincolante.
               </td>
@@ -270,5 +287,17 @@
         </td>
       </tr>
     </table>
+
+    <script>
+      (function () {
+        var link = document.getElementById("unsubscribe-link");
+        if (link && link.getAttribute("href") && link.getAttribute("href").indexOf("RESEND_UNSUBSCRIBE_URL") !== -1) {
+          link.setAttribute(
+            "href",
+            "mailto:info@eivitech.com?subject=Richiesta%20di%20disiscrizione%20dalla%20mailing%20list"
+          );
+        }
+      }());
+    </script>
   </body>
 </html>
