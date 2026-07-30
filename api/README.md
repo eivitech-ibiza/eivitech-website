@@ -159,3 +159,5 @@ Public unsubscribe API:
 Public page:
 
 - `/unsubscribe?token=<64-character-token>&lang=it|es|en|nl`
+
+Resend segment synchronization is reconciliatory: contacts no longer eligible locally are removed from the remote segment, and routine updates never clear a global Resend opt-out.

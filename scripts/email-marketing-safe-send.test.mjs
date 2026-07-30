@@ -50,3 +50,16 @@ test("Resend broadcasts contain the provider-managed unsubscribe link", () => {
   assert.match(webhook, /contact\.updated/);
   assert.match(webhook, /crm_marketing_campaign_recipient_events/);
 });
+
+
+test("draft updates assign status once and Resend sync removes stale members", () => {
+  const patchRoute = marketing.match(/marketingRouter\.patch\("\/campaigns\/:id"[\s\S]*?marketingRouter\.post\("\/segments\/:id\/sync-resend"/)?.[0] || "";
+  assert.equal((patchRoute.match(/\bstatus\s*=/g) || []).length, 1);
+  assert.match(marketing, /listResendSegmentContacts/);
+  assert.match(marketing, /removeResendContactFromSegment/);
+  assert.match(marketing, /staleContacts/);
+  assert.match(resend, /const updatePayload/);
+  assert.match(resend, /const createPayload/);
+  const existingUpdate = resend.match(/if \(contact\.resend_contact_id\)[\s\S]*?return updated\.id/)?.[0] || "";
+  assert.doesNotMatch(existingUpdate, /unsubscribed:\s*false/);
+});

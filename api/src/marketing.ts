@@ -10,6 +10,8 @@ import {
   createResendSegment,
   deleteResendBroadcast,
   marketingCapabilities,
+  listResendSegmentContacts,
+  removeResendContactFromSegment,
   sendMarketingTestEmail,
   sendResendBroadcast,
   upsertResendContact,
@@ -441,6 +443,7 @@ async function syncSegmentToResend(segmentId: string) {
     );
   }
 
+  const eligibleEmails = new Set(contacts.rows.map((contact) => contact.email.toLowerCase()));
   let synced = 0;
   for (let index = 0; index < contacts.rows.length; index += 5) {
     const batch = contacts.rows.slice(index, index + 5);
@@ -455,7 +458,16 @@ async function syncSegmentToResend(segmentId: string) {
     synced += results.length;
   }
 
-  return { resendSegmentId, eligible: contacts.rows.length, synced };
+  const remoteContacts = await listResendSegmentContacts(resendSegmentId);
+  const staleContacts = remoteContacts.filter((contact) => !eligibleEmails.has(contact.email.toLowerCase()));
+  let removed = 0;
+  for (let index = 0; index < staleContacts.length; index += 5) {
+    const batch = staleContacts.slice(index, index + 5);
+    await Promise.all(batch.map((contact) => removeResendContactFromSegment(contact.id || contact.email, resendSegmentId)));
+    removed += batch.length;
+  }
+
+  return { resendSegmentId, eligible: contacts.rows.length, synced, removed };
 }
 
 marketingRouter.get("/capabilities", (_req, res) => {
@@ -914,7 +926,6 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
        editor_json = $11::jsonb,
        html = $12,
        scheduled_at = $13,
-       status = 'draft',
        send_confirmation_token_hash = NULL,
        send_confirmation_expires_at = NULL,
        updated_at = now()

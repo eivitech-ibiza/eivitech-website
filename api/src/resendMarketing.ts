@@ -205,9 +205,12 @@ export async function createResendSegment(name: string) {
 
 export async function upsertResendContact(contact: MarketingContactForResend, segmentId: string) {
   const apiKey = adminKeyOrThrow();
-  const payload = {
+  const updatePayload = {
     first_name: contact.first_name || undefined,
     last_name: contact.last_name || undefined,
+  };
+  const createPayload = {
+    ...updatePayload,
     unsubscribed: false,
   };
 
@@ -215,7 +218,7 @@ export async function upsertResendContact(contact: MarketingContactForResend, se
     const updated = await resendRequest<{ id: string }>(`/contacts/${encodeURIComponent(contact.resend_contact_id)}`, {
       method: "PATCH",
       apiKey,
-      body: payload,
+      body: updatePayload,
     });
     await addResendContactToSegment(updated.id || contact.resend_contact_id, segmentId);
     return updated.id || contact.resend_contact_id;
@@ -227,7 +230,7 @@ export async function upsertResendContact(contact: MarketingContactForResend, se
       apiKey,
       body: {
         email: contact.email,
-        ...payload,
+        ...createPayload,
         segments: [{ id: segmentId }],
       },
     });
@@ -237,7 +240,7 @@ export async function upsertResendContact(contact: MarketingContactForResend, se
     const updated = await resendRequest<{ id: string }>(`/contacts/${encodeURIComponent(contact.email)}`, {
       method: "PATCH",
       apiKey,
-      body: payload,
+      body: updatePayload,
     });
     await addResendContactToSegment(updated.id || contact.email, segmentId);
     return updated.id;
@@ -258,6 +261,34 @@ export async function addResendContactToSegment(contactIdOrEmail: string, segmen
     `/contacts/${encodeURIComponent(contactIdOrEmail)}/segments/${encodeURIComponent(segmentId)}`,
     { method: "POST", apiKey: adminKeyOrThrow() },
   );
+}
+
+
+export type ResendSegmentContact = {
+  id: string;
+  email: string;
+  unsubscribed?: boolean;
+};
+
+export async function listResendSegmentContacts(segmentId: string) {
+  const contacts: ResendSegmentContact[] = [];
+  let after: string | null = null;
+
+  do {
+    const params = new URLSearchParams({ limit: "100" });
+    if (after) params.set("after", after);
+    const page = await resendRequest<{
+      data?: ResendSegmentContact[];
+      has_more?: boolean;
+    }>(`/segments/${encodeURIComponent(segmentId)}/contacts?${params.toString()}`, {
+      apiKey: adminKeyOrThrow(),
+    });
+    const rows = page.data || [];
+    contacts.push(...rows);
+    after = page.has_more && rows.length > 0 ? rows[rows.length - 1].id : null;
+  } while (after);
+
+  return contacts;
 }
 
 export async function removeResendContactFromSegment(contactIdOrEmail: string, segmentId: string) {

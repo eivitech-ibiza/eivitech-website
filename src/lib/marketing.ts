@@ -233,7 +233,7 @@ export function sendMarketingCampaignTest(token: string, campaignId: string, pay
 }
 
 export function syncMarketingSegment(token: string, segmentId: string) {
-  return marketingRequest<{ resendSegmentId: string; eligible: number; synced: number }>(`/segments/${segmentId}/sync-resend`, { method: "POST", token, body: {} });
+  return marketingRequest<{ resendSegmentId: string; eligible: number; synced: number; removed: number }>(`/segments/${segmentId}/sync-resend`, { method: "POST", token, body: {} });
 }
 
 export function prepareMarketingCampaign(token: string, campaignId: string) {
