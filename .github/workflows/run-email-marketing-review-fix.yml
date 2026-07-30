@@ -41,6 +41,10 @@ jobs:
               "re.subn(pattern, replacement, text, count=1, flags=re.S)",
               "re.subn(pattern, lambda _match: replacement, text, count=1, flags=re.S)",
           )
+          script = script.replace(
+              "scripts/email-marketing.test.mjs",
+              "scripts/email-marketing-foundation.test.mjs",
+          )
           Path('/tmp/apply-email-marketing-review-fixes.py').write_text(script)
           PYRUN
           python /tmp/apply-email-marketing-review-fixes.py
