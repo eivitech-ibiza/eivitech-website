@@ -1,0 +1,66 @@
+name: Run email marketing review fix
+
+on:
+  push:
+    branches:
+      - feat/free-email-marketing-foundation
+
+permissions:
+  contents: write
+
+concurrency:
+  group: run-email-marketing-review-fix
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/free-email-marketing-foundation
+          fetch-depth: 0
+
+      - name: Extract and run patch
+        shell: bash
+        run: |
+          python - <<'PYRUN'
+          from pathlib import Path
+
+          source = Path('.github/workflows/apply-email-marketing-review-fixes.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = source.index(marker) + len(marker)
+          end = source.index("\n          PY", start)
+          embedded = source[start:end]
+          lines = [line[10:] if line.startswith('          ') else line for line in embedded.splitlines()]
+          Path('/tmp/apply-email-marketing-review-fixes.py').write_text('\n'.join(lines) + '\n')
+          PYRUN
+          python /tmp/apply-email-marketing-review-fixes.py
+          rm -f .github/workflows/run-email-marketing-review-fix.yml
+
+      - name: Verify changes
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+          npm --prefix api install
+          npm --prefix api run build
+          npm run seo:check
+          npm run audit:prod
+        env:
+          SITE_URL: https://eivitech.com
+          VITE_SITE_URL: https://eivitech.com
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: address final email marketing review findings"
+          git push origin HEAD:feat/free-email-marketing-foundation
