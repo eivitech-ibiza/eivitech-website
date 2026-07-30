@@ -44,13 +44,22 @@ test("campaign UI includes sandbox preview, test send and double confirmation", 
   assert.match(workspace, /bulk_send_enabled/);
 });
 
+test("campaign UI surfaces metrics and alerts on new activity", () => {
+  assert.match(workspace, /delivered_count/);
+  assert.match(workspace, /opened_count/);
+  assert.match(workspace, /clicked_count/);
+  assert.match(workspace, /Notification\.requestPermission/);
+  assert.match(workspace, /new Notification\("Eivitech CRM — attività email"/);
+  assert.match(workspace, /30_000/);
+  assert.match(workspace, /Nuova attività email/);
+});
+
 test("Resend broadcasts contain the provider-managed unsubscribe link", () => {
   assert.match(resend, /RESEND_UNSUBSCRIBE_URL/);
   assert.match(resend, /createOrUpdateResendBroadcast/);
   assert.match(webhook, /contact\.updated/);
   assert.match(webhook, /crm_marketing_campaign_recipient_events/);
 });
-
 
 test("draft updates assign status once and Resend sync removes stale members", () => {
   const patchRoute = marketing.match(/marketingRouter\.patch\("\/campaigns\/:id"[\s\S]*?marketingRouter\.post\("\/segments\/:id\/sync-resend"/)?.[0] || "";
