@@ -34,9 +34,32 @@ const contactUpdateSchema = contactSchema.partial().extend({
   allow_resubscribe: z.boolean().optional(),
 });
 
+const importIssueSchema = z.object({
+  row: z.number().int().min(2).max(1001),
+  email: z.string().trim().max(254).optional(),
+  message: z.string().trim().min(1).max(500),
+});
+
 const importSchema = z.object({
   file_name: optionalText(255),
-  contacts: z.array(z.unknown()).min(1).max(1000),
+  contacts: z.array(z.unknown()).max(1000),
+  contact_rows: z.array(z.number().int().min(2).max(1001)).max(1000).optional(),
+  client_issues: z.array(importIssueSchema).max(1000).optional(),
+  total_rows: z.number().int().min(0).max(1000).optional(),
+}).superRefine((data, ctx) => {
+  const clientIssueCount = data.client_issues?.length ?? 0;
+  const accountedRows = data.contacts.length + clientIssueCount;
+  const totalRows = data.total_rows ?? accountedRows;
+
+  if (accountedRows === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "The import contains no data rows" });
+  }
+  if (data.contact_rows && data.contact_rows.length !== data.contacts.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "contact_rows must match contacts length" });
+  }
+  if (totalRows !== accountedRows) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "total_rows must equal valid contacts plus client issues" });
+  }
 });
 
 const segmentSchema = z.object({
@@ -88,6 +111,8 @@ type ExistingContact = {
   marketing_consent: boolean;
   consent_source: string | null;
   consent_at: Date | string | null;
+  unsubscribed_at: Date | string | null;
+  suppressed_at: Date | string | null;
   suppression_reason: string | null;
 };
 
@@ -118,13 +143,15 @@ function normalizeTags(tags?: string[]) {
 }
 
 function normalizeContact(data: z.infer<typeof contactSchema>) {
-  const marketingConsent = Boolean(data.marketing_consent);
   const explicitStatus = data.status;
-  const status = explicitStatus === "unsubscribed" || explicitStatus === "suppressed"
+  const terminalStatus = explicitStatus === "unsubscribed" || explicitStatus === "suppressed"
     ? explicitStatus
-    : marketingConsent
-      ? "subscribed"
-      : "pending";
+    : null;
+  const stateProvided = explicitStatus !== undefined || data.marketing_consent !== undefined;
+  const marketingConsent = terminalStatus
+    ? false
+    : data.marketing_consent ?? explicitStatus === "subscribed";
+  const status = terminalStatus ?? (marketingConsent ? "subscribed" : "pending");
   const now = new Date().toISOString();
 
   return {
@@ -141,6 +168,8 @@ function normalizeContact(data: z.infer<typeof contactSchema>) {
     sourceFile: cleanText(data.source_file),
     status,
     tags: normalizeTags(data.tags),
+    tagsProvided: data.tags !== undefined,
+    stateProvided,
     marketingConsent,
     consentSource: cleanText(data.consent_source),
     consentAt: marketingConsent ? data.consent_at || now : null,
@@ -160,6 +189,7 @@ async function upsertContact(
 ) {
   const contact = normalizeContact(data);
   const restoreTerminal = allowTerminalRestore && contact.status === "subscribed" && contact.marketingConsent;
+  const preserveExistingState = !contact.stateProvided;
   const result = await client.query(
     `INSERT INTO crm_marketing_contacts (
        email, first_name, last_name, phone, address, region, country_code, language,
@@ -171,50 +201,57 @@ async function upsertContact(
        $16, $17, $18, $19, $20
      )
      ON CONFLICT (email) DO UPDATE SET
-       first_name = EXCLUDED.first_name,
-       last_name = EXCLUDED.last_name,
-       phone = EXCLUDED.phone,
-       address = EXCLUDED.address,
-       region = EXCLUDED.region,
-       country_code = EXCLUDED.country_code,
-       language = EXCLUDED.language,
-       contact_type = EXCLUDED.contact_type,
+       first_name = COALESCE(EXCLUDED.first_name, crm_marketing_contacts.first_name),
+       last_name = COALESCE(EXCLUDED.last_name, crm_marketing_contacts.last_name),
+       phone = COALESCE(EXCLUDED.phone, crm_marketing_contacts.phone),
+       address = COALESCE(EXCLUDED.address, crm_marketing_contacts.address),
+       region = COALESCE(EXCLUDED.region, crm_marketing_contacts.region),
+       country_code = COALESCE(EXCLUDED.country_code, crm_marketing_contacts.country_code),
+       language = COALESCE(EXCLUDED.language, crm_marketing_contacts.language),
+       contact_type = COALESCE(EXCLUDED.contact_type, crm_marketing_contacts.contact_type),
        source = COALESCE(EXCLUDED.source, crm_marketing_contacts.source),
        source_file = COALESCE(EXCLUDED.source_file, crm_marketing_contacts.source_file),
        status = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN crm_marketing_contacts.status
+ THEN crm_marketing_contacts.status
+         WHEN $22 THEN crm_marketing_contacts.status
          ELSE EXCLUDED.status
        END,
-       tags = EXCLUDED.tags,
+       tags = CASE WHEN $23 THEN EXCLUDED.tags ELSE crm_marketing_contacts.tags END,
        marketing_consent = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN false
+ THEN false
+         WHEN $22 THEN crm_marketing_contacts.marketing_consent
          ELSE EXCLUDED.marketing_consent
        END,
        consent_source = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN crm_marketing_contacts.consent_source
+ THEN crm_marketing_contacts.consent_source
+         WHEN $22 THEN crm_marketing_contacts.consent_source
          ELSE EXCLUDED.consent_source
        END,
        consent_at = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN crm_marketing_contacts.consent_at
+ THEN NULL
+         WHEN $22 THEN crm_marketing_contacts.consent_at
          ELSE EXCLUDED.consent_at
        END,
        unsubscribed_at = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN crm_marketing_contacts.unsubscribed_at
+ THEN crm_marketing_contacts.unsubscribed_at
+         WHEN $22 THEN crm_marketing_contacts.unsubscribed_at
          ELSE EXCLUDED.unsubscribed_at
        END,
        suppressed_at = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN crm_marketing_contacts.suppressed_at
+ THEN crm_marketing_contacts.suppressed_at
+         WHEN $22 THEN crm_marketing_contacts.suppressed_at
          ELSE EXCLUDED.suppressed_at
        END,
        suppression_reason = CASE
          WHEN crm_marketing_contacts.status IN ('unsubscribed', 'suppressed') AND NOT $21
-           THEN crm_marketing_contacts.suppression_reason
+ THEN crm_marketing_contacts.suppression_reason
+         WHEN $22 THEN crm_marketing_contacts.suppression_reason
          ELSE EXCLUDED.suppression_reason
        END,
        updated_at = now()
@@ -241,6 +278,8 @@ async function upsertContact(
       contact.suppressionReason,
       createdBy,
       restoreTerminal,
+      preserveExistingState,
+      contact.tagsProvided,
     ]
   );
 
@@ -252,7 +291,13 @@ async function upsertContact(
       saved.id,
       eventType,
       contact.consentSource || contact.source,
-      JSON.stringify({ ...sourceMetadata, resultingStatus: saved.status, terminalRestoreAllowed: restoreTerminal }),
+      JSON.stringify({
+        ...sourceMetadata,
+        resultingStatus: saved.status,
+        terminalRestoreAllowed: restoreTerminal,
+        stateProvided: contact.stateProvided,
+        preservedExistingState: preserveExistingState,
+      }),
       createdBy,
     ]
   );
@@ -363,14 +408,17 @@ marketingRouter.patch("/contacts/:id", asyncRoute(async (req, res) => {
 
   const existing = current.rows[0];
   const requestedStatus = parsed.data.status ?? existing.status;
-  const requestedConsent = parsed.data.marketing_consent ?? existing.marketing_consent;
+  const requestedIsTerminal = requestedStatus === "unsubscribed" || requestedStatus === "suppressed";
+  const requestedConsent = requestedIsTerminal
+    ? false
+    : parsed.data.marketing_consent ?? existing.marketing_consent;
   const terminal = existing.status === "unsubscribed" || existing.status === "suppressed";
   const allowResubscribe = terminal
     && parsed.data.allow_resubscribe === true
     && requestedStatus === "subscribed"
     && requestedConsent === true;
 
-  if (terminal && requestedStatus === "subscribed" && requestedConsent && !allowResubscribe) {
+  if (terminal && !requestedIsTerminal && !allowResubscribe) {
     return res.status(409).json({
       error: "Explicit resubscription confirmation is required",
       code: "RESUBSCRIBE_CONFIRMATION_REQUIRED",
@@ -393,28 +441,99 @@ marketingRouter.patch("/contacts/:id", asyncRoute(async (req, res) => {
     tags: parsed.data.tags ?? existing.tags,
     marketing_consent: requestedConsent,
     consent_source: parsed.data.consent_source ?? existing.consent_source,
-    consent_at: parsed.data.consent_at ?? isoString(existing.consent_at),
+    consent_at: requestedConsent ? parsed.data.consent_at ?? isoString(existing.consent_at) : null,
     suppression_reason: parsed.data.suppression_reason ?? existing.suppression_reason,
   });
 
+  const normalized = normalizeContact(merged);
+  const now = new Date().toISOString();
+  const unsubscribedAt = normalized.status === "unsubscribed"
+    ? isoString(existing.unsubscribed_at) || now
+    : null;
+  const suppressedAt = normalized.status === "suppressed"
+    ? isoString(existing.suppressed_at) || now
+    : null;
+  const suppressionReason = normalized.status === "suppressed"
+    ? normalized.suppressionReason || existing.suppression_reason || "Manual suppression"
+    : null;
   const eventType: ContactEventType = allowResubscribe
     ? "restored"
-    : merged.status === "unsubscribed"
+    : normalized.status === "unsubscribed"
       ? "unsubscribed"
-      : merged.status === "suppressed"
+      : normalized.status === "suppressed"
         ? "suppressed"
-        : merged.marketing_consent
-          ? "subscribed"
-          : "updated";
-  const contact = await upsertContact(
-    merged,
-    req.crmUser?.id || null,
-    eventType,
-    { method: "manual-update", contactId: req.params.id, previousStatus: existing.status },
-    pool,
-    allowResubscribe
+        : normalized.marketingConsent
+? "subscribed"
+: "updated";
+
+  const result = await query(
+    `UPDATE crm_marketing_contacts SET
+       email = $1,
+       first_name = $2,
+       last_name = $3,
+       phone = $4,
+       address = $5,
+       region = $6,
+       country_code = $7,
+       language = $8,
+       contact_type = $9,
+       source = $10,
+       source_file = $11,
+       status = $12,
+       tags = $13::jsonb,
+       marketing_consent = $14,
+       consent_source = $15,
+       consent_at = $16,
+       unsubscribed_at = $17,
+       suppressed_at = $18,
+       suppression_reason = $19,
+       updated_at = now()
+     WHERE id = $20
+     RETURNING *`,
+    [
+      normalized.email,
+      normalized.firstName,
+      normalized.lastName,
+      normalized.phone,
+      normalized.address,
+      normalized.region,
+      normalized.countryCode,
+      normalized.language,
+      normalized.contactType,
+      normalized.source,
+      normalized.sourceFile,
+      normalized.status,
+      JSON.stringify(normalized.tags),
+      normalized.marketingConsent,
+      normalized.consentSource,
+      normalized.marketingConsent ? normalized.consentAt : null,
+      unsubscribedAt,
+      suppressedAt,
+      suppressionReason,
+      req.params.id,
+    ]
   );
-  return res.json({ contact });
+
+  await query(
+    `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata, created_by)
+     VALUES ($1, $2, $3, $4::jsonb, $5)`,
+    [
+      req.params.id,
+      eventType,
+      normalized.consentSource || normalized.source,
+      JSON.stringify({
+        method: "manual-update",
+        contactId: req.params.id,
+        previousStatus: existing.status,
+        resultingStatus: normalized.status,
+        terminalRestoreAllowed: allowResubscribe,
+        emailChanged: normalized.email !== existing.email,
+      }),
+      req.crmUser?.id || null,
+    ]
+  );
+
+  return res.json({ contact: result.rows[0] });
 }));
 
 marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
@@ -422,7 +541,10 @@ marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Invalid contact import", details: parsed.error.flatten() });
 
   const client = await pool.connect();
-  const errors: { row: number; email?: string; message: string }[] = [];
+  const clientIssues = parsed.data.client_issues || [];
+  const contactRows = parsed.data.contact_rows || parsed.data.contacts.map((_contact, index) => index + 2);
+  const totalRows = parsed.data.total_rows ?? parsed.data.contacts.length + clientIssues.length;
+  const errors: { row: number; email?: string; message: string }[] = clientIssues.map((issue) => ({ ...issue }));
   let inserted = 0;
   let updated = 0;
 
@@ -430,13 +552,14 @@ marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
     await client.query("BEGIN");
 
     for (let index = 0; index < parsed.data.contacts.length; index += 1) {
+      const originalRow = contactRows[index] ?? index + 2;
       const row = contactSchema.safeParse(parsed.data.contacts[index]);
       if (!row.success) {
         const candidate = parsed.data.contacts[index] as { email?: unknown } | null;
         errors.push({
-          row: index + 2,
-          email: typeof candidate?.email === "string" ? candidate.email : undefined,
-          message: row.error.issues.map((issue) => issue.message).join("; "),
+row: originalRow,
+email: typeof candidate?.email === "string" ? candidate.email : undefined,
+message: row.error.issues.map((issue) => issue.message).join("; "),
         });
         continue;
       }
@@ -445,7 +568,7 @@ marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
         { ...row.data, source_file: row.data.source_file || parsed.data.file_name || undefined },
         req.crmUser?.id || null,
         "imported",
-        { method: "csv-import", row: index + 2, fileName: parsed.data.file_name || null },
+        { method: "csv-import", row: originalRow, fileName: parsed.data.file_name || null },
         client,
         false
       );
@@ -453,6 +576,7 @@ marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
       else updated += 1;
     }
 
+    const skipped = errors.length;
     const job = await client.query(
       `INSERT INTO crm_marketing_import_jobs (
          file_name, total_rows, inserted_rows, updated_rows, skipped_rows, errors, imported_by
@@ -460,17 +584,17 @@ marketingRouter.post("/contacts/import", asyncRoute(async (req, res) => {
        RETURNING *`,
       [
         cleanText(parsed.data.file_name),
-        parsed.data.contacts.length,
+        totalRows,
         inserted,
         updated,
-        errors.length,
+        skipped,
         JSON.stringify(errors.slice(0, 200)),
         req.crmUser?.id || null,
       ]
     );
 
     await client.query("COMMIT");
-    return res.status(201).json({ importJob: job.rows[0], inserted, updated, skipped: errors.length, errors });
+    return res.status(201).json({ importJob: job.rows[0], inserted, updated, skipped, errors });
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

@@ -29,7 +29,6 @@ app.post(
   express.raw({ type: "application/json", limit: "256kb" }),
   handleResendOwnerWebhook
 );
-app.use(express.json({ limit: "2mb" }));
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
@@ -38,6 +37,10 @@ app.use(cors({
   },
 }));
 app.use(clerkMiddleware());
+
+const publicJsonParser = express.json({ limit: "100kb" });
+const crmJsonParser = express.json({ limit: "100kb" });
+const marketingJsonParser = express.json({ limit: "12mb" });
 
 const publicLeadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -99,10 +102,11 @@ app.use(
   "/api/marketing",
   requireCrmUser,
   requireRole(["admin", "manager"]),
+  marketingJsonParser,
   marketingRouter
 );
 
-app.post("/api/leads", publicLeadLimiter, async (req, res) => {
+app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => {
   const parsed = leadSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -184,6 +188,8 @@ app.post("/api/leads", publicLeadLimiter, async (req, res) => {
     return res.status(500).json({ error: "Failed to create lead" });
   }
 });
+
+app.use("/api/leads", crmJsonParser);
 
 app.get("/api/leads", requireCrmUser, async (_req, res) => {
   const result = await query(

@@ -35,9 +35,9 @@ test("marketing API is protected and bulk sending is not exposed yet", () => {
 test("large but bounded marketing payloads can reach validation", () => {
   const server = read("api/src/server.ts");
   const marketing = read("api/src/marketing.ts");
-  assert.match(server, /express\.json\(\{ limit: "2mb" \}\)/);
+  assert.match(server, /const marketingJsonParser = express\.json\(\{ limit: "12mb" \}\)/);
   assert.match(marketing, /html: z\.string\(\)\.max\(500_000\)/);
-  assert.match(marketing, /contacts: z\.array\(z\.unknown\(\)\)\.min\(1\)\.max\(1000\)/);
+  assert.match(marketing, /contacts: z\.array\(z\.unknown\(\)\)\.max\(1000\)/);
 });
 
 test("terminal unsubscribe and suppression states require explicit audited restoration", () => {
@@ -69,14 +69,44 @@ test("CSV import supports Digitalempower and Mailchimp headers and reports rejec
   for (const header of ["indirizzoemail", "nome", "cognome", "numeroditelefono", "region", "cc", "tags", "mcstatus", "sourcefile"]) {
     assert.match(parser, new RegExp(`${header}:`));
   }
-  assert.match(page, /const totalSkipped = parsed\.issues\.length \+ result\.skipped/);
-  assert.match(page, /const allIssues = \[/);
-  assert.match(page, /\.slice\(0, 5\)/);
+  assert.match(page, /clientIssues: parsed\.issues/);
+  assert.match(page, /totalRows: parsed\.totalRows/);
+  assert.match(page, /result\.errors\s*\.slice\(0, 5\)/);
 });
 
 test("database dates are normalized before Zod update validation", () => {
   const marketing = read("api/src/marketing.ts");
   assert.match(marketing, /function isoString\(value: unknown\)/);
-  assert.match(marketing, /consent_at: parsed\.data\.consent_at \?\? isoString\(existing\.consent_at\)/);
+  assert.match(marketing, /consent_at: requestedConsent \? parsed\.data\.consent_at \?\? isoString\(existing\.consent_at\) : null/);
   assert.match(marketing, /data\.scheduled_at === undefined \? isoString\(existing\.scheduled_at\)/);
+});
+
+
+test("marketing consent and import safeguards cover final review findings", () => {
+  const marketing = read("api/src/marketing.ts");
+  const client = read("src/lib/marketing.ts");
+  const parser = read("src/lib/marketingCsv.ts");
+  assert.match(marketing, /const marketingConsent = terminalStatus[\s\S]*?\? false/);
+  assert.match(marketing, /preserveExistingState = !contact\.stateProvided/);
+  assert.match(marketing, /client_issues/);
+  assert.match(marketing, /contact_rows/);
+  assert.match(marketing, /total_rows/);
+  const patchRoute = marketing.match(/marketingRouter\.patch\("\/contacts\/:id"[\s\S]*?marketingRouter\.post\("\/contacts\/import"/)?.[0] || "";
+  assert.match(patchRoute, /UPDATE crm_marketing_contacts/);
+  assert.match(patchRoute, /WHERE id = \$20/);
+  assert.doesNotMatch(patchRoute, /upsertContact\(/);
+  assert.match(client, /contact_rows: metadata\.contactRows/);
+  assert.match(client, /client_issues: metadata\.clientIssues/);
+  assert.match(parser, /contactRows/);
+  assert.match(parser, /totalRows/);
+  assert.match(parser, /hasConsentColumn/);
+});
+
+test("large marketing bodies are parsed only after CRM authorization", () => {
+  const server = read("api/src/server.ts");
+  assert.doesNotMatch(server, /app\.use\(express\.json/);
+  assert.match(server, /const marketingJsonParser = express\.json\(\{ limit: "12mb" \}\)/);
+  assert.match(server, /"\/api\/marketing",[\s\S]*?requireCrmUser,[\s\S]*?requireRole\(\["admin", "manager"\]\),[\s\S]*?marketingJsonParser/);
+  assert.match(server, /app\.post\("\/api\/leads", publicLeadLimiter, publicJsonParser/);
+  assert.match(server, /app\.use\("\/api\/leads", crmJsonParser\)/);
 });

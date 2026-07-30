@@ -2,12 +2,15 @@ import type { MarketingContactInput, MarketingContactStatus, MarketingLanguage }
 
 export type MarketingCsvIssue = {
   row: number;
+  email?: string;
   message: string;
 };
 
 export type MarketingCsvResult = {
   contacts: MarketingContactInput[];
+  contactRows: number[];
   issues: MarketingCsvIssue[];
+  totalRows: number;
 };
 
 const HEADER_ALIASES: Record<string, keyof MarketingContactInput | "consent"> = {
@@ -156,15 +159,29 @@ function clean(value?: string) {
 export function parseMarketingContactsCsv(text: string): MarketingCsvResult {
   const normalizedText = text.replace(/^\uFEFF/, "");
   const rows = parseRows(normalizedText, detectDelimiter(normalizedText));
-  if (rows.length === 0) return { contacts: [], issues: [{ row: 1, message: "CSV vuoto" }] };
+  if (rows.length === 0) return { contacts: [], contactRows: [], issues: [{ row: 1, message: "CSV vuoto" }], totalRows: 0 };
+
+  const totalRows = Math.max(rows.length - 1, 0);
+  if (totalRows > 1000) {
+    return {
+      contacts: [],
+      contactRows: [],
+      issues: [{ row: 1002, message: `Il file contiene ${totalRows} righe: il massimo consentito è 1000` }],
+      totalRows,
+    };
+  }
 
   const headers = rows[0].map((header) => HEADER_ALIASES[normalizeHeader(header)]);
   const emailIndex = headers.findIndex((header) => header === "email");
   if (emailIndex < 0) {
-    return { contacts: [], issues: [{ row: 1, message: "Colonna email non trovata" }] };
+    return { contacts: [], contactRows: [], issues: [{ row: 1, message: "Colonna email non trovata" }], totalRows };
   }
 
+  const hasStatusColumn = headers.includes("status");
+  const hasConsentColumn = headers.includes("consent");
+  const hasTagsColumn = headers.includes("tags");
   const contacts: MarketingContactInput[] = [];
+  const contactRows: number[] = [];
   const issues: MarketingCsvIssue[] = [];
 
   for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
@@ -177,15 +194,18 @@ export function parseMarketingContactsCsv(text: string): MarketingCsvResult {
 
     const email = clean(raw.email)?.toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      issues.push({ row: rowIndex + 1, message: `Email non valida: ${raw.email || "vuota"}` });
+      issues.push({ row: rowIndex + 1, email: clean(raw.email), message: `Email non valida: ${raw.email || "vuota"}` });
       continue;
     }
 
-    const status = normalizeStatus(raw.status);
-    const explicitConsent = normalizeBoolean(raw.consent);
-    const marketingConsent = explicitConsent || status === "subscribed";
+    const status = hasStatusColumn ? normalizeStatus(raw.status) : undefined;
+    const rawConsent = hasConsentColumn ? raw.consent?.trim() : "";
+    let marketingConsent: boolean | undefined;
+    if (status === "subscribed") marketingConsent = true;
+    else if (status === "unsubscribed" || status === "suppressed" || status === "pending") marketingConsent = false;
+    else if (rawConsent) marketingConsent = normalizeBoolean(raw.consent);
 
-    contacts.push({
+    const contact: MarketingContactInput = {
       email,
       first_name: clean(raw.first_name),
       last_name: clean(raw.last_name),
@@ -197,14 +217,22 @@ export function parseMarketingContactsCsv(text: string): MarketingCsvResult {
       contact_type: clean(raw.contact_type),
       source: clean(raw.source) || "csv-import",
       source_file: clean(raw.source_file),
-      status,
-      tags: splitTags(raw.tags),
-      marketing_consent: marketingConsent,
-      consent_source: marketingConsent ? "csv-import" : undefined,
-      consent_at: marketingConsent ? new Date().toISOString() : undefined,
-      suppression_reason: status === "suppressed" ? "Imported suppression status" : undefined,
-    });
+    };
+
+    if (status !== undefined) contact.status = status;
+    if (hasTagsColumn) contact.tags = splitTags(raw.tags);
+    if (marketingConsent !== undefined) {
+      contact.marketing_consent = marketingConsent;
+      if (marketingConsent) {
+        contact.consent_source = "csv-import";
+        contact.consent_at = new Date().toISOString();
+      }
+    }
+    if (status === "suppressed") contact.suppression_reason = "Imported suppression status";
+
+    contacts.push(contact);
+    contactRows.push(rowIndex + 1);
   }
 
-  return { contacts, issues };
+  return { contacts, contactRows, issues, totalRows };
 }

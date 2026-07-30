@@ -175,25 +175,27 @@ function EmailMarketingShell() {
     setNotice(null);
     try {
       const parsed = parseMarketingContactsCsv(await file.text());
-      if (parsed.contacts.length === 0) {
-        throw new Error(parsed.issues.map((issue) => issue.message).join("; ") || "No valid contacts");
+      if (parsed.totalRows === 0) {
+        throw new Error(parsed.issues.map((issue) => issue.message).join("; ") || "No data rows");
+      }
+      if (parsed.totalRows > 1000) {
+        throw new Error(parsed.issues.map((issue) => issue.message).join("; ") || "Maximum 1000 rows");
       }
       const token = await tokenOrThrow();
-      const result = await importMarketingContacts(token, file.name, parsed.contacts);
-      const allIssues = [
-        ...parsed.issues.map((issue) => ({ row: issue.row, message: issue.message })),
-        ...result.errors,
-      ];
-      const totalSkipped = parsed.issues.length + result.skipped;
-      const issueDetails = allIssues
+      const result = await importMarketingContacts(token, file.name, parsed.contacts, {
+        contactRows: parsed.contactRows,
+        clientIssues: parsed.issues,
+        totalRows: parsed.totalRows,
+      });
+      const issueDetails = result.errors
         .slice(0, 5)
         .map((issue) => `${tr("Fila", "Riga", "Row", "Rij")} ${issue.row}: ${issue.message}`)
         .join(" · ");
       const summary = tr(
-        `Importados: ${result.inserted}; actualizados: ${result.updated}; omitidos: ${totalSkipped}.`,
-        `Importati: ${result.inserted}; aggiornati: ${result.updated}; saltati: ${totalSkipped}.`,
-        `Imported: ${result.inserted}; updated: ${result.updated}; skipped: ${totalSkipped}.`,
-        `Geïmporteerd: ${result.inserted}; bijgewerkt: ${result.updated}; overgeslagen: ${totalSkipped}.`,
+        `Importados: ${result.inserted}; actualizados: ${result.updated}; omitidos: ${result.skipped}.`,
+        `Importati: ${result.inserted}; aggiornati: ${result.updated}; saltati: ${result.skipped}.`,
+        `Imported: ${result.inserted}; updated: ${result.updated}; skipped: ${result.skipped}.`,
+        `Geïmporteerd: ${result.inserted}; bijgewerkt: ${result.updated}; overgeslagen: ${result.skipped}.`,
       );
       setNotice(issueDetails ? `${summary} ${issueDetails}` : summary);
       await loadWorkspace();

@@ -142,14 +142,37 @@ export function updateMarketingContact(token: string, contactId: string, payload
   return marketingRequest<{ contact: MarketingContact }>(`/contacts/${contactId}`, { method: "PATCH", token, body: payload });
 }
 
-export function importMarketingContacts(token: string, fileName: string, contacts: MarketingContactInput[]) {
+export type MarketingImportIssue = { row: number; email?: string; message: string };
+
+export type MarketingImportMetadata = {
+  contactRows: number[];
+  clientIssues: MarketingImportIssue[];
+  totalRows: number;
+};
+
+export function importMarketingContacts(
+  token: string,
+  fileName: string,
+  contacts: MarketingContactInput[],
+  metadata: MarketingImportMetadata
+) {
   return marketingRequest<{
     importJob: Record<string, unknown>;
     inserted: number;
     updated: number;
     skipped: number;
-    errors: { row: number; email?: string; message: string }[];
-  }>("/contacts/import", { method: "POST", token, body: { file_name: fileName, contacts } });
+    errors: MarketingImportIssue[];
+  }>("/contacts/import", {
+    method: "POST",
+    token,
+    body: {
+      file_name: fileName,
+      contacts,
+      contact_rows: metadata.contactRows,
+      client_issues: metadata.clientIssues,
+      total_rows: metadata.totalRows,
+    },
+  });
 }
 
 export function fetchMarketingSegments(token: string) {
