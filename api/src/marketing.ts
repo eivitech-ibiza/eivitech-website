@@ -1,8 +1,21 @@
+import { createHash, randomBytes } from "node:crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { Router } from "express";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { pool, query } from "./db.js";
+import {
+  ResendMarketingError,
+  createOrUpdateResendBroadcast,
+  createResendSegment,
+  deleteResendBroadcast,
+  marketingCapabilities,
+  listResendSegmentContacts,
+  removeResendContactFromSegment,
+  sendMarketingTestEmail,
+  sendResendBroadcast,
+  upsertResendContact,
+} from "./resendMarketing.js";
 
 const languageSchema = z.enum(["es", "it", "en", "nl"]);
 const contactStatusSchema = z.enum(["pending", "subscribed", "unsubscribed", "suppressed"]);
@@ -90,6 +103,17 @@ const campaignSchema = z.object({
 });
 
 const campaignUpdateSchema = campaignSchema.partial();
+
+const campaignTestSchema = z.object({
+  email: z.string().trim().email().max(254),
+  first_name: optionalText(120),
+  last_name: optionalText(120),
+});
+
+const campaignSendSchema = z.object({
+  confirmation_token: z.string().regex(/^[a-f0-9]{64}$/i),
+  confirmation_phrase: z.string().trim().min(1).max(200),
+});
 
 type ContactEventType = "created" | "updated" | "subscribed" | "unsubscribed" | "suppressed" | "restored" | "imported";
 type DbClient = Pool | PoolClient;
@@ -306,6 +330,149 @@ async function upsertContact(
 }
 
 export const marketingRouter = Router();
+
+
+type MarketingCampaignRow = {
+  id: string;
+  name: string;
+  subject: string;
+  preview_text: string | null;
+  from_name: string | null;
+  from_email: string | null;
+  reply_to: string | null;
+  language: "es" | "it" | "en" | "nl";
+  status: "draft" | "scheduled" | "sending" | "sent" | "paused" | "cancelled" | "failed";
+  segment_id: string | null;
+  html: string;
+  resend_broadcast_id: string | null;
+  recipient_count: number;
+  send_confirmation_token_hash: string | null;
+  send_confirmation_expires_at: Date | string | null;
+};
+
+class MarketingOperationError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "MarketingOperationError";
+    this.status = status;
+  }
+}
+
+function tokenHash(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function loadCampaign(campaignId: string) {
+  const result = await query<MarketingCampaignRow>(
+    `SELECT * FROM crm_marketing_campaigns WHERE id = $1`,
+    [campaignId],
+  );
+  if (result.rows.length === 0) throw new MarketingOperationError(404, "Campaign not found");
+  return result.rows[0];
+}
+
+async function recordCampaignEvent(
+  campaignId: string,
+  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced",
+  createdBy: string | null,
+  details: { recipient?: string | null; resendEmailId?: string | null; payload?: Record<string, unknown> } = {},
+) {
+  await query(
+    `INSERT INTO crm_marketing_campaign_events (
+       campaign_id, event_type, recipient, resend_email_id, payload, created_by
+     ) VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+    [
+      campaignId,
+      eventType,
+      details.recipient || null,
+      details.resendEmailId || null,
+      JSON.stringify(details.payload || {}),
+      createdBy,
+    ],
+  );
+}
+
+async function syncSegmentToResend(segmentId: string) {
+  const capabilities = marketingCapabilities();
+  if (!capabilities.resendSyncConfigured) {
+    throw new MarketingOperationError(503, "RESEND_MARKETING_API_KEY is required for contact and campaign sync");
+  }
+
+  const segmentResult = await query<{ id: string; name: string; resend_segment_id: string | null }>(
+    `SELECT id, name, resend_segment_id FROM crm_marketing_segments WHERE id = $1`,
+    [segmentId],
+  );
+  if (segmentResult.rows.length === 0) throw new MarketingOperationError(404, "Segment not found");
+
+  const localSegment = segmentResult.rows[0];
+  let resendSegmentId = localSegment.resend_segment_id;
+  if (!resendSegmentId) {
+    const remote = await createResendSegment(`Eivitech — ${localSegment.name} — ${localSegment.id.slice(0, 8)}`);
+    resendSegmentId = remote.id;
+    await query(
+      `UPDATE crm_marketing_segments SET resend_segment_id = $1, updated_at = now() WHERE id = $2`,
+      [resendSegmentId, segmentId],
+    );
+  }
+
+  const contacts = await query<{
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    resend_contact_id: string | null;
+  }>(
+    `SELECT c.id, c.email, c.first_name, c.last_name, c.resend_contact_id
+     FROM crm_marketing_contacts c
+     JOIN crm_marketing_segment_members sm ON sm.contact_id = c.id
+     WHERE sm.segment_id = $1
+       AND c.status = 'subscribed'
+       AND c.marketing_consent = true
+       AND c.unsubscribed_at IS NULL
+       AND c.suppressed_at IS NULL
+     ORDER BY c.created_at ASC`,
+    [segmentId],
+  );
+
+  if (contacts.rows.length > capabilities.maxRecipients) {
+    throw new MarketingOperationError(
+      409,
+      `The segment contains ${contacts.rows.length} eligible contacts; the configured safety limit is ${capabilities.maxRecipients}`,
+    );
+  }
+
+  const eligibleEmails = new Set(contacts.rows.map((contact) => contact.email.toLowerCase()));
+  let synced = 0;
+  for (let index = 0; index < contacts.rows.length; index += 5) {
+    const batch = contacts.rows.slice(index, index + 5);
+    const results = await Promise.all(batch.map(async (contact) => {
+      const resendContactId = await upsertResendContact(contact, resendSegmentId as string);
+      await query(
+        `UPDATE crm_marketing_contacts SET resend_contact_id = $1, updated_at = now() WHERE id = $2`,
+        [resendContactId, contact.id],
+      );
+      return resendContactId;
+    }));
+    synced += results.length;
+  }
+
+  const remoteContacts = await listResendSegmentContacts(resendSegmentId);
+  const staleContacts = remoteContacts.filter((contact) => !eligibleEmails.has(contact.email.toLowerCase()));
+  let removed = 0;
+  for (let index = 0; index < staleContacts.length; index += 5) {
+    const batch = staleContacts.slice(index, index + 5);
+    await Promise.all(batch.map((contact) => removeResendContactFromSegment(contact.id || contact.email, resendSegmentId)));
+    removed += batch.length;
+  }
+
+  return { resendSegmentId, eligible: contacts.rows.length, synced, removed };
+}
+
+marketingRouter.get("/capabilities", (_req, res) => {
+  res.json(marketingCapabilities());
+});
 
 marketingRouter.get("/stats", asyncRoute(async (_req, res) => {
   const contacts = await query(
@@ -718,7 +885,7 @@ marketingRouter.post("/campaigns", asyncRoute(async (req, res) => {
       cleanText(data.from_email) || "newsletter@notifications.eivitech.com",
       cleanText(data.reply_to) || "info@eivitech.com",
       data.language || "it",
-      data.status || "draft",
+      "draft",
       data.segment_id || null,
       cleanText(data.topic),
       JSON.stringify(data.editor_json || {}),
@@ -738,6 +905,12 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
   if (current.rows.length === 0) return res.status(404).json({ error: "Campaign not found" });
   const existing = current.rows[0] as Record<string, unknown>;
   const data = parsed.data;
+  if (existing.status !== "draft") {
+    return res.status(409).json({ error: "Only draft campaigns can be edited" });
+  }
+  if (data.status && data.status !== "draft") {
+    return res.status(400).json({ error: "Campaign status cannot be changed from the editor" });
+  }
   const result = await query(
     `UPDATE crm_marketing_campaigns SET
        name = $1,
@@ -753,6 +926,8 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
        editor_json = $11::jsonb,
        html = $12,
        scheduled_at = $13,
+       send_confirmation_token_hash = NULL,
+       send_confirmation_expires_at = NULL,
        updated_at = now()
      WHERE id = $14
      RETURNING *`,
@@ -764,7 +939,7 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
       data.from_email === undefined ? existing.from_email : cleanText(data.from_email),
       data.reply_to === undefined ? existing.reply_to : cleanText(data.reply_to),
       data.language ?? existing.language,
-      data.status ?? existing.status,
+      "draft",
       data.segment_id === undefined ? existing.segment_id : data.segment_id,
       data.topic === undefined ? existing.topic : cleanText(data.topic),
       JSON.stringify(data.editor_json ?? existing.editor_json ?? {}),
@@ -774,6 +949,140 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
     ]
   );
   return res.json({ campaign: result.rows[0] });
+}));
+
+
+
+marketingRouter.post("/segments/:id/sync-resend", asyncRoute(async (req, res) => {
+  const result = await syncSegmentToResend(req.params.id);
+  return res.json(result);
+}));
+
+marketingRouter.post("/campaigns/:id/test", asyncRoute(async (req, res) => {
+  const parsed = campaignTestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid test email request", details: parsed.error.flatten() });
+
+  const campaign = await loadCampaign(req.params.id);
+  if (campaign.status !== "draft") return res.status(409).json({ error: "Only draft campaigns can send tests" });
+  if (!campaign.subject.trim() || !campaign.html.trim()) return res.status(400).json({ error: "Subject and HTML are required" });
+
+  const sent = await sendMarketingTestEmail(campaign, parsed.data.email, {
+    firstName: cleanText(parsed.data.first_name) || undefined,
+    lastName: cleanText(parsed.data.last_name) || undefined,
+  });
+  await query(`UPDATE crm_marketing_campaigns SET last_test_at = now(), updated_at = now() WHERE id = $1`, [campaign.id]);
+  await recordCampaignEvent(campaign.id, "test_sent", req.crmUser?.id || null, {
+    recipient: parsed.data.email,
+    resendEmailId: sent.id,
+  });
+  return res.json({ ok: true, resend_email_id: sent.id });
+}));
+
+marketingRouter.delete("/campaigns/:id", asyncRoute(async (req, res) => {
+  const campaign = await loadCampaign(req.params.id);
+  if (campaign.status !== "draft") return res.status(409).json({ error: "Only draft campaigns can be deleted" });
+
+  if (campaign.resend_broadcast_id) {
+    try {
+      await deleteResendBroadcast(campaign.resend_broadcast_id);
+    } catch (error) {
+      if (!(error instanceof ResendMarketingError) || error.status !== 404) throw error;
+    }
+  }
+
+  await query(`DELETE FROM crm_marketing_campaigns WHERE id = $1`, [campaign.id]);
+  return res.json({ ok: true, deleted: true });
+}));
+
+marketingRouter.post("/campaigns/:id/prepare", asyncRoute(async (req, res) => {
+  const campaign = await loadCampaign(req.params.id);
+  if (campaign.status !== "draft") return res.status(409).json({ error: "Only draft campaigns can be prepared" });
+  if (!campaign.segment_id) return res.status(400).json({ error: "Select a segment before preparing the campaign" });
+  if (!campaign.subject.trim() || !campaign.html.trim()) return res.status(400).json({ error: "Subject and HTML are required" });
+
+  const sync = await syncSegmentToResend(campaign.segment_id);
+  if (sync.eligible === 0) return res.status(409).json({ error: "The selected segment has no eligible subscribed contacts" });
+
+  const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
+  const confirmationToken = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const confirmationPhrase = `INVIA ${sync.eligible} EMAIL`;
+
+  await query(
+    `UPDATE crm_marketing_campaigns
+     SET resend_broadcast_id = $1,
+         recipient_count = $2,
+         send_confirmation_token_hash = $3,
+         send_confirmation_expires_at = $4::timestamptz,
+         updated_at = now()
+     WHERE id = $5`,
+    [broadcastId, sync.eligible, tokenHash(confirmationToken), expiresAt, campaign.id],
+  );
+  await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
+    payload: { broadcastId, recipientCount: sync.eligible, resendSegmentId: sync.resendSegmentId },
+  });
+
+  return res.json({
+    ok: true,
+    broadcast_id: broadcastId,
+    recipient_count: sync.eligible,
+    confirmation_token: confirmationToken,
+    confirmation_phrase: confirmationPhrase,
+    confirmation_expires_at: expiresAt,
+    bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
+  });
+}));
+
+marketingRouter.post("/campaigns/:id/send", asyncRoute(async (req, res) => {
+  const capabilities = marketingCapabilities();
+  if (!capabilities.bulkSendEnabled) {
+    return res.status(403).json({ error: "Bulk sending is disabled by MARKETING_BULK_SEND_ENABLED" });
+  }
+
+  const parsed = campaignSendSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid send confirmation", details: parsed.error.flatten() });
+
+  const campaign = await loadCampaign(req.params.id);
+  const expectedPhrase = `INVIA ${campaign.recipient_count} EMAIL`;
+  if (parsed.data.confirmation_phrase !== expectedPhrase) {
+    return res.status(400).json({ error: "The confirmation phrase does not match" });
+  }
+  if (!campaign.resend_broadcast_id) return res.status(409).json({ error: "Prepare the campaign before sending" });
+
+  const consumed = await query<MarketingCampaignRow>(
+    `UPDATE crm_marketing_campaigns
+     SET send_confirmation_token_hash = NULL,
+         send_confirmation_expires_at = NULL,
+         status = 'sending',
+         updated_at = now()
+     WHERE id = $1
+       AND status = 'draft'
+       AND send_confirmation_token_hash = $2
+       AND send_confirmation_expires_at > now()
+     RETURNING *`,
+    [campaign.id, tokenHash(parsed.data.confirmation_token.toLowerCase())],
+  );
+  if (consumed.rows.length === 0) {
+    return res.status(409).json({ error: "The send confirmation expired or was already used; prepare the campaign again" });
+  }
+
+  try {
+    const sent = await sendResendBroadcast(campaign.resend_broadcast_id);
+    await query(
+      `UPDATE crm_marketing_campaigns SET status = 'sent', sent_at = now(), updated_at = now() WHERE id = $1`,
+      [campaign.id],
+    );
+    await recordCampaignEvent(campaign.id, "send_started", req.crmUser?.id || null, {
+      payload: { broadcastId: campaign.resend_broadcast_id, resendResponseId: sent.id },
+    });
+    return res.json({ ok: true, status: "sent", broadcast_id: campaign.resend_broadcast_id });
+  } catch (error) {
+    await query(`UPDATE crm_marketing_campaigns SET status = 'failed', updated_at = now() WHERE id = $1`, [campaign.id]);
+    await recordCampaignEvent(campaign.id, "send_failed", req.crmUser?.id || null, {
+      payload: { message: error instanceof Error ? error.message : "Unknown send error" },
+    });
+    throw error;
+  }
 }));
 
 marketingRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
@@ -786,6 +1095,12 @@ marketingRouter.use((error: unknown, _req: Request, res: Response, _next: NextFu
   }
   if (code === "23503") {
     return res.status(400).json({ error: "A referenced marketing record does not exist" });
+  }
+  if (error instanceof MarketingOperationError) {
+    return res.status(error.status).json({ error: error.message });
+  }
+  if (error instanceof ResendMarketingError) {
+    return res.status(502).json({ error: "Resend marketing request failed", details: error.responseBody });
   }
   return res.status(500).json({ error: "Email marketing request failed" });
 });

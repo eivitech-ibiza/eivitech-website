@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import { SEO } from "@/components/SEO";
 import { CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
 import {
-  createMarketingCampaign,
   createMarketingContact,
   createMarketingSegment,
   fetchMarketingCampaigns,
@@ -16,7 +15,6 @@ import {
   updateMarketingContact,
   updateMarketingSegmentMembers,
   type MarketingCampaign,
-  type MarketingCampaignInput,
   type MarketingContact,
   type MarketingContactInput,
   type MarketingContactStatus,
@@ -25,6 +23,7 @@ import {
   type MarketingStats,
 } from "@/lib/marketing";
 import { parseMarketingContactsCsv } from "@/lib/marketingCsv";
+import { CampaignWorkspace } from "@/components/marketing/CampaignWorkspace";
 import { tr } from "@/lib/i18n";
 
 type WorkspaceTab = "contacts" | "campaigns" | "segments";
@@ -41,20 +40,6 @@ const EMPTY_CONTACT: MarketingContactInput = {
   status: "pending",
   marketing_consent: false,
   consent_source: "manual-crm",
-};
-
-const EMPTY_CAMPAIGN: MarketingCampaignInput = {
-  name: "",
-  subject: "",
-  preview_text: "",
-  from_name: "Eivitech",
-  from_email: "newsletter@notifications.eivitech.com",
-  reply_to: "info@eivitech.com",
-  language: "it",
-  status: "draft",
-  segment_id: null,
-  topic: "",
-  html: "<p>Ciao {{first_name}},</p><p>scrivi qui il contenuto della campagna Eivitech.</p>",
 };
 
 const LANGUAGE_OPTIONS: { value: MarketingLanguage; label: string }[] = [
@@ -99,7 +84,6 @@ function EmailMarketingShell() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MarketingContactStatus | "">("");
   const [contactForm, setContactForm] = useState<MarketingContactInput>(EMPTY_CONTACT);
-  const [campaignForm, setCampaignForm] = useState<MarketingCampaignInput>(EMPTY_CAMPAIGN);
   const [segmentForm, setSegmentForm] = useState({ name: "", description: "" });
 
   async function tokenOrThrow() {
@@ -275,24 +259,7 @@ function EmailMarketingShell() {
     }
   }
 
-  async function saveCampaign(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const token = await tokenOrThrow();
-      const result = await createMarketingCampaign(token, campaignForm);
-      setCampaigns((current) => [result.campaign, ...current]);
-      setCampaignForm(EMPTY_CAMPAIGN);
-      setNotice(tr("Borrador guardado.", "Bozza salvata.", "Draft saved.", "Concept opgeslagen."));
-      setStats(await fetchMarketingStats(token));
-    } catch (err) {
-      console.error("[email-marketing] campaign save failed", err);
-      setError(tr("No se ha podido guardar la campaña.", "Non è stato possibile salvare la campagna.", "Could not save the campaign.", "De campagne kon niet worden opgeslagen."));
-    } finally {
-      setSaving(false);
-    }
-  }
+
 
   if (!hasAccess) {
     return (
@@ -482,48 +449,7 @@ function EmailMarketingShell() {
         </div>
       )}
 
-      {activeTab === "campaigns" && (
-        <div className="mt-6 grid gap-6 xl:grid-cols-[480px_1fr]">
-          <form onSubmit={saveCampaign} className="rounded-sm border border-border bg-card p-5 shadow-soft">
-            <div className="font-medium">{tr("Nueva campaña", "Nuova campagna", "New campaign", "Nieuwe campagne")}</div>
-            <div className="mt-4 space-y-3">
-              <Input label={tr("Nombre interno", "Nome interno", "Internal name", "Interne naam")} required value={campaignForm.name} onChange={(value) => setCampaignForm((current) => ({ ...current, name: value }))} />
-              <Input label={tr("Asunto", "Oggetto", "Subject", "Onderwerp")} required value={campaignForm.subject} onChange={(value) => setCampaignForm((current) => ({ ...current, subject: value }))} />
-              <Input label="Preview text" value={campaignForm.preview_text || ""} onChange={(value) => setCampaignForm((current) => ({ ...current, preview_text: value }))} />
-              <div className="grid grid-cols-2 gap-3">
-                <Select label={tr("Idioma", "Lingua", "Language", "Taal")} value={campaignForm.language || "it"} options={LANGUAGE_OPTIONS} onChange={(value) => setCampaignForm((current) => ({ ...current, language: value as MarketingLanguage }))} />
-                <Select label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaignForm.segment_id || ""} options={[{ value: "", label: tr("Sin segmento", "Nessun segmento", "No segment", "Geen segment") }, ...segments.map((segment) => ({ value: segment.id, label: segment.name }))]} onChange={(value) => setCampaignForm((current) => ({ ...current, segment_id: value || null }))} />
-              </div>
-              <Input label="Topic" value={campaignForm.topic || ""} onChange={(value) => setCampaignForm((current) => ({ ...current, topic: value }))} />
-              <label className="block text-sm">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">HTML</span>
-                <textarea className="mt-1 min-h-72 w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-xs" value={campaignForm.html || ""} onChange={(event) => setCampaignForm((current) => ({ ...current, html: event.target.value }))} />
-              </label>
-              <button disabled={saving} className="w-full rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{tr("Guardar borrador", "Salva bozza", "Save draft", "Concept opslaan")}</button>
-            </div>
-          </form>
-
-          <div className="space-y-4">
-            {campaigns.map((campaign) => (
-              <div key={campaign.id} className="rounded-sm border border-border bg-card p-5 shadow-soft">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="font-medium">{campaign.name}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{campaign.subject}</div>
-                  </div>
-                  <span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">{campaign.status}</span>
-                </div>
-                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                  <Info label={tr("Idioma", "Lingua", "Language", "Taal")} value={(campaign.language || "it").toUpperCase()} />
-                  <Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaign.segment_name || "—"} />
-                  <Info label={tr("Creada", "Creata", "Created", "Aangemaakt")} value={formatDate(campaign.created_at)} />
-                </div>
-              </div>
-            ))}
-            {campaigns.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Aún no hay campañas.", "Non ci sono ancora campagne.", "No campaigns yet.", "Nog geen campagnes.")}</div>}
-          </div>
-        </div>
-      )}
+      {activeTab === "campaigns" && <CampaignWorkspace campaigns={campaigns} segments={segments} onChanged={loadWorkspace} />}
     </section>
   );
 }

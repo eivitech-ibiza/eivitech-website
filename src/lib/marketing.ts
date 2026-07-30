@@ -64,6 +64,8 @@ export type MarketingCampaignInput = {
 
 export type MarketingCampaign = MarketingCampaignInput & {
   id: string;
+  resend_broadcast_id?: string | null;
+  last_test_at?: string | null;
   segment_name?: string | null;
   recipient_count: number;
   delivered_count: number;
@@ -94,7 +96,7 @@ export type MarketingStats = {
 };
 
 type ApiOptions = {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   token: string;
   body?: unknown;
 };
@@ -197,4 +199,47 @@ export function createMarketingCampaign(token: string, payload: MarketingCampaig
 
 export function updateMarketingCampaign(token: string, campaignId: string, payload: Partial<MarketingCampaignInput>) {
   return marketingRequest<{ campaign: MarketingCampaign }>(`/campaigns/${campaignId}`, { method: "PATCH", token, body: payload });
+}
+
+
+export type MarketingCapabilities = {
+  testSendConfigured: boolean;
+  resendSyncConfigured: boolean;
+  bulkSendEnabled: boolean;
+  maxRecipients: number;
+  freeContactLimit: number;
+};
+
+export type MarketingCampaignPreparation = {
+  ok: true;
+  broadcast_id: string;
+  recipient_count: number;
+  confirmation_token: string;
+  confirmation_phrase: string;
+  confirmation_expires_at: string;
+  bulk_send_enabled: boolean;
+};
+
+export function fetchMarketingCapabilities(token: string) {
+  return marketingRequest<MarketingCapabilities>("/capabilities", { token });
+}
+
+export function deleteMarketingCampaign(token: string, campaignId: string) {
+  return marketingRequest<{ ok: boolean; deleted: boolean }>(`/campaigns/${campaignId}`, { method: "DELETE", token });
+}
+
+export function sendMarketingCampaignTest(token: string, campaignId: string, payload: { email: string; first_name?: string; last_name?: string }) {
+  return marketingRequest<{ ok: boolean; resend_email_id: string }>(`/campaigns/${campaignId}/test`, { method: "POST", token, body: payload });
+}
+
+export function syncMarketingSegment(token: string, segmentId: string) {
+  return marketingRequest<{ resendSegmentId: string; eligible: number; synced: number; removed: number }>(`/segments/${segmentId}/sync-resend`, { method: "POST", token, body: {} });
+}
+
+export function prepareMarketingCampaign(token: string, campaignId: string) {
+  return marketingRequest<MarketingCampaignPreparation>(`/campaigns/${campaignId}/prepare`, { method: "POST", token, body: {} });
+}
+
+export function sendMarketingCampaign(token: string, campaignId: string, payload: { confirmation_token: string; confirmation_phrase: string }) {
+  return marketingRequest<{ ok: boolean; status: string; broadcast_id: string }>(`/campaigns/${campaignId}/send`, { method: "POST", token, body: payload });
 }

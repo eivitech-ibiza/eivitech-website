@@ -22,14 +22,17 @@ test("email marketing database tables are created", () => {
   assert.match(migrations, /unsubscribe_token text UNIQUE NOT NULL/);
 });
 
-test("marketing API is protected and bulk sending is not exposed yet", () => {
+test("marketing API is protected and bulk sending is server-gated", () => {
   const server = read("api/src/server.ts");
   const marketing = read("api/src/marketing.ts");
   assert.match(server, /app\.use\(\s*"\/api\/marketing"/);
   assert.match(server, /requireRole\(\["admin", "manager"\]\)/);
   assert.match(marketing, /marketingRouter\.post\("\/contacts\/import"/);
   assert.match(marketing, /marketingRouter\.post\("\/campaigns"/);
-  assert.doesNotMatch(marketing, /marketingRouter\.post\("\/campaigns\/:id\/send"/);
+  assert.match(marketing, /marketingRouter\.post\("\/campaigns\/:id\/send"/);
+  assert.match(marketing, /MARKETING_BULK_SEND_ENABLED/);
+  assert.match(marketing, /send_confirmation_token_hash/);
+  assert.match(marketing, /send_confirmation_expires_at > now\(\)/);
 });
 
 test("large but bounded marketing payloads can reach validation", () => {
