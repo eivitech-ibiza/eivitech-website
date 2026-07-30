@@ -28,6 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python scripts/fix-safe-send-review-generator.py
           python scripts/apply-safe-send-review-fixes.py
 
       - name: Render branded social preview
