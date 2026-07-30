@@ -256,6 +256,42 @@ CREATE TABLE IF NOT EXISTS crm_marketing_import_jobs (
   imported_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE crm_marketing_campaigns
+  ADD COLUMN IF NOT EXISTS send_confirmation_token_hash text;
+ALTER TABLE crm_marketing_campaigns
+  ADD COLUMN IF NOT EXISTS send_confirmation_expires_at timestamptz;
+ALTER TABLE crm_marketing_campaigns
+  ADD COLUMN IF NOT EXISTS last_test_at timestamptz;
+
+CREATE TABLE IF NOT EXISTS crm_marketing_campaign_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id uuid NOT NULL REFERENCES crm_marketing_campaigns(id) ON DELETE CASCADE,
+  event_type text NOT NULL CHECK (event_type IN ('test_sent', 'prepared', 'send_started', 'send_failed', 'resend_synced')),
+  recipient text,
+  resend_email_id text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_marketing_campaign_events_campaign
+  ON crm_marketing_campaign_events(campaign_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS crm_marketing_campaign_recipient_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id uuid NOT NULL REFERENCES crm_marketing_campaigns(id) ON DELETE CASCADE,
+  resend_email_id text NOT NULL,
+  recipient text,
+  event_type text NOT NULL,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (campaign_id, resend_email_id, event_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_marketing_recipient_events_campaign
+  ON crm_marketing_campaign_recipient_events(campaign_id, occurred_at DESC);
+
 `;
 
 export async function runMigrations() {

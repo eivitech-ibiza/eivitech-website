@@ -128,3 +128,34 @@ When either the client form or the professional collaborator form creates a lead
 ## Security note
 
 Do not call PostgreSQL or Resend directly from GitHub Pages. The frontend must call this API, and this API must be the only layer that uses `DATABASE_URL`, `CLERK_SECRET_KEY`, and the Resend API keys.
+
+
+## Email marketing safe-send workflow
+
+The protected CRM workspace supports draft editing/deletion, sandboxed HTML preview, test sends, Resend segment/contact sync and a two-step campaign preparation flow.
+
+Required only for Resend contact, segment and broadcast management:
+
+- `RESEND_MARKETING_API_KEY` — a separate Resend key with Full access;
+- `RESEND_MARKETING_FROM`;
+- `RESEND_MARKETING_REPLY_TO`;
+- `MARKETING_MAX_RECIPIENTS` — server-side recipient ceiling, default 100;
+- `MARKETING_BULK_SEND_ENABLED=false` — must remain false until production verification is complete.
+
+A real campaign can be sent only when all of the following are true:
+
+1. the campaign is still a draft and has a segment;
+2. every recipient is subscribed, has documented consent and is neither unsubscribed nor suppressed;
+3. the segment and contacts have been synchronized with Resend;
+4. the operator prepares the campaign and receives a one-time 10-minute token;
+5. the operator checks the review checkbox and types the exact recipient-count phrase;
+6. `MARKETING_BULK_SEND_ENABLED` is explicitly set to `true` on Railway.
+
+Public unsubscribe API:
+
+- `GET /api/marketing-public/unsubscribe/:token`
+- `POST /api/marketing-public/unsubscribe/:token`
+
+Public page:
+
+- `/unsubscribe?token=<64-character-token>&lang=it|es|en|nl`

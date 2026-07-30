@@ -12,6 +12,7 @@ import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
 import { marketingRouter } from "./marketing.js";
+import { marketingPublicRouter } from "./marketingPublic.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -36,8 +37,6 @@ app.use(cors({
     return callback(new Error(`Origin not allowed: ${origin}`));
   },
 }));
-app.use(clerkMiddleware());
-
 const publicJsonParser = express.json({ limit: "100kb" });
 const crmJsonParser = express.json({ limit: "100kb" });
 const marketingJsonParser = express.json({ limit: "12mb" });
@@ -48,6 +47,21 @@ const publicLeadLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
 });
+
+const publicMarketingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+});
+
+app.use(
+  "/api/marketing-public",
+  publicMarketingLimiter,
+  express.json({ limit: "10kb" }),
+  marketingPublicRouter
+);
+app.use(clerkMiddleware());
 
 const leadSchema = z.object({
   nombre: z.string().trim().min(2).max(80),

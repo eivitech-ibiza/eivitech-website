@@ -3,7 +3,12 @@ import type { Request, Response } from "express";
 import { query } from "./db.js";
 
 type ResendWebhookData = {
+  id?: string;
+  email?: string;
+  unsubscribed?: boolean;
   email_id?: string;
+  broadcast_id?: string;
+  to?: string[];
   suppressed?: { message?: string; type?: string };
   bounce?: { message?: string; type?: string; subType?: string };
   failed?: { message?: string };
@@ -106,6 +111,93 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
 
     if (inserted.rows.length === 0) {
       return res.status(200).json({ ok: true, duplicate: true });
+    }
+
+
+
+    if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
+      const contactId = event.data.id || null;
+      const email = event.data.email?.toLowerCase() || null;
+      const updated = await query<{ id: string }>(
+        `UPDATE crm_marketing_contacts
+         SET status = 'unsubscribed',
+             marketing_consent = false,
+             consent_at = NULL,
+             unsubscribed_at = COALESCE(unsubscribed_at, $1::timestamptz),
+             updated_at = now()
+         WHERE ($2::text IS NOT NULL AND resend_contact_id = $2)
+            OR ($3::text IS NOT NULL AND email = $3)
+         RETURNING id`,
+        [eventAt, contactId, email],
+      );
+      for (const contact of updated.rows) {
+        await query(
+          `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata)
+           VALUES ($1, 'unsubscribed', 'resend-webhook', $2::jsonb)`,
+          [contact.id, JSON.stringify({ eventType, svixId })],
+        );
+      }
+    }
+
+    const broadcastId = event.data?.broadcast_id || null;
+    if (broadcastId && resendEmailId) {
+      const campaign = await query<{ id: string }>(
+        `SELECT id FROM crm_marketing_campaigns WHERE resend_broadcast_id = $1`,
+        [broadcastId],
+      );
+      const campaignId = campaign.rows[0]?.id;
+      const recipient = event.data?.to?.[0]?.toLowerCase() || null;
+      if (campaignId) {
+        const recipientEvent = await query<{ id: string }>(
+          `INSERT INTO crm_marketing_campaign_recipient_events (
+             campaign_id, resend_email_id, recipient, event_type, occurred_at, payload
+           ) VALUES ($1, $2, $3, $4, $5::timestamptz, $6::jsonb)
+           ON CONFLICT (campaign_id, resend_email_id, event_type) DO NOTHING
+           RETURNING id`,
+          [campaignId, resendEmailId, recipient, eventType, eventAt, JSON.stringify(event)],
+        );
+
+        if (recipientEvent.rows.length > 0) {
+          const counterColumn: Record<string, string> = {
+            "email.delivered": "delivered_count",
+            "email.opened": "opened_count",
+            "email.clicked": "clicked_count",
+            "email.bounced": "bounced_count",
+            "email.complained": "complained_count",
+          };
+          const column = counterColumn[eventType];
+          if (column) {
+            await query(
+              `UPDATE crm_marketing_campaigns SET ${column} = ${column} + 1, updated_at = now() WHERE id = $1`,
+              [campaignId],
+            );
+          }
+        }
+
+        if (recipient && ["email.bounced", "email.complained", "email.suppressed"].includes(eventType)) {
+          const terminalStatus = eventType === "email.bounced" ? "suppressed" : "suppressed";
+          const reason = eventErrorMessage(event) || eventType;
+          const contacts = await query<{ id: string }>(
+            `UPDATE crm_marketing_contacts
+             SET status = $1,
+                 marketing_consent = false,
+                 consent_at = NULL,
+                 suppressed_at = COALESCE(suppressed_at, $2::timestamptz),
+                 suppression_reason = $3,
+                 updated_at = now()
+             WHERE email = $4
+             RETURNING id`,
+            [terminalStatus, eventAt, reason, recipient],
+          );
+          for (const contact of contacts.rows) {
+            await query(
+              `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata)
+               VALUES ($1, 'suppressed', 'resend-webhook', $2::jsonb)`,
+              [contact.id, JSON.stringify({ eventType, broadcastId, resendEmailId })],
+            );
+          }
+        }
+      }
     }
 
     const status = EVENT_STATUS[eventType];
