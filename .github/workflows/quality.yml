@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: quality-${{ github.ref }}
@@ -20,16 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref }}
-          fetch-depth: 0
-
-      - name: Apply final safe-send review fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-          python scripts/fix-safe-send-review-generator.py
-          python scripts/apply-safe-send-review-fixes.py
 
       - name: Render branded social preview
         shell: bash
@@ -82,20 +72,3 @@ jobs:
 
       - name: Audit production dependencies
         run: npm run audit:prod
-
-      - name: Commit reviewed application changes
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- \
-            api/src/marketing.ts \
-            api/src/resendMarketing.ts \
-            api/README.md \
-            src/lib/marketing.ts \
-            scripts/email-marketing-safe-send.test.mjs \
-            scripts/apply-safe-send-review-fixes.py \
-            scripts/fix-safe-send-review-generator.py
-          git commit -m "Fix exact Resend segment reconciliation"
-          git push origin HEAD:${{ github.head_ref }}
