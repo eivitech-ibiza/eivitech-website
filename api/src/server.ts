@@ -29,7 +29,7 @@ app.post(
   express.raw({ type: "application/json", limit: "256kb" }),
   handleResendOwnerWebhook
 );
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
