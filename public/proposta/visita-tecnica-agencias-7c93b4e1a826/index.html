@@ -2,7 +2,10 @@
 <html lang="es" dir="ltr">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">\n    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">\n    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">\n    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="referrer" content="no-referrer">
     <meta name="x-apple-disable-message-reformatting">
     <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
     <title>Colaboración Eivitech para visitas inmobiliarias</title>
@@ -16,7 +19,7 @@
       ASUNTO ALTERNATIVO:
       Apoyo técnico durante visitas a propiedades para reformar
 
-      PERSONALIZACIÓN:
+      PÁGINA NO INDEXADA:
       Esta página no está indexada y se comparte únicamente mediante su enlace directo.
 
       BAJA DE LA LISTA:
@@ -289,5 +292,16 @@
         </td>
       </tr>
     </table>
+    <script>
+      (function () {
+        var enlace = document.getElementById("unsubscribe-link");
+        if (enlace && enlace.getAttribute("href") && enlace.getAttribute("href").indexOf("RESEND_UNSUBSCRIBE_URL") !== -1) {
+          enlace.setAttribute(
+            "href",
+            "mailto:info@eivitech.com?subject=Solicitud%20de%20baja%20de%20la%20lista%20de%20correo"
+          );
+        }
+      }());
+    </script>
   </body>
 </html>
