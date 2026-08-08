@@ -7,7 +7,7 @@
     "dev": "vite",
     "prebuild": "node scripts/generate-seo-files.mjs --sitemap",
     "build": "vite build",
-    "postbuild": "node scripts/generate-seo-files.mjs --pages",
+    "postbuild": "node scripts/generate-seo-files.mjs --pages && node scripts/apply-multilingual-seo.mjs",
     "build:dev": "vite build --mode development",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

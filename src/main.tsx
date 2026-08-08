@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import "./index.css";
-import { CURRENT_LANGUAGE, initLanguage, registerDutchTranslations } from "./lib/i18n";
 import { setDefaultConsent } from "./lib/tracking";
 
 const GITHUB_PAGES_REDIRECT_KEY = "eivitech_github_pages_redirect";
@@ -27,6 +26,15 @@ function restoreGitHubPagesRedirect() {
 async function bootstrap() {
   setDefaultConsent();
   restoreGitHubPagesRedirect();
+
+  // Import i18n only after a GitHub Pages 404 redirect has restored the real URL.
+  // CURRENT_LANGUAGE can therefore be derived from /es/, /en/, /it/ or /nl/.
+  const {
+    CURRENT_LANGUAGE,
+    initLanguage,
+    registerDutchTranslations,
+  } = await import("./lib/i18n");
+
   initLanguage();
 
   if (CURRENT_LANGUAGE === "nl") {
