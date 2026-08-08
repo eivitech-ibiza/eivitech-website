@@ -62,6 +62,11 @@ export function Footer() {
         <div>
           <div className="eyebrow mb-4">{tr("Servicios", "Servizi", "Services")}</div>
           <ul className="space-y-2 text-sm">
+            <li>
+              <Link to="/reformas-ibiza" className="font-medium text-foreground hover:text-primary">
+                {tr("Reformas en Ibiza", "Ristrutturazioni a Ibiza", "Renovations in Ibiza", "Renovaties op Ibiza")}
+              </Link>
+            </li>
             {SERVICES.slice(0, 6).map((s) => (
               <li key={s.slug}>
                 <Link to={`/servicios/${s.slug}`} className="text-muted-foreground hover:text-foreground">
@@ -76,6 +81,7 @@ export function Footer() {
           <div className="eyebrow mb-4">{tr("Sitio", "Sito", "Site")}</div>
           <ul className="space-y-2 text-sm">
             <li><Link to="/transformations" className="text-muted-foreground hover:text-foreground">{tr("Proyectos", "Progetti", "Projects")}</Link></li>
+            <li><Link to="/materials-atmosphere" className="text-muted-foreground hover:text-foreground">{tr("Materiales", "Materiali", "Materials", "Materialen")}</Link></li>
             <li><Link to="/empresa" className="text-muted-foreground hover:text-foreground">{tr("Empresa", "Azienda", "Company")}</Link></li>
             <li><Link to="/contacto" className="text-muted-foreground hover:text-foreground">{tr("Contacto", "Contatto", "Contact")}</Link></li>
             <li><Link to="/privacy-policy" className="text-muted-foreground hover:text-foreground">{tr("Privacidad", "Privacy", "Privacy")}</Link></li>
