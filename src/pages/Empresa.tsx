@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SEO } from "@/components/SEO";
 import { CTASection } from "@/components/CTASection";
 import { ProcessSteps } from "@/components/ProcessSteps";
@@ -20,6 +21,9 @@ const Empresa = () => (
         <p className="body-lg mt-6 max-w-2xl">
           {tr("Eivitech nace con la idea de ofrecer un servicio individual para cada cliente, acompañando cada proyecto desde la idea inicial hasta el último detalle.", "Eivitech nasce con l'idea di offrire un servizio individuale per ogni cliente, accompagnando ogni progetto dall'idea iniziale all'ultimo dettaglio.", "Eivitech was created with the idea of offering an individual service for each client, supporting every project from the initial idea to the final detail.")}
         </p>
+        <Link to="/reformas-ibiza" className="mt-5 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+          {tr("Conoce nuestro servicio de reformas en Ibiza", "Scopri il nostro servizio di ristrutturazioni a Ibiza", "Discover our renovation service in Ibiza", "Ontdek onze renovatieservice op Ibiza")}
+        </Link>
       </div>
       <div className="aspect-[4/5] overflow-hidden rounded-sm">
         <img src={casaImg} alt={tr("Interior reformado por Eivitech en Ibiza", "Interno ristrutturato da Eivitech a Ibiza", "Interior renovated by Eivitech in Ibiza")} loading="lazy" className="h-full w-full object-cover" />
