@@ -4,8 +4,9 @@ import { Check, ChevronDown, Globe2, Menu, X } from "lucide-react";
 import { EivitechLogo } from "@/components/EivitechLogo";
 import {
   CURRENT_LANGUAGE,
-  changeLanguage,
   languageLabels,
+  languageSelectionHref,
+  persistLanguageSelection,
   tr,
   type Language,
 } from "@/lib/i18n";
@@ -47,8 +48,8 @@ function HeaderLanguageSelector() {
   }, [languageOpen]);
 
   const selectLanguage = (language: Language) => {
+    persistLanguageSelection(language);
     setLanguageOpen(false);
-    if (language !== CURRENT_LANGUAGE) changeLanguage(language);
   };
 
   return (
@@ -88,11 +89,12 @@ function HeaderLanguageSelector() {
           {HEADER_LANGUAGES.map((language) => {
             const active = language === CURRENT_LANGUAGE;
             return (
-              <button
+              <a
                 key={language}
-                type="button"
+                href={languageSelectionHref(language)}
                 role="menuitemradio"
                 aria-checked={active}
+                hrefLang={language}
                 onClick={() => selectLanguage(language)}
                 className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent ${
                   active ? "bg-accent/60 text-foreground" : "text-muted-foreground"
@@ -103,7 +105,7 @@ function HeaderLanguageSelector() {
                 </span>
                 <span className="flex-1">{languageLabels[language]}</span>
                 {active && <Check aria-hidden="true" className="h-4 w-4" />}
-              </button>
+              </a>
             );
           })}
         </div>
@@ -191,8 +193,7 @@ export function Header() {
                   className={({ isActive }) =>
                     `rounded-sm px-4 py-3 text-base transition-colors hover:bg-accent/60 ${
                       isActive ? "bg-accent/40 text-foreground" : "text-muted-foreground"
-                    }`
-                  }
+                    }`}
                 >
                   {n.label}
                 </NavLink>
