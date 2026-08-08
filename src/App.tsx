@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
+import { CURRENT_LANGUAGE, languageBasename } from "@/lib/i18n";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Empresa = lazy(() => import("./pages/Empresa.tsx"));
@@ -60,7 +61,7 @@ const router = createBrowserRouter([
     ],
   },
 ], {
-  basename: import.meta.env.BASE_URL,
+  basename: languageBasename(CURRENT_LANGUAGE),
 });
 
 const App = () => (
