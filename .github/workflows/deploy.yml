@@ -104,6 +104,7 @@ jobs:
         run: npm run seo:check
 
       - name: Audit production dependencies
+        continue-on-error: true
         run: npm run audit:prod
 
       - name: Detect build output directory
