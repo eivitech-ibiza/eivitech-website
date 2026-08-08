@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SEO } from "@/components/SEO";
 import { ProjectCard } from "@/components/ProjectCard";
 import { CTASection } from "@/components/CTASection";
@@ -23,6 +24,9 @@ const Proyectos = () => (
           "Each project shows a starting problem, a client vision and an Eivitech solution: smarter spaces, natural materials, warm lighting and complete project management."
         )}
       </p>
+      <Link to="/reformas-ibiza" className="mt-5 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+        {tr("Cómo gestionamos una reforma en Ibiza", "Come gestiamo una ristrutturazione a Ibiza", "How we manage a renovation in Ibiza", "Hoe we een renovatie op Ibiza beheren")}
+      </Link>
     </section>
     <section className="container-x grid gap-6 pb-20 md:grid-cols-2">
       {PROJECTS.map((p, i) => (
