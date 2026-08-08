@@ -13,9 +13,9 @@ import {
 
 const NAV = [
   { to: "/", label: tr("Inicio", "Home", "Home") },
+  { to: "/reformas-ibiza", label: tr("Reformas Ibiza", "Ristrutturazioni Ibiza", "Ibiza renovations", "Renovaties Ibiza") },
   { to: "/transformations", label: tr("Transformaciones", "Trasformazioni", "Transformations") },
   { to: "/the-eivitech-way", label: tr("Método", "Metodo", "Method") },
-  { to: "/materials-atmosphere", label: tr("Materiales", "Materiali", "Materials") },
   { to: "/contacto", label: tr("Contacto", "Contatto", "Contact") },
 ];
 
