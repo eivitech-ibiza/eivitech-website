@@ -3,7 +3,10 @@ import { useEffect } from "react";
 import { track } from "@/lib/tracking";
 import {
   CURRENT_LANGUAGE,
+  SUPPORTED_LANGUAGES,
+  hreflangByLanguage,
   htmlLocaleByLanguage,
+  localizePath,
   openGraphLocaleByLanguage,
   tr,
 } from "@/lib/i18n";
@@ -74,8 +77,9 @@ function enrichStructuredData(block: Record<string, unknown>, canonicalUrl: stri
   if (type === "CreativeWork") {
     return {
       ...block,
-      "@id": block["@id"] || `${canonicalUrl}#project`,
-      mainEntityOfPage: block.mainEntityOfPage || { "@id": pageId },
+      "@id": `${canonicalUrl}#project`,
+      url: canonicalUrl,
+      mainEntityOfPage: { "@id": pageId },
       creator: block.creator || { "@id": ORGANIZATION_ID },
     };
   }
@@ -83,9 +87,9 @@ function enrichStructuredData(block: Record<string, unknown>, canonicalUrl: stri
   if (type === "Service") {
     return {
       ...block,
-      "@id": block["@id"] || `${canonicalUrl}#service`,
-      url: block.url || canonicalUrl,
-      mainEntityOfPage: block.mainEntityOfPage || { "@id": pageId },
+      "@id": `${canonicalUrl}#service`,
+      url: canonicalUrl,
+      mainEntityOfPage: { "@id": pageId },
       provider: block.provider || { "@id": ORGANIZATION_ID },
     };
   }
@@ -108,12 +112,14 @@ export function SEO({
   noIndex = false,
   ogType = "website",
 }: Props) {
+  const localizedPath = localizePath(path, CURRENT_LANGUAGE);
+
   useEffect(() => {
-    track(trackAs, { path, ...trackPayload });
-  }, [path, trackAs, trackPayload]);
+    track(trackAs, { path: localizedPath, ...trackPayload });
+  }, [localizedPath, trackAs, trackPayload]);
 
   const suppliedBlocks = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
-  const canonicalUrl = buildCanonicalUrl(path);
+  const canonicalUrl = buildCanonicalUrl(localizedPath);
   const usesDefaultSocialImage = !ogImage;
   const socialImage = absoluteUrl(ogImage || DEFAULT_OG_IMAGE);
   const socialImageAlt = ogImageAlt || title;
@@ -123,14 +129,17 @@ export function SEO({
   const robots = noIndex
     ? "noindex, nofollow"
     : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
-  const breadcrumbs = getBreadcrumbItems(path, title);
+  const breadcrumbs = getBreadcrumbItems(path, title).map((item) => ({
+    ...item,
+    path: localizePath(item.path, CURRENT_LANGUAGE),
+  }));
   const pageBlocks = noIndex
     ? []
     : [
         webPageJsonLd({
           title,
           description,
-          path,
+          path: localizedPath,
           inLanguage: htmlLocaleByLanguage[CURRENT_LANGUAGE],
           image: socialImage,
         }),
@@ -144,13 +153,24 @@ export function SEO({
   const alternateLocales = Object.entries(openGraphLocaleByLanguage)
     .filter(([language]) => language !== CURRENT_LANGUAGE)
     .map(([, locale]) => locale);
+  const alternateUrls = SUPPORTED_LANGUAGES.map((language) => ({
+    language,
+    hreflang: hreflangByLanguage[language],
+    href: buildCanonicalUrl(localizePath(path, language)),
+  }));
+  const xDefaultUrl = buildCanonicalUrl(localizePath(path, "es"));
 
   return (
     <Helmet>
+      <html lang={htmlLocaleByLanguage[CURRENT_LANGUAGE]} />
       <title>{title}</title>
       <meta name="description" content={description} />
       <meta name="robots" content={robots} />
       <link rel="canonical" href={canonicalUrl} />
+      {!noIndex && alternateUrls.map(({ language, hreflang, href }) => (
+        <link key={language} rel="alternate" hrefLang={hreflang} href={href} />
+      ))}
+      {!noIndex && <link rel="alternate" hrefLang="x-default" href={xDefaultUrl} />}
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonicalUrl} />
