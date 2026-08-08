@@ -101,6 +101,9 @@ function localizeStructuredData(html, language) {
       try {
         const parsed = JSON.parse(json);
         const localized = localizeStructuredValue(parsed, language);
+        if (localized?.["@type"] === "WebPage") {
+          localized.inLanguage = OG_LOCALE_BY_LANGUAGE[language].replace("_", "-");
+        }
         return `<script type="application/ld+json" data-rh="true">${JSON.stringify(localized).replaceAll("<", "\\u003c")}</script>`;
       } catch {
         return match;
