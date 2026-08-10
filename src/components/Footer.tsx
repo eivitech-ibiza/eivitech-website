@@ -62,11 +62,6 @@ export function Footer() {
         <div>
           <div className="eyebrow mb-4">{tr("Servicios", "Servizi", "Services")}</div>
           <ul className="space-y-2 text-sm">
-            <li>
-              <Link to="/reformas-ibiza" className="font-medium text-foreground hover:text-primary">
-                {tr("Reformas en Ibiza", "Ristrutturazioni a Ibiza", "Renovations in Ibiza", "Renovaties op Ibiza")}
-              </Link>
-            </li>
             {SERVICES.slice(0, 6).map((s) => (
               <li key={s.slug}>
                 <Link to={`/servicios/${s.slug}`} className="text-muted-foreground hover:text-foreground">
