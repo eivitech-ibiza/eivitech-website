@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { SEO } from "@/components/SEO";
 import { ServiceCard } from "@/components/ServiceCard";
 import { CTASection } from "@/components/CTASection";
@@ -20,9 +19,6 @@ const Servicios = () => (
       <p className="body-lg mt-5 max-w-2xl">
         {tr("Desde la reforma integral al detalle final. Selecciona el servicio que mejor encaje con tu proyecto o cuéntanos qué necesitas para orientarte.", "Dalla ristrutturazione completa al dettaglio finale. Seleziona il servizio più adatto al tuo progetto o raccontaci di cosa hai bisogno.", "From the full renovation to the final detail. Choose the service that best fits your project or tell us what you need.")}
       </p>
-      <Link to="/reformas-ibiza" className="mt-5 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-        {tr("Ver reformas en Ibiza", "Scopri le ristrutturazioni a Ibiza", "Explore renovations in Ibiza", "Bekijk renovaties op Ibiza")}
-      </Link>
     </section>
     <section className="container-x pb-20 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {SERVICES.map((s) => <ServiceCard key={s.slug} service={s} />)}
