@@ -63,6 +63,16 @@ export function ServicePageTemplate({ service }: { service: Service }) {
                 </li>
               ))}
             </ul>
+            {service.slug === "reformas-integrales" && (
+              <Link to="/reformas-ibiza" className="mt-7 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
+                {tr(
+                  "Más información sobre cómo gestionamos una reforma en Ibiza",
+                  "Scopri come gestiamo una ristrutturazione a Ibiza",
+                  "More about how we manage a renovation in Ibiza",
+                  "Meer over hoe we een renovatie op Ibiza beheren",
+                )}
+              </Link>
+            )}
           </div>
           <div>
             <div className="eyebrow">{tr("Cuándo solicitarlo", "Quando richiederlo", "When to request it")}</div>
