@@ -33,6 +33,13 @@ export function Footer() {
             <a href={SITE.emailHref} className="block hover:text-primary">{SITE.email}</a>
             <div className="text-muted-foreground">{SITE.location}</div>
           </div>
+          <address className="mt-4 not-italic text-xs leading-relaxed text-muted-foreground">
+            <div className="font-medium text-foreground">
+              {SITE.legalName} · {SITE.taxIdLabel}: {SITE.taxId}
+            </div>
+            <div>{SITE.registeredAddressLine1}</div>
+            <div>{SITE.registeredAddressLine2}</div>
+          </address>
           <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{tr("Idioma", "Lingua", "Language")}</span>
             {LANGUAGE_OPTIONS.map((option) => {

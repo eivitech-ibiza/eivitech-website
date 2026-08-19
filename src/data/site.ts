@@ -10,6 +10,11 @@ export const SITE = {
   email: "info@eivitech.com",
   emailHref: "mailto:info@eivitech.com",
   location: tr("Ibiza, España", "Ibiza, Spagna", "Ibiza, Spain"),
+  legalName: "EIVITECH PLUS SL",
+  taxIdLabel: "NIF/CIF",
+  taxId: "B75708115",
+  registeredAddressLine1: "C/ San Critofol 30, bloque 6, puerta 403",
+  registeredAddressLine2: "07800 Ibiza, Illes Balears, España",
   locale: tr("es-ES", "it-IT", "en-GB"),
 } as const;
 
