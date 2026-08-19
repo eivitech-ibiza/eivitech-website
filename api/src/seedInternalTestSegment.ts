@@ -1,7 +1,7 @@
 import { pool } from "./db.js";
 import { runMigrations } from "./migrations.js";
 
-const SEED_KEY = "2026-08-19-test-segment-two-contacts";
+const SEED_KEY = "2026-08-19-test-segment-two-contacts-v2";
 const TEST_SEGMENT_NAMES = ["TEST – Luciano", "TEST - Luciano", "TEST — Luciano"];
 
 async function seedInternalTestSegment() {
