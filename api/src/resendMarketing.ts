@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 const RESEND_API = "https://api.resend.com";
+const RESEND_UNSUBSCRIBE_PLACEHOLDER = "{{{RESEND_UNSUBSCRIBE_URL}}}";
 
 export type MarketingContactForResend = {
   email: string;
@@ -99,13 +100,15 @@ function replaceEditorMergeTags(html: string, testValues?: { firstName?: string;
     return html
       .replace(/\{\{\s*first_name\s*\}\}/gi, testValues.firstName || "Luciano")
       .replace(/\{\{\s*last_name\s*\}\}/gi, testValues.lastName || "Novello")
-      .replace(/\{\{\s*email\s*\}\}/gi, testValues.email || "test@example.com");
+      .replace(/\{\{\s*email\s*\}\}/gi, testValues.email || "test@example.com")
+      .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, "#unsubscribe-test");
   }
 
   return html
     .replace(/\{\{\s*first_name\s*\}\}/gi, "{{{contact.first_name|there}}}")
     .replace(/\{\{\s*last_name\s*\}\}/gi, "{{{contact.last_name|}}}")
-    .replace(/\{\{\s*email\s*\}\}/gi, "{{{contact.email}}}");
+    .replace(/\{\{\s*email\s*\}\}/gi, "{{{contact.email}}}")
+    .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, RESEND_UNSUBSCRIBE_PLACEHOLDER);
 }
 
 function preheader(previewText?: string | null) {
@@ -123,8 +126,9 @@ function escapeHtml(value: string) {
 }
 
 function wrapMarketingHtml(content: string, previewText?: string | null, footer = true) {
-  const footerHtml = footer
-    ? `<div style="margin-top:36px;padding-top:18px;border-top:1px solid #e4ddd7;font:12px/1.5 Arial,sans-serif;color:#756d66;text-align:center">Ricevi questa email perché hai fornito un consenso marketing documentato a Eivitech. <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#aa4f2d">Disiscriviti</a>.</div>`
+  const hasCustomUnsubscribe = content.includes(RESEND_UNSUBSCRIBE_PLACEHOLDER);
+  const footerHtml = footer && !hasCustomUnsubscribe
+    ? `<div style="margin-top:36px;padding-top:18px;border-top:1px solid #e4ddd7;font:12px/1.5 Arial,sans-serif;color:#756d66;text-align:center">Ricevi questa email perché hai fornito un consenso marketing documentato a Eivitech. <a href="${RESEND_UNSUBSCRIBE_PLACEHOLDER}" style="color:#aa4f2d">Disiscriviti</a>.</div>`
     : "";
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f6f3f0;color:#2d2723"><div style="max-width:680px;margin:0 auto;padding:28px 20px;background:#ffffff">${preheader(previewText)}${content}${footerHtml}</div></body></html>`;
@@ -262,7 +266,6 @@ export async function addResendContactToSegment(contactIdOrEmail: string, segmen
     { method: "POST", apiKey: adminKeyOrThrow() },
   );
 }
-
 
 export type ResendSegmentContact = {
   id: string;
