@@ -185,6 +185,10 @@ export function createMarketingSegment(token: string, payload: { name: string; d
   return marketingRequest<{ segment: MarketingSegment }>("/segments", { method: "POST", token, body: payload });
 }
 
+export function updateMarketingSegment(token: string, segmentId: string, payload: { name?: string; description?: string }) {
+  return marketingRequest<{ segment: MarketingSegment }>(`/segments/${segmentId}`, { method: "PATCH", token, body: payload });
+}
+
 export function updateMarketingSegmentMembers(token: string, segmentId: string, payload: { add?: string[]; remove?: string[] }) {
   return marketingRequest<{ ok: boolean; memberCount: number }>(`/segments/${segmentId}/members`, { method: "POST", token, body: payload });
 }

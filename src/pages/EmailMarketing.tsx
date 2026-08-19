@@ -24,6 +24,7 @@ import {
 } from "@/lib/marketing";
 import { parseMarketingContactsCsv } from "@/lib/marketingCsv";
 import { CampaignWorkspace } from "@/components/marketing/CampaignWorkspace";
+import { SegmentManager } from "@/components/marketing/SegmentManager";
 import { tr } from "@/lib/i18n";
 
 type WorkspaceTab = "contacts" | "campaigns" | "segments";
@@ -435,17 +436,7 @@ function EmailMarketingShell() {
               <button disabled={saving} className="w-full rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{tr("Crear segmento", "Crea segmento", "Create segment", "Segment aanmaken")}</button>
             </div>
           </form>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {segments.map((segment) => (
-              <div key={segment.id} className="rounded-sm border border-border bg-card p-5 shadow-soft">
-                <div className="font-medium">{segment.name}</div>
-                <div className="mt-2 text-sm text-muted-foreground">{segment.description || tr("Sin descripción", "Senza descrizione", "No description", "Geen beschrijving")}</div>
-                <div className="mt-5 text-3xl font-medium">{segment.member_count || 0}</div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">{tr("Contactos", "Contatti", "Contacts", "Contacten")}</div>
-              </div>
-            ))}
-            {segments.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Crea el primer segmento.", "Crea il primo segmento.", "Create the first segment.", "Maak het eerste segment.")}</div>}
-          </div>
+          <SegmentManager segments={segments} onChanged={loadWorkspace} />
         </div>
       )}
 
