@@ -1,7 +1,8 @@
 import { pool } from "./db.js";
 
-const SEED_KEY = "2026-08-19-test-segment-two-contacts-v3";
+const SEED_KEY = "2026-08-19-test-segment-two-contacts-v4";
 const TEST_SEGMENT_NAMES = ["TEST – Luciano", "TEST - Luciano", "TEST — Luciano"];
+const LEGACY_TEST_EMAIL = "lncoachmrc@gmail.com";
 
 const INTERNAL_TEST_CONTACTS = [
   {
@@ -61,6 +62,26 @@ export async function ensureInternalTestSegment() {
       return { applied: false, reason: "segment-not-found" as const };
     }
 
+    const segmentId = segment.rows[0].id;
+
+    await client.query(
+      `UPDATE crm_marketing_segments
+       SET description = $1, updated_at = now()
+       WHERE id = $2`,
+      ["Collaudo CRM Resend – Luciano + Eivitech", segmentId],
+    );
+
+    // Remove only the legacy Gmail address used during the unsubscribe test.
+    // Other contacts manually added to this segment are left untouched.
+    await client.query(
+      `DELETE FROM crm_marketing_segment_members sm
+       USING crm_marketing_contacts c
+       WHERE sm.segment_id = $1
+         AND sm.contact_id = c.id
+         AND lower(c.email) = $2`,
+      [segmentId, LEGACY_TEST_EMAIL],
+    );
+
     for (const contact of INTERNAL_TEST_CONTACTS) {
       const saved = await client.query<{ id: string }>(
         `INSERT INTO crm_marketing_contacts (
@@ -93,7 +114,7 @@ export async function ensureInternalTestSegment() {
         `INSERT INTO crm_marketing_segment_members (segment_id, contact_id)
          VALUES ($1, $2)
          ON CONFLICT (segment_id, contact_id) DO NOTHING`,
-        [segment.rows[0].id, contactId],
+        [segmentId, contactId],
       );
 
       await client.query(
@@ -116,7 +137,7 @@ export async function ensureInternalTestSegment() {
     );
 
     await client.query("COMMIT");
-    console.log(`[seed] added 2 subscribed contacts to ${segment.rows[0].name}`);
+    console.log(`[seed] normalized internal test contacts for ${segment.rows[0].name}`);
     return { applied: true, segment: segment.rows[0].name };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
