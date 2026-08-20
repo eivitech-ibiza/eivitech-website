@@ -112,6 +112,38 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "eivitech-crm-api" });
 });
 
+app.delete(
+  "/api/marketing/campaigns/:id",
+  requireCrmUser,
+  requireRole(["admin", "manager"]),
+  async (req, res, next) => {
+    try {
+      const campaign = await query<{ id: string; status: string }>(
+        `SELECT id, status FROM crm_marketing_campaigns WHERE id = $1`,
+        [req.params.id]
+      );
+
+      if (campaign.rows.length === 0) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      if (campaign.rows[0].status !== "sent") {
+        return next();
+      }
+
+      await query(`DELETE FROM crm_marketing_campaigns WHERE id = $1`, [req.params.id]);
+      return res.json({
+        ok: true,
+        deleted: true,
+        deleted_from_postgres: true,
+        resend_history_retained: true,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 app.use(
   "/api/marketing",
   requireCrmUser,
