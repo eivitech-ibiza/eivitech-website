@@ -7,6 +7,7 @@ const {
   reconcileContactUnsubscribeSql,
   reconcileUnsubscribeCountSql,
   resolveUnsubscribeCampaignSql,
+  resolveUnsubscribeClickSql,
 } = await import("./resendWebhook.js");
 
 test("unsubscribe campaign lookup prefers broadcast, then local segment membership, then latest recipient event", () => {
@@ -21,6 +22,17 @@ test("unsubscribe campaign lookup prefers broadcast, then local segment membersh
   assert.match(sql, /ORDER BY COALESCE\(c\.sent_at, c\.created_at\) DESC/);
   assert.match(sql, /ORDER BY cre\.occurred_at DESC/);
   assert.match(sql, /LIMIT 1/);
+});
+
+test("unsubscribe click lookup uses raw clicked webhook and exact broadcast", () => {
+  const sql = resolveUnsubscribeClickSql();
+  assert.match(sql, /crm_resend_webhook_events/);
+  assert.match(sql, /event_type = 'email\.clicked'/);
+  assert.match(sql, /\{data,click,link\}/);
+  assert.match(sql, /unsubscribe\.resend\.com/);
+  assert.match(sql, /jsonb_array_elements_text/);
+  assert.match(sql, /\{data,broadcast_id\}/);
+  assert.match(sql, /lower\(recipient\.email\) = lower\(\$1\)/);
 });
 
 test("unsubscribe counter is reconciled from distinct recipient events", () => {
