@@ -8,7 +8,6 @@ type ResendWebhookData = {
   unsubscribed?: boolean;
   email_id?: string;
   broadcast_id?: string;
-  audience_id?: string;
   to?: string[];
   click?: {
     ipAddress?: string;
@@ -27,6 +26,8 @@ type ResendWebhookEvent = {
   created_at?: string;
   data?: ResendWebhookData;
 };
+
+type UnsubscribeAttributionSource = "broadcast" | "unsubscribe-click";
 
 const EVENT_STATUS: Record<string, string> = {
   "email.sent": "sent",
@@ -83,99 +84,59 @@ function eventErrorMessage(event: ResendWebhookEvent) {
     || null;
 }
 
-export function resolveUnsubscribeCampaignSql() {
+export function resolveUnsubscribeEvidenceSql() {
   return `
-    WITH exact_match AS (
+    WITH explicit_match AS (
       SELECT
         c.id AS campaign_id,
         COALESCE(
-          cre.resend_email_id,
+          (
+            SELECT e.resend_email_id
+            FROM crm_marketing_campaign_recipient_events e
+            WHERE e.campaign_id = c.id
+              AND e.recipient IS NOT NULL
+              AND lower(e.recipient) = lower($2)
+            ORDER BY e.occurred_at DESC
+            LIMIT 1
+          ),
           'contact:' || COALESCE($4::text, $2) || ':unsubscribe'
         ) AS resend_email_id,
-        COALESCE(cre.occurred_at, c.sent_at, c.created_at) AS occurred_at
+        'broadcast'::text AS attribution_source
       FROM crm_marketing_campaigns c
-      LEFT JOIN LATERAL (
-        SELECT e.resend_email_id, e.occurred_at
-        FROM crm_marketing_campaign_recipient_events e
-        WHERE e.campaign_id = c.id
-          AND e.recipient = $2
-        ORDER BY e.occurred_at DESC
-        LIMIT 1
-      ) cre ON true
       WHERE $1::text IS NOT NULL
         AND c.resend_broadcast_id = $1
       LIMIT 1
     ),
-    membership_match AS (
+    click_match AS (
       SELECT
         c.id AS campaign_id,
         COALESCE(
-          cre.resend_email_id,
+          rwe.resend_email_id,
+          rwe.payload #>> '{data,email_id}',
           'contact:' || COALESCE($4::text, $2) || ':unsubscribe'
         ) AS resend_email_id,
-        COALESCE(cre.occurred_at, c.sent_at, c.created_at) AS occurred_at
-      FROM crm_marketing_campaigns c
-      JOIN crm_marketing_segment_members sm ON sm.segment_id = c.segment_id
-      JOIN crm_marketing_contacts mc ON mc.id = sm.contact_id
-      LEFT JOIN LATERAL (
-        SELECT e.resend_email_id, e.occurred_at
-        FROM crm_marketing_campaign_recipient_events e
-        WHERE e.campaign_id = c.id
-          AND e.recipient = $2
-        ORDER BY e.occurred_at DESC
-        LIMIT 1
-      ) cre ON true
-      WHERE mc.email = $2
-        AND c.status = 'sent'
-        AND COALESCE(c.sent_at, c.created_at) <= $3::timestamptz
-      ORDER BY COALESCE(c.sent_at, c.created_at) DESC
-      LIMIT 1
-    ),
-    fallback_match AS (
-      SELECT c.id AS campaign_id, cre.resend_email_id, cre.occurred_at
-      FROM crm_marketing_campaign_recipient_events cre
-      JOIN crm_marketing_campaigns c ON c.id = cre.campaign_id
-      WHERE cre.recipient = $2
-        AND c.status = 'sent'
-        AND cre.occurred_at <= $3::timestamptz
-      ORDER BY cre.occurred_at DESC
+        'unsubscribe-click'::text AS attribution_source
+      FROM crm_resend_webhook_events rwe
+      JOIN crm_marketing_campaigns c
+        ON c.resend_broadcast_id = rwe.payload #>> '{data,broadcast_id}'
+      WHERE rwe.event_type = 'email.clicked'
+        AND lower(COALESCE(rwe.payload #>> '{data,click,link}', '')) LIKE '%unsubscribe.resend.com%'
+        AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(
+            COALESCE(rwe.payload #> '{data,to}', '[]'::jsonb)
+          ) AS recipient(email)
+          WHERE lower(recipient.email) = lower($2)
+        )
+        AND COALESCE(rwe.event_created_at, rwe.received_at) >= $3::timestamptz - interval '15 minutes'
+        AND COALESCE(rwe.event_created_at, rwe.received_at) <= $3::timestamptz
+      ORDER BY COALESCE(rwe.event_created_at, rwe.received_at) DESC
       LIMIT 1
     )
-    SELECT campaign_id, resend_email_id FROM exact_match
+    SELECT campaign_id, resend_email_id, attribution_source FROM explicit_match
     UNION ALL
-    SELECT campaign_id, resend_email_id FROM membership_match
-    WHERE NOT EXISTS (SELECT 1 FROM exact_match)
-    UNION ALL
-    SELECT campaign_id, resend_email_id FROM fallback_match
-    WHERE NOT EXISTS (SELECT 1 FROM exact_match)
-      AND NOT EXISTS (SELECT 1 FROM membership_match)
-    LIMIT 1
-  `;
-}
-
-export function resolveUnsubscribeClickSql() {
-  return `
-    SELECT
-      c.id AS campaign_id,
-      COALESCE(
-        rwe.resend_email_id,
-        rwe.payload #>> '{data,email_id}',
-        'contact:' || COALESCE($2::text, $1) || ':unsubscribe'
-      ) AS resend_email_id
-    FROM crm_resend_webhook_events rwe
-    JOIN crm_marketing_campaigns c
-      ON c.resend_broadcast_id = rwe.payload #>> '{data,broadcast_id}'
-    WHERE rwe.event_type = 'email.clicked'
-      AND lower(COALESCE(rwe.payload #>> '{data,click,link}', '')) LIKE '%unsubscribe.resend.com%'
-      AND EXISTS (
-        SELECT 1
-        FROM jsonb_array_elements_text(
-          COALESCE(rwe.payload #> '{data,to}', '[]'::jsonb)
-        ) AS recipient(email)
-        WHERE lower(recipient.email) = lower($1)
-      )
-      AND COALESCE(rwe.event_created_at, rwe.received_at) <= $3::timestamptz
-    ORDER BY COALESCE(rwe.event_created_at, rwe.received_at) DESC
+    SELECT campaign_id, resend_email_id, attribution_source FROM click_match
+    WHERE NOT EXISTS (SELECT 1 FROM explicit_match)
     LIMIT 1
   `;
 }
@@ -189,73 +150,11 @@ export function reconcileUnsubscribeCountSql() {
           WHERE cre.campaign_id = c.id
             AND cre.event_type = 'contact.unsubscribed'
             AND cre.recipient IS NOT NULL
+            AND COALESCE(cre.payload #>> '{_eivitech,unsubscribeAttribution}', '')
+              IN ('broadcast', 'unsubscribe-click')
         ),
         updated_at = now()
     WHERE c.id = $1
-  `;
-}
-
-export function reconcileContactUnsubscribeSql() {
-  return `
-    WITH target AS (
-      SELECT
-        c.id AS campaign_id,
-        c.segment_id,
-        COALESCE(c.sent_at, c.created_at) AS sent_at
-      FROM crm_marketing_campaigns c
-      WHERE c.status = 'sent'
-        AND COALESCE(c.sent_at, c.created_at) <= $2::timestamptz
-        AND (
-          EXISTS (
-            SELECT 1
-            FROM crm_marketing_segment_members sm
-            JOIN crm_marketing_contacts mc ON mc.id = sm.contact_id
-            WHERE sm.segment_id = c.segment_id
-              AND lower(mc.email) = lower($1)
-          )
-          OR EXISTS (
-            SELECT 1
-            FROM crm_marketing_campaign_recipient_events cre
-            WHERE cre.campaign_id = c.id
-              AND cre.recipient IS NOT NULL
-              AND lower(cre.recipient) = lower($1)
-          )
-        )
-      ORDER BY COALESCE(c.sent_at, c.created_at) DESC
-      LIMIT 1
-    ),
-    unsubscribed_recipients AS (
-      SELECT DISTINCT t.campaign_id, lower(mc.email) AS email
-      FROM target t
-      JOIN crm_marketing_segment_members sm ON sm.segment_id = t.segment_id
-      JOIN crm_marketing_contacts mc ON mc.id = sm.contact_id
-      WHERE mc.status = 'unsubscribed'
-        AND mc.unsubscribed_at IS NOT NULL
-        AND mc.unsubscribed_at >= t.sent_at
-
-      UNION
-
-      SELECT DISTINCT t.campaign_id, lower(mc.email) AS email
-      FROM target t
-      JOIN crm_marketing_campaign_recipient_events cre ON cre.campaign_id = t.campaign_id
-      JOIN crm_marketing_contacts mc ON lower(mc.email) = lower(cre.recipient)
-      WHERE cre.recipient IS NOT NULL
-        AND mc.status = 'unsubscribed'
-        AND mc.unsubscribed_at IS NOT NULL
-        AND mc.unsubscribed_at >= t.sent_at
-    ),
-    totals AS (
-      SELECT t.campaign_id, COUNT(DISTINCT ur.email)::integer AS unsubscribed_count
-      FROM target t
-      LEFT JOIN unsubscribed_recipients ur ON ur.campaign_id = t.campaign_id
-      GROUP BY t.campaign_id
-    )
-    UPDATE crm_marketing_campaigns c
-    SET unsubscribed_count = totals.unsubscribed_count,
-        updated_at = now()
-    FROM totals
-    WHERE c.id = totals.campaign_id
-    RETURNING c.id AS campaign_id, c.unsubscribed_count
   `;
 }
 
@@ -291,12 +190,12 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
        RETURNING id`,
       [svixId, eventType, resendEmailId, eventAt, JSON.stringify(event)]
     );
+    const duplicate = inserted.rows.length === 0;
 
-    if (inserted.rows.length === 0) {
-      return res.status(200).json({ ok: true, duplicate: true });
-    }
-
-    let unsubscribeAttribution: { campaignId: string; source: "unsubscribe-click" | "fallback" } | null = null;
+    let unsubscribeAttribution: {
+      campaignId: string;
+      source: UnsubscribeAttributionSource;
+    } | null = null;
 
     if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
       const contactId = event.data.id || null;
@@ -313,34 +212,36 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
          RETURNING id, email`,
         [eventAt, contactId, email],
       );
-      for (const contact of updated.rows) {
-        await query(
-          `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata)
-           VALUES ($1, 'unsubscribed', 'resend-webhook', $2::jsonb)`,
-          [contact.id, JSON.stringify({ eventType, svixId })],
-        );
+
+      if (!duplicate) {
+        for (const contact of updated.rows) {
+          await query(
+            `INSERT INTO crm_marketing_consent_events (contact_id, event_type, source, metadata)
+             VALUES ($1, 'unsubscribed', 'resend-webhook', $2::jsonb)`,
+            [contact.id, JSON.stringify({ eventType, svixId })],
+          );
+        }
       }
 
       const resolvedEmail = email || updated.rows[0]?.email?.toLowerCase() || null;
       if (resolvedEmail) {
-        const clicked = await query<{ campaign_id: string; resend_email_id: string }>(
-          resolveUnsubscribeClickSql(),
-          [resolvedEmail, contactId, eventAt],
+        const evidence = await query<{
+          campaign_id: string;
+          resend_email_id: string;
+          attribution_source: UnsubscribeAttributionSource;
+        }>(
+          resolveUnsubscribeEvidenceSql(),
+          [event.data?.broadcast_id || null, resolvedEmail, eventAt, contactId],
         );
-
-        let match = clicked.rows[0];
-        let attributionSource: "unsubscribe-click" | "fallback" = "unsubscribe-click";
-
-        if (!match) {
-          const attributed = await query<{ campaign_id: string; resend_email_id: string }>(
-            resolveUnsubscribeCampaignSql(),
-            [event.data?.broadcast_id || null, resolvedEmail, eventAt, contactId],
-          );
-          match = attributed.rows[0];
-          attributionSource = "fallback";
-        }
+        const match = evidence.rows[0];
 
         if (match) {
+          const attributedPayload = {
+            ...event,
+            _eivitech: {
+              unsubscribeAttribution: match.attribution_source,
+            },
+          };
           await query(
             `INSERT INTO crm_marketing_campaign_recipient_events (
                campaign_id, resend_email_id, recipient, event_type, occurred_at, payload
@@ -349,14 +250,15 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
                recipient = EXCLUDED.recipient,
                occurred_at = LEAST(crm_marketing_campaign_recipient_events.occurred_at, EXCLUDED.occurred_at),
                payload = EXCLUDED.payload`,
-            [match.campaign_id, match.resend_email_id, resolvedEmail, eventAt, JSON.stringify(event)],
+            [match.campaign_id, match.resend_email_id, resolvedEmail, eventAt, JSON.stringify(attributedPayload)],
           );
 
           await query(reconcileUnsubscribeCountSql(), [match.campaign_id]);
-          unsubscribeAttribution = { campaignId: match.campaign_id, source: attributionSource };
+          unsubscribeAttribution = {
+            campaignId: match.campaign_id,
+            source: match.attribution_source,
+          };
         }
-
-        await query(reconcileContactUnsubscribeSql(), [resolvedEmail, eventAt]);
       }
     }
 
@@ -453,10 +355,10 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
     }
 
     if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
-      return res.status(200).json({ ok: true, unsubscribeAttribution });
+      return res.status(200).json({ ok: true, duplicate, unsubscribeAttribution });
     }
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, duplicate });
   } catch (error) {
     console.error("[resend-webhook] failed to persist event", error);
     return res.status(500).json({ error: "Failed to process Resend webhook" });
