@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { clerkMiddleware } from "@clerk/express";
 import { z } from "zod";
 import { query } from "./db.js";
+import { listCampaignsWithDerivedUnsubscribes } from "./campaignMetrics.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { requireCrmUser, requireRole } from "./auth.js";
@@ -138,6 +139,20 @@ app.delete(
         deleted_from_postgres: true,
         resend_history_retained: true,
       });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.get(
+  "/api/marketing/campaigns",
+  requireCrmUser,
+  requireRole(["admin", "manager"]),
+  async (_req, res, next) => {
+    try {
+      const result = await listCampaignsWithDerivedUnsubscribes();
+      return res.json({ campaigns: result.rows });
     } catch (error) {
       return next(error);
     }
