@@ -8,6 +8,7 @@ import {
   MailCheck,
   MousePointerClick,
   Pencil,
+  Repeat2,
   Send,
   ShieldCheck,
   Trash2,
@@ -58,6 +59,8 @@ type CampaignMetrics = Pick<
   "delivered_count" | "opened_count" | "clicked_count" | "bounced_count" | "unsubscribed_count"
 >;
 
+type ResendMode = "same" | "different";
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
@@ -91,6 +94,10 @@ function snapshot(campaign: MarketingCampaign): CampaignMetrics {
   };
 }
 
+function resendDraftName(campaign: MarketingCampaign) {
+  return `${campaign.name} · reinvio ${formatDate(new Date().toISOString())}`;
+}
+
 export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaigns: MarketingCampaign[]; segments: MarketingSegment[]; onChanged: () => Promise<void> }) {
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -107,6 +114,9 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
   const [preparation, setPreparation] = useState<{ campaign: MarketingCampaign; data: MarketingCampaignPreparation } | null>(null);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [resendCampaign, setResendCampaign] = useState<MarketingCampaign | null>(null);
+  const [resendMode, setResendMode] = useState<ResendMode>("same");
+  const [resendSegmentId, setResendSegmentId] = useState("");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
     return Notification.permission;
@@ -214,6 +224,66 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       html: campaign.html || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openResend(campaign: MarketingCampaign) {
+    setResendCampaign(campaign);
+    setResendMode("same");
+    setResendSegmentId(campaign.segment_id || "");
+    setError(null);
+    setNotice(null);
+  }
+
+  async function createResendDraftAndPrepare() {
+    if (!resendCampaign) return;
+    const segmentId = resendMode === "same" ? resendCampaign.segment_id || "" : resendSegmentId;
+    if (!segmentId) {
+      setError(tr(
+        "Selecciona un segmento antes de continuar.",
+        "Seleziona un segmento prima di continuare.",
+        "Select a segment before continuing.",
+        "Selecteer een segment voordat je doorgaat.",
+      ));
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const token = await tokenOrThrow();
+      const result = await createMarketingCampaign(token, {
+        name: resendDraftName(resendCampaign),
+        subject: resendCampaign.subject,
+        preview_text: resendCampaign.preview_text || "",
+        from_name: resendCampaign.from_name || "Eivitech",
+        from_email: resendCampaign.from_email || "newsletter@notifications.eivitech.com",
+        reply_to: resendCampaign.reply_to || "info@eivitech.com",
+        language: resendCampaign.language || "it",
+        status: "draft",
+        segment_id: segmentId,
+        topic: resendCampaign.topic || "",
+        html: resendCampaign.html || "",
+      });
+
+      const data = await prepareMarketingCampaign(token, result.campaign.id);
+      setResendCampaign(null);
+      setPreparation({ campaign: result.campaign, data });
+      setConfirmationPhrase("");
+      setReviewConfirmed(false);
+      setNotice(tr(
+        "Se ha creado una nueva campaña para el reenvío. La campaña original y sus métricas permanecen intactas.",
+        "È stata creata una nuova campagna per il reinvio. La campagna originale e le sue metriche restano intatte.",
+        "A new campaign was created for the resend. The original campaign and its metrics remain unchanged.",
+        "Er is een nieuwe campagne voor de herverzending gemaakt. De oorspronkelijke campagne en statistieken blijven ongewijzigd.",
+      ));
+      await onChanged();
+    } catch (err) {
+      console.error("[campaign-workspace] resend preparation failed", err);
+      setError(err instanceof Error ? err.message : "Resend preparation failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function save(event: FormEvent) {
@@ -324,7 +394,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
         {campaign.status !== "draft" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><Metric icon={CheckCircle2} label="Consegnate" value={campaign.delivered_count || 0} /><Metric icon={Eye} label="Aperte" value={campaign.opened_count || 0} /><Metric icon={MousePointerClick} label="Clic" value={campaign.clicked_count || 0} /><Metric icon={AlertTriangle} label="Rimbalzi" value={campaign.bounced_count || 0} /><Metric icon={UserMinus} label="Disiscritti" value={campaign.unsubscribed_count || 0} /></div>}
         {(campaign.opened_count || 0) > 0 && <div className="mt-4 flex items-center gap-2 rounded-sm border border-secondary/40 bg-secondary/10 p-3 text-sm"><Eye size={16} className="text-primary" /><span><strong>{campaign.opened_count}</strong> destinatario{campaign.opened_count === 1 ? "" : "i"} ha aperto la campagna.</span></div>}
         {campaign.status !== "draft" && <p className="mt-3 text-xs text-muted-foreground">Le aperture sono indicative: alcuni programmi di posta bloccano le immagini di tracciamento o le caricano automaticamente per proteggere la privacy.</p>}
-        <div className="mt-5 flex flex-wrap gap-2"><button onClick={() => startEdit(campaign)} disabled={campaign.status !== "draft"} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}</button><button onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button onClick={() => setTestCampaign(campaign)} disabled={campaign.status !== "draft" || !capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><MailCheck size={14} />Test</button><button onClick={() => void prepare(campaign)} disabled={saving || campaign.status !== "draft" || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}</button><button onClick={() => void remove(campaign)} disabled={campaign.status !== "draft"} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40"><Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}</button></div>
+        {campaign.status === "draft" ? <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}</button><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><MailCheck size={14} />Test</button><button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}</button><button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive"><Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}</button></div> : <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button>{campaign.status === "sent" && <button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</button>}</div>}
       </div>)}
       {campaigns.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Aún no hay campañas.", "Non ci sono ancora campagne.", "No campaigns yet.", "Nog geen campagnes.")}</div>}
     </div>
@@ -332,6 +402,8 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
     {preview && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-sm bg-card shadow-2xl"><div className="flex items-center justify-between border-b border-border p-4"><div><div className="font-medium">{preview.subject || tr("Sin asunto", "Senza oggetto", "No subject", "Geen onderwerp")}</div><div className="text-xs text-muted-foreground">{preview.preview_text}</div></div><button onClick={() => setPreview(null)}><X /></button></div><iframe title="Email preview" sandbox="" srcDoc={preview.html || ""} className="min-h-[70vh] w-full bg-white" /></div></div>}
 
     {testCampaign && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><form onSubmit={sendTest} className="w-full max-w-md rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Enviar email de prueba", "Invia email di prova", "Send test email", "Testmail verzonden")}</div><button type="button" onClick={() => setTestCampaign(null)}><X /></button></div><div className="mt-5"><Input label="Email" type="email" required value={testEmail} onChange={setTestEmail} /></div><p className="mt-3 text-xs text-muted-foreground">{tr("Solo se enviará una prueba a esta dirección.", "Verrà inviata soltanto una prova a questo indirizzo.", "Only one test will be sent to this address.", "Er wordt slechts één test naar dit adres verzonden.")}</p><button disabled={saving} className="mt-5 w-full rounded-sm bg-primary px-4 py-3 text-sm text-primary-foreground">{tr("Enviar prueba", "Invia prova", "Send test", "Test verzenden")}</button></form></div>}
+
+    {resendCampaign && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><div className="font-medium">{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</div><p className="mt-1 text-sm text-muted-foreground">{tr("Se creará una nueva campaña para conservar intactas las métricas y el historial del envío original.", "Verrà creata una nuova campagna per mantenere intatti metriche e storico dell’invio originale.", "A new campaign will be created so the original send history and metrics remain intact.", "Er wordt een nieuwe campagne gemaakt zodat de oorspronkelijke geschiedenis en statistieken intact blijven.")}</p></div><button type="button" onClick={() => setResendCampaign(null)} aria-label="Chiudi"><X /></button></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => { setResendMode("same"); setResendSegmentId(resendCampaign.segment_id || ""); }} className={`rounded-sm border p-4 text-left transition ${resendMode === "same" ? "border-primary bg-primary/5" : "border-border bg-background"}`}><div className="font-medium">{tr("Mismo segmento", "Stesso segmento", "Same segment", "Zelfde segment")}</div><div className="mt-1 text-sm text-muted-foreground">{resendCampaign.segment_name || tr("Sin segmento", "Nessun segmento", "No segment", "Geen segment")}</div></button><button type="button" onClick={() => { setResendMode("different"); if (!resendSegmentId || resendSegmentId === resendCampaign.segment_id) setResendSegmentId(segments.find((segment) => segment.id !== resendCampaign.segment_id)?.id || ""); }} className={`rounded-sm border p-4 text-left transition ${resendMode === "different" ? "border-primary bg-primary/5" : "border-border bg-background"}`}><div className="font-medium">{tr("Otro segmento", "Segmento diverso", "Different segment", "Ander segment")}</div><div className="mt-1 text-sm text-muted-foreground">{tr("Elige entre los segmentos existentes.", "Scegli tra i segmenti esistenti.", "Choose from existing segments.", "Kies uit bestaande segmenten.")}</div></button></div>{resendMode === "different" && <div className="mt-4"><Select label={tr("Segmento de destino", "Segmento di destinazione", "Destination segment", "Doelsegment")} value={resendSegmentId} options={[{ value: "", label: tr("Selecciona un segmento", "Seleziona un segmento", "Select a segment", "Selecteer een segment") }, ...segments.filter((segment) => segment.id !== resendCampaign.segment_id).map((segment) => ({ value: segment.id, label: `${segment.name} (${segment.member_count})` }))]} onChange={setResendSegmentId} />{segments.filter((segment) => segment.id !== resendCampaign.segment_id).length === 0 && <p className="mt-2 text-xs text-muted-foreground">{tr("No hay otros segmentos disponibles.", "Non ci sono altri segmenti disponibili.", "No other segments are available.", "Er zijn geen andere segmenten beschikbaar.")}</p>}</div>}<div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setResendCampaign(null)} className="rounded-sm border border-border px-4 py-3 text-sm">{tr("Cancelar", "Annulla", "Cancel", "Annuleren")}</button><button type="button" onClick={() => void createResendDraftAndPrepare()} disabled={saving || (resendMode === "same" ? !resendCampaign.segment_id : !resendSegmentId)} className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-40"><ShieldCheck size={16} />{tr("Crear y preparar envío", "Crea e prepara invio", "Create and prepare send", "Aanmaken en verzending voorbereiden")}</button></div></div></div>}
 
     {preparation && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div><button onClick={() => setPreparation(null)}><X /></button></div><div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4"><div className="text-3xl font-medium">{preparation.data.recipient_count}</div><div className="text-sm text-muted-foreground">{tr("destinatarios elegibles", "destinatari idonei", "eligible recipients", "geschikte ontvangers")}</div></div><label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} /><span>{tr("He revisado asunto, contenido, segmento y destinatarios.", "Ho controllato oggetto, contenuto, segmento e destinatari.", "I reviewed the subject, content, segment and recipients.", "Ik heb onderwerp, inhoud, segment en ontvangers gecontroleerd.")}</span></label><div className="mt-4"><Input label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`} value={confirmationPhrase} onChange={setConfirmationPhrase} /></div>{!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{tr("El envío masivo permanece desactivado en Railway.", "L’invio massivo è ancora disattivato su Railway.", "Bulk sending is still disabled in Railway.", "Bulkverzending is nog uitgeschakeld in Railway.")}</div>}<button onClick={() => void confirmSend()} disabled={saving || !reviewConfirmed || confirmationPhrase !== preparation.data.confirmation_phrase || !preparation.data.bulk_send_enabled} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground disabled:opacity-40"><Send size={16} />{tr("Enviar campaña", "Invia campagna", "Send campaign", "Campagne verzenden")}</button><p className="mt-3 text-center text-xs text-muted-foreground">Token monouso, valido per 10 minuti.</p></div></div>}
   </div>;
