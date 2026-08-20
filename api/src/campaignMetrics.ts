@@ -1,7 +1,5 @@
 import { query } from "./db.js";
 
-const DIAGNOSTIC_BROADCAST_ID = "18dc3890-6629-4b39-a2fe-96ea6c65fcf0";
-
 export function derivedCampaignMetricsSql() {
   return `
     WITH tracked_unsubscribe_clicks AS (
@@ -67,50 +65,14 @@ export function derivedCampaignMetricsSql() {
       SELECT campaign_id, COUNT(DISTINCT email)::int AS unsubscribed_count
       FROM attributed_unsubscribes
       GROUP BY campaign_id
-    ),
-    diagnostic_probe AS (
-      SELECT
-        c.id AS campaign_id,
-        CASE WHEN EXISTS (
-          SELECT 1
-          FROM crm_resend_webhook_events rwe
-          WHERE rwe.event_type = 'email.clicked'
-            AND rwe.payload #>> '{data,broadcast_id}' = c.resend_broadcast_id
-        ) THEN 100 ELSE 0 END
-        + CASE WHEN EXISTS (
-          SELECT 1
-          FROM crm_marketing_campaign_recipient_events cre
-          WHERE cre.campaign_id = c.id
-            AND cre.recipient IS NOT NULL
-        ) THEN 10 ELSE 0 END
-        + CASE WHEN EXISTS (
-          SELECT 1
-          FROM crm_resend_webhook_events rwe
-          WHERE rwe.event_type = 'contact.updated'
-            AND lower(COALESCE(rwe.payload #>> '{data,unsubscribed}', 'false')) = 'true'
-            AND EXISTS (
-              SELECT 1
-              FROM crm_marketing_campaign_recipient_events cre
-              WHERE cre.campaign_id = c.id
-                AND cre.recipient IS NOT NULL
-                AND lower(cre.recipient) = lower(rwe.payload #>> '{data,email}')
-            )
-        ) THEN 1 ELSE 0 END AS code
-      FROM crm_marketing_campaigns c
-      WHERE c.resend_broadcast_id = '${DIAGNOSTIC_BROADCAST_ID}'
     )
     SELECT
       c.*,
       s.name AS segment_name,
-      CASE
-        WHEN c.resend_broadcast_id = '${DIAGNOSTIC_BROADCAST_ID}'
-          THEN 9000 + COALESCE(dp.code, 0)
-        ELSE COALESCE(uc.unsubscribed_count, 0)::int
-      END AS unsubscribed_count
+      COALESCE(uc.unsubscribed_count, 0)::int AS unsubscribed_count
     FROM crm_marketing_campaigns c
     LEFT JOIN crm_marketing_segments s ON s.id = c.segment_id
     LEFT JOIN unsubscribe_counts uc ON uc.campaign_id = c.id
-    LEFT JOIN diagnostic_probe dp ON dp.campaign_id = c.id
     ORDER BY c.created_at DESC
     LIMIT 200
   `;
