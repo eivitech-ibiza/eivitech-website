@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "test": "tsx --test src/*.test.ts",
     "build": "tsc",
     "start": "node dist/seedInternalTestSegment.js && node dist/server.js"
   },
