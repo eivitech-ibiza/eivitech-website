@@ -84,7 +84,7 @@ export function resolveUnsubscribeCampaignSql() {
         c.id AS campaign_id,
         COALESCE(
           cre.resend_email_id,
-          'contact:' || COALESCE($5::text, $2) || ':unsubscribe'
+          'contact:' || COALESCE($4::text, $2) || ':unsubscribe'
         ) AS resend_email_id,
         COALESCE(cre.occurred_at, c.sent_at, c.created_at) AS occurred_at
       FROM crm_marketing_campaigns c
@@ -100,16 +100,17 @@ export function resolveUnsubscribeCampaignSql() {
         AND c.resend_broadcast_id = $1
       LIMIT 1
     ),
-    segment_match AS (
+    membership_match AS (
       SELECT
         c.id AS campaign_id,
         COALESCE(
           cre.resend_email_id,
-          'contact:' || COALESCE($5::text, $2) || ':unsubscribe'
+          'contact:' || COALESCE($4::text, $2) || ':unsubscribe'
         ) AS resend_email_id,
         COALESCE(cre.occurred_at, c.sent_at, c.created_at) AS occurred_at
       FROM crm_marketing_campaigns c
-      JOIN crm_marketing_segments s ON s.id = c.segment_id
+      JOIN crm_marketing_segment_members sm ON sm.segment_id = c.segment_id
+      JOIN crm_marketing_contacts mc ON mc.id = sm.contact_id
       LEFT JOIN LATERAL (
         SELECT e.resend_email_id, e.occurred_at
         FROM crm_marketing_campaign_recipient_events e
@@ -118,8 +119,7 @@ export function resolveUnsubscribeCampaignSql() {
         ORDER BY e.occurred_at DESC
         LIMIT 1
       ) cre ON true
-      WHERE $4::text IS NOT NULL
-        AND s.resend_segment_id = $4
+      WHERE mc.email = $2
         AND c.status = 'sent'
         AND COALESCE(c.sent_at, c.created_at) <= $3::timestamptz
       ORDER BY COALESCE(c.sent_at, c.created_at) DESC
@@ -137,13 +137,28 @@ export function resolveUnsubscribeCampaignSql() {
     )
     SELECT campaign_id, resend_email_id FROM exact_match
     UNION ALL
-    SELECT campaign_id, resend_email_id FROM segment_match
+    SELECT campaign_id, resend_email_id FROM membership_match
     WHERE NOT EXISTS (SELECT 1 FROM exact_match)
     UNION ALL
     SELECT campaign_id, resend_email_id FROM fallback_match
     WHERE NOT EXISTS (SELECT 1 FROM exact_match)
-      AND NOT EXISTS (SELECT 1 FROM segment_match)
+      AND NOT EXISTS (SELECT 1 FROM membership_match)
     LIMIT 1
+  `;
+}
+
+export function reconcileUnsubscribeCountSql() {
+  return `
+    UPDATE crm_marketing_campaigns c
+    SET unsubscribed_count = (
+          SELECT COUNT(DISTINCT lower(cre.recipient))::integer
+          FROM crm_marketing_campaign_recipient_events cre
+          WHERE cre.campaign_id = c.id
+            AND cre.event_type = 'contact.unsubscribed'
+            AND cre.recipient IS NOT NULL
+        ),
+        updated_at = now()
+    WHERE c.id = $1
   `;
 }
 
@@ -211,32 +226,19 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
       if (resolvedEmail) {
         const attributed = await query<{ campaign_id: string; resend_email_id: string }>(
           resolveUnsubscribeCampaignSql(),
-          [
-            event.data?.broadcast_id || null,
-            resolvedEmail,
-            eventAt,
-            event.data?.audience_id || null,
-            contactId,
-          ],
+          [event.data?.broadcast_id || null, resolvedEmail, eventAt, contactId],
         );
         const match = attributed.rows[0];
         if (match) {
-          const recipientEvent = await query<{ id: string }>(
+          await query(
             `INSERT INTO crm_marketing_campaign_recipient_events (
                campaign_id, resend_email_id, recipient, event_type, occurred_at, payload
              ) VALUES ($1, $2, $3, 'contact.unsubscribed', $4::timestamptz, $5::jsonb)
-             ON CONFLICT (campaign_id, resend_email_id, event_type) DO NOTHING
-             RETURNING id`,
+             ON CONFLICT (campaign_id, resend_email_id, event_type) DO NOTHING`,
             [match.campaign_id, match.resend_email_id, resolvedEmail, eventAt, JSON.stringify(event)],
           );
-          if (recipientEvent.rows.length > 0) {
-            await query(
-              `UPDATE crm_marketing_campaigns
-               SET unsubscribed_count = unsubscribed_count + 1, updated_at = now()
-               WHERE id = $1`,
-              [match.campaign_id],
-            );
-          }
+
+          await query(reconcileUnsubscribeCountSql(), [match.campaign_id]);
         }
       }
     }
