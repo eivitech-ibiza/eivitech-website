@@ -10,6 +10,12 @@ type ResendWebhookData = {
   broadcast_id?: string;
   audience_id?: string;
   to?: string[];
+  click?: {
+    ipAddress?: string;
+    link?: string;
+    timestamp?: string;
+    userAgent?: string;
+  };
   suppressed?: { message?: string; type?: string };
   bounce?: { message?: string; type?: string; subType?: string };
   failed?: { message?: string };
@@ -147,6 +153,33 @@ export function resolveUnsubscribeCampaignSql() {
   `;
 }
 
+export function resolveUnsubscribeClickSql() {
+  return `
+    SELECT
+      c.id AS campaign_id,
+      COALESCE(
+        rwe.resend_email_id,
+        rwe.payload #>> '{data,email_id}',
+        'contact:' || COALESCE($2::text, $1) || ':unsubscribe'
+      ) AS resend_email_id
+    FROM crm_resend_webhook_events rwe
+    JOIN crm_marketing_campaigns c
+      ON c.resend_broadcast_id = rwe.payload #>> '{data,broadcast_id}'
+    WHERE rwe.event_type = 'email.clicked'
+      AND lower(COALESCE(rwe.payload #>> '{data,click,link}', '')) LIKE '%unsubscribe.resend.com%'
+      AND EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(
+          COALESCE(rwe.payload #> '{data,to}', '[]'::jsonb)
+        ) AS recipient(email)
+        WHERE lower(recipient.email) = lower($1)
+      )
+      AND COALESCE(rwe.event_created_at, rwe.received_at) <= $3::timestamptz
+    ORDER BY COALESCE(rwe.event_created_at, rwe.received_at) DESC
+    LIMIT 1
+  `;
+}
+
 export function reconcileUnsubscribeCountSql() {
   return `
     UPDATE crm_marketing_campaigns c
@@ -263,6 +296,8 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
       return res.status(200).json({ ok: true, duplicate: true });
     }
 
+    let unsubscribeAttribution: { campaignId: string; source: "unsubscribe-click" | "fallback" } | null = null;
+
     if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
       const contactId = event.data.id || null;
       const email = event.data.email?.toLowerCase() || null;
@@ -288,21 +323,37 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
 
       const resolvedEmail = email || updated.rows[0]?.email?.toLowerCase() || null;
       if (resolvedEmail) {
-        const attributed = await query<{ campaign_id: string; resend_email_id: string }>(
-          resolveUnsubscribeCampaignSql(),
-          [event.data?.broadcast_id || null, resolvedEmail, eventAt, contactId],
+        const clicked = await query<{ campaign_id: string; resend_email_id: string }>(
+          resolveUnsubscribeClickSql(),
+          [resolvedEmail, contactId, eventAt],
         );
-        const match = attributed.rows[0];
+
+        let match = clicked.rows[0];
+        let attributionSource: "unsubscribe-click" | "fallback" = "unsubscribe-click";
+
+        if (!match) {
+          const attributed = await query<{ campaign_id: string; resend_email_id: string }>(
+            resolveUnsubscribeCampaignSql(),
+            [event.data?.broadcast_id || null, resolvedEmail, eventAt, contactId],
+          );
+          match = attributed.rows[0];
+          attributionSource = "fallback";
+        }
+
         if (match) {
           await query(
             `INSERT INTO crm_marketing_campaign_recipient_events (
                campaign_id, resend_email_id, recipient, event_type, occurred_at, payload
              ) VALUES ($1, $2, $3, 'contact.unsubscribed', $4::timestamptz, $5::jsonb)
-             ON CONFLICT (campaign_id, resend_email_id, event_type) DO NOTHING`,
+             ON CONFLICT (campaign_id, resend_email_id, event_type) DO UPDATE SET
+               recipient = EXCLUDED.recipient,
+               occurred_at = LEAST(crm_marketing_campaign_recipient_events.occurred_at, EXCLUDED.occurred_at),
+               payload = EXCLUDED.payload`,
             [match.campaign_id, match.resend_email_id, resolvedEmail, eventAt, JSON.stringify(event)],
           );
 
           await query(reconcileUnsubscribeCountSql(), [match.campaign_id]);
+          unsubscribeAttribution = { campaignId: match.campaign_id, source: attributionSource };
         }
 
         await query(reconcileContactUnsubscribeSql(), [resolvedEmail, eventAt]);
@@ -399,6 +450,10 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
          WHERE resend_email_id = $5`,
         [status, eventAt, errorMessage, JSON.stringify({ lastResendEvent: eventType, resendEvent: event }), resendEmailId]
       );
+    }
+
+    if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
+      return res.status(200).json({ ok: true, unsubscribeAttribution });
     }
 
     return res.status(200).json({ ok: true });
