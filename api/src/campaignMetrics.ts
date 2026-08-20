@@ -2,10 +2,11 @@ import { query } from "./db.js";
 
 export function derivedCampaignMetricsSql() {
   return `
-    WITH tracked_unsubscribe_clicks AS (
+    WITH unsubscribe_clicks AS (
       SELECT DISTINCT
         lower(recipient.email) AS email,
-        c.id AS campaign_id
+        c.id AS campaign_id,
+        COALESCE(rwe.event_created_at, rwe.received_at) AS clicked_at
       FROM crm_resend_webhook_events rwe
       CROSS JOIN LATERAL jsonb_array_elements_text(
         COALESCE(rwe.payload #> '{data,to}', '[]'::jsonb)
@@ -15,51 +16,35 @@ export function derivedCampaignMetricsSql() {
       WHERE rwe.event_type = 'email.clicked'
         AND lower(COALESCE(rwe.payload #>> '{data,click,link}', '')) LIKE '%unsubscribe.resend.com%'
     ),
-    recorded_unsubscribe_events AS (
+    confirmed_click_unsubscribes AS (
+      SELECT DISTINCT
+        uc.email,
+        uc.campaign_id
+      FROM unsubscribe_clicks uc
+      WHERE EXISTS (
+        SELECT 1
+        FROM crm_resend_webhook_events rwe
+        WHERE rwe.event_type = 'contact.updated'
+          AND lower(COALESCE(rwe.payload #>> '{data,email}', '')) = uc.email
+          AND lower(COALESCE(rwe.payload #>> '{data,unsubscribed}', 'false')) = 'true'
+          AND COALESCE(rwe.event_created_at, rwe.received_at) >= uc.clicked_at
+          AND COALESCE(rwe.event_created_at, rwe.received_at) <= uc.clicked_at + interval '15 minutes'
+      )
+    ),
+    strongly_attributed_recipient_events AS (
       SELECT DISTINCT
         lower(cre.recipient) AS email,
         cre.campaign_id
       FROM crm_marketing_campaign_recipient_events cre
       WHERE cre.event_type = 'contact.unsubscribed'
         AND cre.recipient IS NOT NULL
-    ),
-    raw_contact_unsubscribes AS (
-      SELECT
-        lower(rwe.payload #>> '{data,email}') AS email,
-        COALESCE(rwe.event_created_at, rwe.received_at) AS occurred_at
-      FROM crm_resend_webhook_events rwe
-      WHERE rwe.event_type = 'contact.updated'
-        AND lower(COALESCE(rwe.payload #>> '{data,unsubscribed}', 'false')) = 'true'
-        AND COALESCE(rwe.payload #>> '{data,email}', '') <> ''
-    ),
-    raw_contact_attribution AS (
-      SELECT DISTINCT
-        r.email,
-        matched.campaign_id
-      FROM raw_contact_unsubscribes r
-      JOIN LATERAL (
-        SELECT candidate.id AS campaign_id
-        FROM crm_marketing_campaigns candidate
-        WHERE candidate.status = 'sent'
-          AND COALESCE(candidate.sent_at, candidate.created_at) <= r.occurred_at
-          AND EXISTS (
-            SELECT 1
-            FROM crm_marketing_campaign_recipient_events cre
-            WHERE cre.campaign_id = candidate.id
-              AND cre.recipient IS NOT NULL
-              AND lower(cre.recipient) = r.email
-              AND cre.occurred_at <= r.occurred_at
-          )
-        ORDER BY COALESCE(candidate.sent_at, candidate.created_at) DESC
-        LIMIT 1
-      ) matched ON true
+        AND COALESCE(cre.payload #>> '{_eivitech,unsubscribeAttribution}', '')
+          IN ('broadcast', 'unsubscribe-click')
     ),
     attributed_unsubscribes AS (
-      SELECT email, campaign_id FROM tracked_unsubscribe_clicks
+      SELECT email, campaign_id FROM confirmed_click_unsubscribes
       UNION
-      SELECT email, campaign_id FROM recorded_unsubscribe_events
-      UNION
-      SELECT email, campaign_id FROM raw_contact_attribution
+      SELECT email, campaign_id FROM strongly_attributed_recipient_events
     ),
     unsubscribe_counts AS (
       SELECT campaign_id, COUNT(DISTINCT email)::int AS unsubscribed_count
