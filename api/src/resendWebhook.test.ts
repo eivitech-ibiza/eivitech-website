@@ -4,6 +4,7 @@ import test from "node:test";
 process.env.DATABASE_URL ||= "postgresql://test:test@localhost:5432/test";
 
 const {
+  reconcileContactUnsubscribeSql,
   reconcileUnsubscribeCountSql,
   resolveUnsubscribeCampaignSql,
 } = await import("./resendWebhook.js");
@@ -28,4 +29,15 @@ test("unsubscribe counter is reconciled from distinct recipient events", () => {
   assert.match(sql, /event_type = 'contact\.unsubscribed'/);
   assert.match(sql, /unsubscribed_count =/);
   assert.match(sql, /WHERE c\.id = \$1/);
+});
+
+test("contact unsubscribe reconciliation finds the latest sent campaign from membership or recipient history", () => {
+  const sql = reconcileContactUnsubscribeSql();
+  assert.match(sql, /crm_marketing_segment_members/);
+  assert.match(sql, /crm_marketing_campaign_recipient_events/);
+  assert.match(sql, /lower\(mc\.email\) = lower\(\$1\)/);
+  assert.match(sql, /lower\(cre\.recipient\) = lower\(\$1\)/);
+  assert.match(sql, /mc\.status = 'unsubscribed'/);
+  assert.match(sql, /mc\.unsubscribed_at >= t\.sent_at/);
+  assert.match(sql, /RETURNING c\.id AS campaign_id, c\.unsubscribed_count/);
 });
