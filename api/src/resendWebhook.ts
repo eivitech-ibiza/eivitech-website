@@ -8,6 +8,7 @@ type ResendWebhookData = {
   unsubscribed?: boolean;
   email_id?: string;
   broadcast_id?: string;
+  audience_id?: string;
   to?: string[];
   suppressed?: { message?: string; type?: string };
   bounce?: { message?: string; type?: string; subType?: string };
@@ -79,13 +80,49 @@ function eventErrorMessage(event: ResendWebhookEvent) {
 export function resolveUnsubscribeCampaignSql() {
   return `
     WITH exact_match AS (
-      SELECT c.id AS campaign_id, cre.resend_email_id, cre.occurred_at
+      SELECT
+        c.id AS campaign_id,
+        COALESCE(
+          cre.resend_email_id,
+          'contact:' || COALESCE($5::text, $2) || ':unsubscribe'
+        ) AS resend_email_id,
+        COALESCE(cre.occurred_at, c.sent_at, c.created_at) AS occurred_at
       FROM crm_marketing_campaigns c
-      JOIN crm_marketing_campaign_recipient_events cre ON cre.campaign_id = c.id
+      LEFT JOIN LATERAL (
+        SELECT e.resend_email_id, e.occurred_at
+        FROM crm_marketing_campaign_recipient_events e
+        WHERE e.campaign_id = c.id
+          AND e.recipient = $2
+        ORDER BY e.occurred_at DESC
+        LIMIT 1
+      ) cre ON true
       WHERE $1::text IS NOT NULL
         AND c.resend_broadcast_id = $1
-        AND cre.recipient = $2
-      ORDER BY cre.occurred_at DESC
+      LIMIT 1
+    ),
+    segment_match AS (
+      SELECT
+        c.id AS campaign_id,
+        COALESCE(
+          cre.resend_email_id,
+          'contact:' || COALESCE($5::text, $2) || ':unsubscribe'
+        ) AS resend_email_id,
+        COALESCE(cre.occurred_at, c.sent_at, c.created_at) AS occurred_at
+      FROM crm_marketing_campaigns c
+      JOIN crm_marketing_segments s ON s.id = c.segment_id
+      LEFT JOIN LATERAL (
+        SELECT e.resend_email_id, e.occurred_at
+        FROM crm_marketing_campaign_recipient_events e
+        WHERE e.campaign_id = c.id
+          AND e.recipient = $2
+        ORDER BY e.occurred_at DESC
+        LIMIT 1
+      ) cre ON true
+      WHERE $4::text IS NOT NULL
+        AND s.resend_segment_id = $4
+        AND c.status = 'sent'
+        AND COALESCE(c.sent_at, c.created_at) <= $3::timestamptz
+      ORDER BY COALESCE(c.sent_at, c.created_at) DESC
       LIMIT 1
     ),
     fallback_match AS (
@@ -100,8 +137,12 @@ export function resolveUnsubscribeCampaignSql() {
     )
     SELECT campaign_id, resend_email_id FROM exact_match
     UNION ALL
+    SELECT campaign_id, resend_email_id FROM segment_match
+    WHERE NOT EXISTS (SELECT 1 FROM exact_match)
+    UNION ALL
     SELECT campaign_id, resend_email_id FROM fallback_match
     WHERE NOT EXISTS (SELECT 1 FROM exact_match)
+      AND NOT EXISTS (SELECT 1 FROM segment_match)
     LIMIT 1
   `;
 }
@@ -170,7 +211,13 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
       if (resolvedEmail) {
         const attributed = await query<{ campaign_id: string; resend_email_id: string }>(
           resolveUnsubscribeCampaignSql(),
-          [event.data?.broadcast_id || null, resolvedEmail, eventAt],
+          [
+            event.data?.broadcast_id || null,
+            resolvedEmail,
+            eventAt,
+            event.data?.audience_id || null,
+            contactId,
+          ],
         );
         const match = attributed.rows[0];
         if (match) {
