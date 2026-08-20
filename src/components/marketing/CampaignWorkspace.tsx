@@ -307,12 +307,34 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
   }
 
   async function remove(campaign: MarketingCampaign) {
-    if (!window.confirm(tr("¿Eliminar definitivamente este borrador?", "Eliminare definitivamente questa bozza?", "Permanently delete this draft?", "Dit concept definitief verwijderen?"))) return;
+    const isSent = campaign.status === "sent";
+    const confirmed = window.confirm(isSent
+      ? tr(
+          "¿Eliminar definitivamente esta campaña del CRM y de PostgreSQL? Se perderán sus métricas y el historial interno. El envío ya realizado seguirá existiendo en el historial técnico de Resend.",
+          "Eliminare definitivamente questa campagna dal CRM e da PostgreSQL? Verranno eliminate metriche e storico interno. L’invio già effettuato resterà nello storico tecnico di Resend.",
+          "Permanently delete this campaign from the CRM and PostgreSQL? Its metrics and internal history will be deleted. The completed send will remain in Resend's technical history.",
+          "Deze campagne definitief uit CRM en PostgreSQL verwijderen? Statistieken en interne geschiedenis worden verwijderd. De verzonden campagne blijft in de technische geschiedenis van Resend staan.",
+        )
+      : tr(
+          "¿Eliminar definitivamente este borrador?",
+          "Eliminare definitivamente questa bozza?",
+          "Permanently delete this draft?",
+          "Dit concept definitief verwijderen?",
+        ));
+    if (!confirmed) return;
+
     setSaving(true); setError(null);
     try {
       await deleteMarketingCampaign(await tokenOrThrow(), campaign.id);
       if (editingId === campaign.id) resetEditor();
-      setNotice(tr("Borrador eliminado.", "Bozza eliminata.", "Draft deleted.", "Concept verwijderd."));
+      setNotice(isSent
+        ? tr(
+            "Campaña eliminada definitivamente del CRM y de PostgreSQL.",
+            "Campagna eliminata definitivamente dal CRM e da PostgreSQL.",
+            "Campaign permanently deleted from the CRM and PostgreSQL.",
+            "Campagne definitief verwijderd uit CRM en PostgreSQL.",
+          )
+        : tr("Borrador eliminado.", "Bozza eliminata.", "Draft deleted.", "Concept verwijderd."));
       await onChanged();
     } catch (err) { setError(err instanceof Error ? err.message : "Delete failed"); }
     finally { setSaving(false); }
@@ -394,7 +416,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
         {campaign.status !== "draft" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><Metric icon={CheckCircle2} label="Consegnate" value={campaign.delivered_count || 0} /><Metric icon={Eye} label="Aperte" value={campaign.opened_count || 0} /><Metric icon={MousePointerClick} label="Clic" value={campaign.clicked_count || 0} /><Metric icon={AlertTriangle} label="Rimbalzi" value={campaign.bounced_count || 0} /><Metric icon={UserMinus} label="Disiscritti" value={campaign.unsubscribed_count || 0} /></div>}
         {(campaign.opened_count || 0) > 0 && <div className="mt-4 flex items-center gap-2 rounded-sm border border-secondary/40 bg-secondary/10 p-3 text-sm"><Eye size={16} className="text-primary" /><span><strong>{campaign.opened_count}</strong> destinatario{campaign.opened_count === 1 ? "" : "i"} ha aperto la campagna.</span></div>}
         {campaign.status !== "draft" && <p className="mt-3 text-xs text-muted-foreground">Le aperture sono indicative: alcuni programmi di posta bloccano le immagini di tracciamento o le caricano automaticamente per proteggere la privacy.</p>}
-        {campaign.status === "draft" ? <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}</button><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><MailCheck size={14} />Test</button><button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}</button><button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive"><Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}</button></div> : <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button>{campaign.status === "sent" && <button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</button>}</div>}
+        {campaign.status === "draft" ? <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}</button><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><MailCheck size={14} />Test</button><button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}</button><button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive"><Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}</button></div> : <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button>{campaign.status === "sent" && <><button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</button><button type="button" onClick={() => void remove(campaign)} disabled={saving} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40"><Trash2 size={14} />{tr("Eliminar campaña", "Elimina campagna", "Delete campaign", "Campagne verwijderen")}</button></>}</div>}
       </div>)}
       {campaigns.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Aún no hay campañas.", "Non ci sono ancora campagne.", "No campaigns yet.", "Nog geen campagnes.")}</div>}
     </div>
