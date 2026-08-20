@@ -162,6 +162,70 @@ export function reconcileUnsubscribeCountSql() {
   `;
 }
 
+export function reconcileContactUnsubscribeSql() {
+  return `
+    WITH target AS (
+      SELECT
+        c.id AS campaign_id,
+        c.segment_id,
+        COALESCE(c.sent_at, c.created_at) AS sent_at
+      FROM crm_marketing_campaigns c
+      WHERE c.status = 'sent'
+        AND COALESCE(c.sent_at, c.created_at) <= $2::timestamptz
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM crm_marketing_segment_members sm
+            JOIN crm_marketing_contacts mc ON mc.id = sm.contact_id
+            WHERE sm.segment_id = c.segment_id
+              AND lower(mc.email) = lower($1)
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM crm_marketing_campaign_recipient_events cre
+            WHERE cre.campaign_id = c.id
+              AND cre.recipient IS NOT NULL
+              AND lower(cre.recipient) = lower($1)
+          )
+        )
+      ORDER BY COALESCE(c.sent_at, c.created_at) DESC
+      LIMIT 1
+    ),
+    unsubscribed_recipients AS (
+      SELECT DISTINCT t.campaign_id, lower(mc.email) AS email
+      FROM target t
+      JOIN crm_marketing_segment_members sm ON sm.segment_id = t.segment_id
+      JOIN crm_marketing_contacts mc ON mc.id = sm.contact_id
+      WHERE mc.status = 'unsubscribed'
+        AND mc.unsubscribed_at IS NOT NULL
+        AND mc.unsubscribed_at >= t.sent_at
+
+      UNION
+
+      SELECT DISTINCT t.campaign_id, lower(mc.email) AS email
+      FROM target t
+      JOIN crm_marketing_campaign_recipient_events cre ON cre.campaign_id = t.campaign_id
+      JOIN crm_marketing_contacts mc ON lower(mc.email) = lower(cre.recipient)
+      WHERE cre.recipient IS NOT NULL
+        AND mc.status = 'unsubscribed'
+        AND mc.unsubscribed_at IS NOT NULL
+        AND mc.unsubscribed_at >= t.sent_at
+    ),
+    totals AS (
+      SELECT t.campaign_id, COUNT(DISTINCT ur.email)::integer AS unsubscribed_count
+      FROM target t
+      LEFT JOIN unsubscribed_recipients ur ON ur.campaign_id = t.campaign_id
+      GROUP BY t.campaign_id
+    )
+    UPDATE crm_marketing_campaigns c
+    SET unsubscribed_count = totals.unsubscribed_count,
+        updated_at = now()
+    FROM totals
+    WHERE c.id = totals.campaign_id
+    RETURNING c.id AS campaign_id, c.unsubscribed_count
+  `;
+}
+
 export async function handleResendOwnerWebhook(req: Request, res: Response) {
   const payload = Buffer.isBuffer(req.body) ? req.body : Buffer.from("");
 
@@ -240,6 +304,8 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
 
           await query(reconcileUnsubscribeCountSql(), [match.campaign_id]);
         }
+
+        await query(reconcileContactUnsubscribeSql(), [resolvedEmail, eventAt]);
       }
     }
 
