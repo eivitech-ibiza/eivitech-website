@@ -76,6 +76,36 @@ function eventErrorMessage(event: ResendWebhookEvent) {
     || null;
 }
 
+export function resolveUnsubscribeCampaignSql() {
+  return `
+    WITH exact_match AS (
+      SELECT c.id AS campaign_id, cre.resend_email_id, cre.occurred_at
+      FROM crm_marketing_campaigns c
+      JOIN crm_marketing_campaign_recipient_events cre ON cre.campaign_id = c.id
+      WHERE $1::text IS NOT NULL
+        AND c.resend_broadcast_id = $1
+        AND cre.recipient = $2
+      ORDER BY cre.occurred_at DESC
+      LIMIT 1
+    ),
+    fallback_match AS (
+      SELECT c.id AS campaign_id, cre.resend_email_id, cre.occurred_at
+      FROM crm_marketing_campaign_recipient_events cre
+      JOIN crm_marketing_campaigns c ON c.id = cre.campaign_id
+      WHERE cre.recipient = $2
+        AND c.status = 'sent'
+        AND cre.occurred_at <= $3::timestamptz
+      ORDER BY cre.occurred_at DESC
+      LIMIT 1
+    )
+    SELECT campaign_id, resend_email_id FROM exact_match
+    UNION ALL
+    SELECT campaign_id, resend_email_id FROM fallback_match
+    WHERE NOT EXISTS (SELECT 1 FROM exact_match)
+    LIMIT 1
+  `;
+}
+
 export async function handleResendOwnerWebhook(req: Request, res: Response) {
   const payload = Buffer.isBuffer(req.body) ? req.body : Buffer.from("");
 
@@ -113,12 +143,10 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
       return res.status(200).json({ ok: true, duplicate: true });
     }
 
-
-
     if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
       const contactId = event.data.id || null;
       const email = event.data.email?.toLowerCase() || null;
-      const updated = await query<{ id: string }>(
+      const updated = await query<{ id: string; email: string }>(
         `UPDATE crm_marketing_contacts
          SET status = 'unsubscribed',
              marketing_consent = false,
@@ -127,7 +155,7 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
              updated_at = now()
          WHERE ($2::text IS NOT NULL AND resend_contact_id = $2)
             OR ($3::text IS NOT NULL AND email = $3)
-         RETURNING id`,
+         RETURNING id, email`,
         [eventAt, contactId, email],
       );
       for (const contact of updated.rows) {
@@ -136,6 +164,33 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
            VALUES ($1, 'unsubscribed', 'resend-webhook', $2::jsonb)`,
           [contact.id, JSON.stringify({ eventType, svixId })],
         );
+      }
+
+      const resolvedEmail = email || updated.rows[0]?.email?.toLowerCase() || null;
+      if (resolvedEmail) {
+        const attributed = await query<{ campaign_id: string; resend_email_id: string }>(
+          resolveUnsubscribeCampaignSql(),
+          [event.data?.broadcast_id || null, resolvedEmail, eventAt],
+        );
+        const match = attributed.rows[0];
+        if (match) {
+          const recipientEvent = await query<{ id: string }>(
+            `INSERT INTO crm_marketing_campaign_recipient_events (
+               campaign_id, resend_email_id, recipient, event_type, occurred_at, payload
+             ) VALUES ($1, $2, $3, 'contact.unsubscribed', $4::timestamptz, $5::jsonb)
+             ON CONFLICT (campaign_id, resend_email_id, event_type) DO NOTHING
+             RETURNING id`,
+            [match.campaign_id, match.resend_email_id, resolvedEmail, eventAt, JSON.stringify(event)],
+          );
+          if (recipientEvent.rows.length > 0) {
+            await query(
+              `UPDATE crm_marketing_campaigns
+               SET unsubscribed_count = unsubscribed_count + 1, updated_at = now()
+               WHERE id = $1`,
+              [match.campaign_id],
+            );
+          }
+        }
       }
     }
 
@@ -175,7 +230,7 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
         }
 
         if (recipient && ["email.bounced", "email.complained", "email.suppressed"].includes(eventType)) {
-          const terminalStatus = eventType === "email.bounced" ? "suppressed" : "suppressed";
+          const terminalStatus = "suppressed";
           const reason = eventErrorMessage(event) || eventType;
           const contacts = await query<{ id: string }>(
             `UPDATE crm_marketing_contacts
