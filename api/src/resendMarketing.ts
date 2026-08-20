@@ -125,13 +125,46 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-function wrapMarketingHtml(content: string, previewText?: string | null, footer = true) {
-  const hasCustomUnsubscribe = content.includes(RESEND_UNSUBSCRIBE_PLACEHOLDER);
-  const footerHtml = footer && !hasCustomUnsubscribe
-    ? `<div style="margin-top:36px;padding-top:18px;border-top:1px solid #e4ddd7;font:12px/1.5 Arial,sans-serif;color:#756d66;text-align:center">Ricevi questa email perché hai fornito un consenso marketing documentato a Eivitech. <a href="${RESEND_UNSUBSCRIBE_PLACEHOLDER}" style="color:#aa4f2d">Disiscriviti</a>.</div>`
-    : "";
+function isCompleteHtmlDocument(content: string) {
+  return /<!doctype\s+html\b/i.test(content)
+    && /<html\b/i.test(content)
+    && /<body\b/i.test(content);
+}
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f6f3f0;color:#2d2723"><div style="max-width:680px;margin:0 auto;padding:28px 20px;background:#ffffff">${preheader(previewText)}${content}${footerHtml}</div></body></html>`;
+function insertAfterOpeningBody(document: string, html: string) {
+  if (!html) return document;
+  return document.replace(/(<body\b[^>]*>)/i, `$1${html}`);
+}
+
+function insertBeforeClosingBody(document: string, html: string) {
+  if (!html) return document;
+  if (/<\/body\s*>/i.test(document)) {
+    return document.replace(/<\/body\s*>/i, `${html}</body>`);
+  }
+  return `${document}${html}`;
+}
+
+function fallbackUnsubscribeFooter() {
+  return `<div style="margin-top:36px;padding-top:18px;border-top:1px solid #e4ddd7;font:12px/1.5 Arial,sans-serif;color:#756d66;text-align:center">Ricevi questa email perché hai fornito un consenso marketing documentato a Eivitech. <a href="${RESEND_UNSUBSCRIBE_PLACEHOLDER}" style="color:#aa4f2d">Disiscriviti</a>.</div>`;
+}
+
+function wrapMarketingHtml(
+  content: string,
+  previewText?: string | null,
+  footer = true,
+  leadingHtml = "",
+) {
+  const hasCustomUnsubscribe = content.includes(RESEND_UNSUBSCRIBE_PLACEHOLDER);
+  const footerHtml = footer && !hasCustomUnsubscribe ? fallbackUnsubscribeFooter() : "";
+
+  if (isCompleteHtmlDocument(content)) {
+    let document = content;
+    document = insertAfterOpeningBody(document, leadingHtml);
+    document = insertBeforeClosingBody(document, footerHtml);
+    return document;
+  }
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f6f3f0;color:#2d2723"><div style="max-width:680px;margin:0 auto;padding:28px 20px;background:#ffffff">${preheader(previewText)}${leadingHtml}${content}${footerHtml}</div></body></html>`;
 }
 
 export function renderBroadcastHtml(campaign: MarketingCampaignForResend) {
@@ -150,7 +183,7 @@ export function renderTestHtml(
     email: recipient,
   });
   const banner = `<div style="margin-bottom:20px;padding:12px 14px;background:#fff3cd;border:1px solid #ffe69c;font:700 12px Arial,sans-serif;color:#664d03;text-align:center">EMAIL DI PROVA — nessuna campagna è stata inviata</div>`;
-  return wrapMarketingHtml(`${banner}${content}`, campaign.preview_text, false);
+  return wrapMarketingHtml(content, campaign.preview_text, false, banner);
 }
 
 export function campaignFromAddress(campaign: MarketingCampaignForResend) {
