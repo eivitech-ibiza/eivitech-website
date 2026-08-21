@@ -3,7 +3,6 @@ import { useAuth } from "@clerk/clerk-react";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   Eye,
   MousePointerClick,
   UserMinus,
@@ -98,14 +97,13 @@ export function CampaignMetricCard({
     <button
       type="button"
       onClick={() => void openDetails()}
-      className="group relative min-w-0 rounded-sm border border-border/80 bg-background p-3 text-left transition hover:border-primary/50 hover:bg-primary/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="group min-w-0 rounded-sm border border-border/80 bg-background p-3 text-left transition hover:border-primary/50 hover:bg-primary/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       aria-label={`Apri dettagli ${label}`}
     >
-      <div className="flex min-w-0 items-center gap-2 pr-5 text-xs uppercase tracking-wide text-muted-foreground">
-        <Icon size={14} className="shrink-0" />
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] uppercase leading-none tracking-[0.02em] text-muted-foreground">
+        <Icon size={13} className="shrink-0" />
         <span className="min-w-0 whitespace-nowrap">{label}</span>
       </div>
-      <ChevronRight size={15} className="absolute right-3 top-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
       <div className="mt-2 text-2xl font-medium">{value}</div>
       <div className="mt-2 text-[11px] text-muted-foreground group-hover:text-primary">Vedi destinatari</div>
     </button>
