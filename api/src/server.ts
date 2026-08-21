@@ -7,6 +7,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { z } from "zod";
 import { query } from "./db.js";
 import { listCampaignsWithDerivedUnsubscribes } from "./campaignMetrics.js";
+import { listCampaignMetricRecipients, type CampaignMetricKey } from "./campaignEventDetails.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { requireCrmUser, requireRole } from "./auth.js";
@@ -105,6 +106,8 @@ const activitySchema = z.object({
   completed_at: z.string().datetime().optional().nullable(),
 });
 
+const campaignMetricSchema = z.enum(["delivered", "opened", "clicked", "bounced", "unsubscribed"]);
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "eivitech-crm-api" });
 });
@@ -153,6 +156,38 @@ app.get(
     try {
       const result = await listCampaignsWithDerivedUnsubscribes();
       return res.json({ campaigns: result.rows });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.get(
+  "/api/marketing/campaigns/:id/metric-details",
+  requireCrmUser,
+  requireRole(["admin", "manager"]),
+  async (req, res, next) => {
+    try {
+      const parsedMetric = campaignMetricSchema.safeParse(req.query.metric);
+      if (!parsedMetric.success) {
+        return res.status(400).json({ error: "Invalid campaign metric" });
+      }
+
+      const campaign = await query<{ id: string }>(
+        `SELECT id FROM crm_marketing_campaigns WHERE id = $1`,
+        [req.params.id],
+      );
+      if (campaign.rows.length === 0) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      const metric = parsedMetric.data as CampaignMetricKey;
+      const result = await listCampaignMetricRecipients(req.params.id, metric);
+      return res.json({
+        metric,
+        total: result.rows.length,
+        recipients: result.rows,
+      });
     } catch (error) {
       return next(error);
     }

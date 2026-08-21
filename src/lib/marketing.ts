@@ -3,6 +3,7 @@ const CRM_ENDPOINT = "https://ibiza-project-accelerator-production.up.railway.ap
 export type MarketingLanguage = "es" | "it" | "en" | "nl";
 export type MarketingContactStatus = "pending" | "subscribed" | "unsubscribed" | "suppressed";
 export type MarketingCampaignStatus = "draft" | "scheduled" | "sending" | "sent" | "paused" | "cancelled" | "failed";
+export type MarketingCampaignMetric = "delivered" | "opened" | "clicked" | "bounced" | "unsubscribed";
 
 export type MarketingContactInput = {
   email: string;
@@ -76,6 +77,22 @@ export type MarketingCampaign = MarketingCampaignInput & {
   unsubscribed_count: number;
   created_at: string;
   updated_at: string;
+};
+
+export type MarketingCampaignMetricRecipient = {
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  contact_status?: string | null;
+  occurred_at: string;
+  detail?: string | null;
+  source: string;
+};
+
+export type MarketingCampaignMetricDetails = {
+  metric: MarketingCampaignMetric;
+  total: number;
+  recipients: MarketingCampaignMetricRecipient[];
 };
 
 export type MarketingStats = {
@@ -197,6 +214,11 @@ export function fetchMarketingCampaigns(token: string) {
   return marketingRequest<{ campaigns: MarketingCampaign[] }>("/campaigns", { token });
 }
 
+export function fetchMarketingCampaignMetricDetails(token: string, campaignId: string, metric: MarketingCampaignMetric) {
+  const params = new URLSearchParams({ metric });
+  return marketingRequest<MarketingCampaignMetricDetails>(`/campaigns/${campaignId}/metric-details?${params.toString()}`, { token });
+}
+
 export function createMarketingCampaign(token: string, payload: MarketingCampaignInput) {
   return marketingRequest<{ campaign: MarketingCampaign }>("/campaigns", { method: "POST", token, body: payload });
 }
@@ -204,7 +226,6 @@ export function createMarketingCampaign(token: string, payload: MarketingCampaig
 export function updateMarketingCampaign(token: string, campaignId: string, payload: Partial<MarketingCampaignInput>) {
   return marketingRequest<{ campaign: MarketingCampaign }>(`/campaigns/${campaignId}`, { method: "PATCH", token, body: payload });
 }
-
 
 export type MarketingCapabilities = {
   testSendConfigured: boolean;
