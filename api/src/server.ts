@@ -215,42 +215,15 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
     intervencion: data.intervencion,
     tipo_propiedad: data.tipoPropiedad,
     tiene_fotos: data.tieneFotos,
-    tiene_progetto: data.tieneProyecto,
+    tiene_proyecto: data.tieneProyecto,
     presupuesto: data.presupuesto || null,
     source: data.source || null,
     utm_source: data.utm_source || null,
   };
-  const score = scoreLead({
-    plazo: data.plazo,
-    intervencion: data.intervencion,
-    tipo_propiedad: data.tipoPropiedad,
-    tiene_fotos: data.tieneFotos,
-    tiene_proyecto: data.tieneProyecto,
-    presupuesto: data.presupuesto || null,
-    source: data.source || null,
-    utm_source: data.utm_source || null,
-  });
+  const score = scoreLead(scoringInput);
   const priority = priorityFromScore(score);
-  const nextAction = nextActionForLead({
-    plazo: data.plazo,
-    intervencion: data.intervencion,
-    tipo_propiedad: data.tipoPropiedad,
-    tiene_fotos: data.tieneFotos,
-    tiene_proyecto: data.tieneProyecto,
-    presupuesto: data.presupuesto || null,
-    source: data.source || null,
-    utm_source: data.utm_source || null,
-  });
-  const status = initialStatusForLead({
-    plazo: data.plazo,
-    intervencion: data.intervencion,
-    tipo_propiedad: data.tipoPropiedad,
-    tiene_fotos: data.tieneFotos,
-    tiene_progetto: data.tieneProyecto,
-    presupuesto: data.presupuesto || null,
-    source: data.source || null,
-    utm_source: data.utm_source || null,
-  } as never);
+  const nextAction = nextActionForLead(scoringInput);
+  const status = initialStatusForLead(scoringInput);
 
   try {
     const result = await query(
