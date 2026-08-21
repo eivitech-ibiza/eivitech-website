@@ -18,6 +18,7 @@ export type MarketingCampaignForResend = {
   from_name?: string | null;
   from_email?: string | null;
   reply_to?: string | null;
+  editor_json?: Record<string, unknown> | null;
   html?: string | null;
   resend_broadcast_id?: string | null;
 };
@@ -95,20 +96,78 @@ function cleanEmailHtml(html: string) {
     .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 }
 
-function replaceEditorMergeTags(html: string, testValues?: { firstName?: string; lastName?: string; email?: string }) {
+function replaceEditorMergeTags(content: string, testValues?: { firstName?: string; lastName?: string; email?: string }) {
   if (testValues) {
-    return html
+    return content
       .replace(/\{\{\s*first_name\s*\}\}/gi, testValues.firstName || "Luciano")
       .replace(/\{\{\s*last_name\s*\}\}/gi, testValues.lastName || "Novello")
       .replace(/\{\{\s*email\s*\}\}/gi, testValues.email || "test@example.com")
       .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, "#unsubscribe-test");
   }
 
-  return html
+  return content
     .replace(/\{\{\s*first_name\s*\}\}/gi, "{{{contact.first_name|there}}}")
     .replace(/\{\{\s*last_name\s*\}\}/gi, "{{{contact.last_name|}}}")
     .replace(/\{\{\s*email\s*\}\}/gi, "{{{contact.email}}}")
     .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, RESEND_UNSUBSCRIBE_PLACEHOLDER);
+}
+
+export function campaignContentMode(campaign: MarketingCampaignForResend): "html" | "text" {
+  return campaign.editor_json?.content_mode === "text" ? "text" : "html";
+}
+
+function storedPlainText(campaign: MarketingCampaignForResend) {
+  const value = campaign.editor_json?.text_content;
+  return typeof value === "string" ? value : "";
+}
+
+export function htmlToPlainText(html: string) {
+  return html
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, "")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n\n")
+    .replace(/<\/h[1-6]\s*>/gi, "\n\n")
+    .replace(/<\/div\s*>/gi, "\n")
+    .replace(/<\/tr\s*>/gi, "\n")
+    .replace(/<\/li\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&middot;/gi, "·")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#039;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function plainTextSource(campaign: MarketingCampaignForResend) {
+  if (campaignContentMode(campaign) === "text") {
+    const stored = storedPlainText(campaign).trim();
+    if (stored) return stored;
+  }
+  return htmlToPlainText(campaign.html || "");
+}
+
+export function renderBroadcastText(campaign: MarketingCampaignForResend) {
+  return replaceEditorMergeTags(plainTextSource(campaign));
+}
+
+export function renderTestText(
+  campaign: MarketingCampaignForResend,
+  recipient: string,
+  sample?: { firstName?: string; lastName?: string },
+) {
+  const content = replaceEditorMergeTags(plainTextSource(campaign), {
+    firstName: sample?.firstName,
+    lastName: sample?.lastName,
+    email: recipient,
+  });
+  return `EMAIL DI PROVA — nessuna campagna è stata inviata\n\n${content}`;
 }
 
 function preheader(previewText?: string | null) {
@@ -200,6 +259,36 @@ export function campaignReplyTo(campaign: MarketingCampaignForResend) {
     || "info@eivitech.com";
 }
 
+export function buildMarketingTestPayload(
+  campaign: MarketingCampaignForResend,
+  recipient: string,
+  sample?: { firstName?: string; lastName?: string },
+) {
+  const common = {
+    from: campaignFromAddress(campaign),
+    to: [recipient],
+    reply_to: campaignReplyTo(campaign),
+    subject: `[TEST] ${campaign.subject}`,
+    tags: [
+      { name: "category", value: "marketing_test" },
+      { name: "campaign_id", value: campaign.id },
+    ],
+  };
+
+  if (campaignContentMode(campaign) === "text") {
+    return {
+      ...common,
+      text: renderTestText(campaign, recipient, sample),
+    };
+  }
+
+  return {
+    ...common,
+    html: renderTestHtml(campaign, recipient, sample),
+    text: renderTestText(campaign, recipient, sample),
+  };
+}
+
 export async function sendMarketingTestEmail(
   campaign: MarketingCampaignForResend,
   recipient: string,
@@ -212,17 +301,7 @@ export async function sendMarketingTestEmail(
     method: "POST",
     apiKey,
     idempotencyKey: `eivitech-marketing-test-${campaign.id}-${randomUUID()}`,
-    body: {
-      from: campaignFromAddress(campaign),
-      to: [recipient],
-      reply_to: campaignReplyTo(campaign),
-      subject: `[TEST] ${campaign.subject}`,
-      html: renderTestHtml(campaign, recipient, sample),
-      tags: [
-        { name: "category", value: "marketing_test" },
-        { name: "campaign_id", value: campaign.id },
-      ],
-    },
+    body: buildMarketingTestPayload(campaign, recipient, sample),
   });
 }
 
@@ -334,19 +413,39 @@ export async function removeResendContactFromSegment(contactIdOrEmail: string, s
   );
 }
 
-export async function createOrUpdateResendBroadcast(
+export function buildResendBroadcastPayload(
   campaign: MarketingCampaignForResend,
   segmentId: string,
 ) {
-  const body = {
+  const common = {
     name: campaign.name,
     segment_id: segmentId,
     from: campaignFromAddress(campaign),
     reply_to: campaignReplyTo(campaign),
     subject: campaign.subject,
     preview_text: campaign.preview_text || undefined,
-    html: renderBroadcastHtml(campaign),
   };
+
+  if (campaignContentMode(campaign) === "text") {
+    return {
+      ...common,
+      html: "",
+      text: renderBroadcastText(campaign),
+    };
+  }
+
+  return {
+    ...common,
+    html: renderBroadcastHtml(campaign),
+    text: renderBroadcastText(campaign),
+  };
+}
+
+export async function createOrUpdateResendBroadcast(
+  campaign: MarketingCampaignForResend,
+  segmentId: string,
+) {
+  const body = buildResendBroadcastPayload(campaign, segmentId);
 
   if (campaign.resend_broadcast_id) {
     const updated = await resendRequest<{ id: string }>(

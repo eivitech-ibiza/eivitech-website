@@ -1,11 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { MarketingCampaignInput } from "@/lib/marketing";
+import { htmlToEditablePlainText } from "@/lib/htmlToEditablePlainText";
 import {
   DEFAULT_HTML_CAMPAIGN_CONTENT,
   DEFAULT_TEXT_CAMPAIGN_CONTENT,
   campaignContentMode,
   campaignTextContent,
-  htmlToPlainText,
   plainTextToBrandedHtml,
   type MarketingContentMode,
 } from "@/lib/marketingCampaignContent";
@@ -32,7 +32,7 @@ export function CampaignContentEditor({ form, setForm }: Props) {
         const currentHtml = current.html || "";
         const nextText = currentHtml.trim() === DEFAULT_HTML_CAMPAIGN_CONTENT.trim()
           ? DEFAULT_TEXT_CAMPAIGN_CONTENT
-          : htmlToPlainText(currentHtml);
+          : htmlToEditablePlainText(currentHtml);
         return {
           ...current,
           editor_json: {

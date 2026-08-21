@@ -27,6 +27,12 @@ import {
   type MarketingSegment,
 } from "@/lib/marketing";
 import { tr } from "@/lib/i18n";
+import {
+  DEFAULT_HTML_CAMPAIGN_CONTENT,
+  DEFAULT_TEXT_CAMPAIGN_CONTENT,
+  campaignPreviewHtml,
+} from "@/lib/marketingCampaignContent";
+import { CampaignContentEditor } from "./CampaignContentEditor";
 import { CampaignMetricCard } from "./CampaignMetricCard";
 
 const EMPTY_CAMPAIGN: MarketingCampaignInput = {
@@ -40,7 +46,11 @@ const EMPTY_CAMPAIGN: MarketingCampaignInput = {
   status: "draft",
   segment_id: null,
   topic: "",
-  html: "<p>Ciao {{first_name}},</p><p>scrivi qui il contenuto della campagna Eivitech.</p>",
+  editor_json: {
+    content_mode: "html",
+    text_content: DEFAULT_TEXT_CAMPAIGN_CONTENT,
+  },
+  html: DEFAULT_HTML_CAMPAIGN_CONTENT,
 };
 
 const LANGUAGE_OPTIONS: { value: MarketingLanguage; label: string }[] = [
@@ -213,7 +223,11 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       status: "draft",
       segment_id: campaign.segment_id || null,
       topic: campaign.topic || "",
-      html: campaign.html || "",
+      editor_json: campaign.editor_json || {
+        content_mode: "html",
+        text_content: DEFAULT_TEXT_CAMPAIGN_CONTENT,
+      },
+      html: campaign.html || DEFAULT_HTML_CAMPAIGN_CONTENT,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -255,6 +269,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
         status: "draft",
         segment_id: segmentId,
         topic: resendCampaign.topic || "",
+        editor_json: resendCampaign.editor_json || {},
         html: resendCampaign.html || "",
       });
 
@@ -385,7 +400,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
         <Input label="Preview text" value={form.preview_text || ""} onChange={(value) => setForm((current) => ({ ...current, preview_text: value }))} />
         <div className="grid grid-cols-2 gap-3"><Select label={tr("Idioma", "Lingua", "Language", "Taal")} value={form.language || "it"} options={LANGUAGE_OPTIONS} onChange={(value) => setForm((current) => ({ ...current, language: value as MarketingLanguage }))} /><Select label={tr("Segmento", "Segmento", "Segment", "Segment")} value={form.segment_id || ""} options={[{ value: "", label: tr("Sin segmento", "Nessun segmento", "No segment", "Geen segment") }, ...segments.map((segment) => ({ value: segment.id, label: segment.name }))]} onChange={(value) => setForm((current) => ({ ...current, segment_id: value || null }))} /></div>
         <Input label="Topic" value={form.topic || ""} onChange={(value) => setForm((current) => ({ ...current, topic: value }))} />
-        <label className="block text-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">HTML</span><textarea className="mt-1 min-h-72 w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-xs" value={form.html || ""} onChange={(event) => setForm((current) => ({ ...current, html: event.target.value }))} /></label>
+        <CampaignContentEditor form={form} setForm={setForm} />
         <div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setPreview({ ...(form as MarketingCampaign), id: editingId || "preview", recipient_count: 0, delivered_count: 0, opened_count: 0, clicked_count: 0, bounced_count: 0, complained_count: 0, unsubscribed_count: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })} className="inline-flex items-center justify-center gap-2 rounded-sm border border-border px-4 py-3 text-sm"><Eye size={16} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button disabled={saving} className="rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{editingId ? tr("Actualizar", "Aggiorna", "Update", "Bijwerken") : tr("Guardar borrador", "Salva bozza", "Save draft", "Concept opslaan")}</button></div>
       </div>
     </form>
@@ -413,7 +428,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       {campaigns.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Aún no hay campañas.", "Non ci sono ancora campagne.", "No campaigns yet.", "Nog geen campagnes.")}</div>}
     </div>
 
-    {preview && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-sm bg-card shadow-2xl"><div className="flex items-center justify-between border-b border-border p-4"><div><div className="font-medium">{preview.subject || tr("Sin asunto", "Senza oggetto", "No subject", "Geen onderwerp")}</div><div className="text-xs text-muted-foreground">{preview.preview_text}</div></div><button onClick={() => setPreview(null)}><X /></button></div><iframe title="Email preview" sandbox="" srcDoc={preview.html || ""} className="min-h-[70vh] w-full bg-white" /></div></div>}
+    {preview && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-sm bg-card shadow-2xl"><div className="flex items-center justify-between border-b border-border p-4"><div><div className="font-medium">{preview.subject || tr("Sin asunto", "Senza oggetto", "No subject", "Geen onderwerp")}</div><div className="text-xs text-muted-foreground">{preview.preview_text}</div></div><button onClick={() => setPreview(null)}><X /></button></div><iframe title="Email preview" sandbox="" srcDoc={campaignPreviewHtml(preview)} className="min-h-[70vh] w-full bg-white" /></div></div>}
 
     {testCampaign && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><form onSubmit={sendTest} className="w-full max-w-md rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Enviar email de prueba", "Invia email di prova", "Send test email", "Testmail verzonden")}</div><button type="button" onClick={() => setTestCampaign(null)}><X /></button></div><div className="mt-5"><Input label="Email" type="email" required value={testEmail} onChange={setTestEmail} /></div><p className="mt-3 text-xs text-muted-foreground">{tr("Solo se enviará una prueba a esta dirección.", "Verrà inviata soltanto una prova a questo indirizzo.", "Only one test will be sent to this address.", "Er wordt slechts één test naar dit adres verzonden.")}</p><button disabled={saving} className="mt-5 w-full rounded-sm bg-primary px-4 py-3 text-sm text-primary-foreground">{tr("Enviar prueba", "Invia prova", "Send test", "Test verzenden")}</button></form></div>}
 
