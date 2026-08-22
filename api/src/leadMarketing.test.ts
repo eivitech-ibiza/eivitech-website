@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deriveLeadMarketingProfile, type LeadMarketingInput } from "./leadMarketing.js";
+import {
+  deriveLeadMarketingProfile,
+  marketingConsentEventType,
+  type LeadMarketingInput,
+} from "./leadMarketing.js";
 
 function baseLead(overrides: Partial<LeadMarketingInput> = {}): LeadMarketingInput {
   return {
@@ -14,6 +18,7 @@ function baseLead(overrides: Partial<LeadMarketingInput> = {}): LeadMarketingInp
     tieneFotos: "si",
     tieneProyecto: "en-proceso",
     plazo: "1-3-meses",
+    marketingConsent: false,
     source: "contacto",
     landing_page: "/es/contacto?lang=es",
     ...overrides,
@@ -89,4 +94,12 @@ test("language can be inferred from the localized path and tag values are normal
   assert.equal(profile.language, "nl");
   assert.ok(profile.tags.includes("source:landing-google-ibiza"));
   assert.ok(profile.tags.includes("utm-source:google-ads"));
+});
+
+test("explicit marketing opt-in creates auditable subscribe and restore events", () => {
+  assert.equal(marketingConsentEventType(null, true, "subscribed"), "subscribed");
+  assert.equal(marketingConsentEventType("pending", true, "subscribed"), "subscribed");
+  assert.equal(marketingConsentEventType("unsubscribed", true, "subscribed"), "restored");
+  assert.equal(marketingConsentEventType("suppressed", true, "suppressed"), null);
+  assert.equal(marketingConsentEventType("subscribed", false, "subscribed"), null);
 });
