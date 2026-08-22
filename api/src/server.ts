@@ -8,6 +8,7 @@ import { z } from "zod";
 import { pool, query } from "./db.js";
 import { listCampaignsWithDerivedUnsubscribes } from "./campaignMetrics.js";
 import { listCampaignMetricRecipients, type CampaignMetricKey } from "./campaignEventDetails.js";
+import { verifyCampaignAudienceBeforeSend } from "./campaignSendSafety.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { upsertLeadMarketingContact } from "./leadMarketing.js";
@@ -190,6 +191,39 @@ app.get(
         metric,
         total: result.rows.length,
         recipients: result.rows,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/marketing/campaigns/:id/send",
+  requireCrmUser,
+  requireRole(["admin", "manager"]),
+  async (req, res, next) => {
+    try {
+      const safety = await verifyCampaignAudienceBeforeSend(req.params.id);
+      if (safety.ok) return next();
+
+      await query(
+        `UPDATE crm_marketing_campaigns
+         SET send_confirmation_token_hash = NULL,
+             send_confirmation_expires_at = NULL,
+             updated_at = now()
+         WHERE id = $1
+           AND status = 'draft'`,
+        [req.params.id],
+      );
+
+      return res.status(409).json({
+        error: "L'audience è cambiata dopo la preparazione. Prepara nuovamente la campagna prima di inviare.",
+        code: "AUDIENCE_CHANGED_AFTER_PREPARE",
+        reason: safety.reason,
+        prepared_count: safety.preparedCount,
+        current_eligible_count: safety.currentEligibleCount,
+        resend_active_count: safety.remoteActiveCount,
       });
     } catch (error) {
       return next(error);
