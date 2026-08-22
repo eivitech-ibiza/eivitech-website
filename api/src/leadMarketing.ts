@@ -13,12 +13,15 @@ export type LeadMarketingInput = {
   plazo: "urgente" | "1-3-meses" | "3-6-meses" | "sin-fecha";
   presupuesto?: string | null;
   mensaje?: string | null;
+  marketingConsent?: boolean | null;
   source?: string | null;
   landing_page?: string | null;
   utm_source?: string | null;
 };
 
 type MarketingLanguage = "es" | "it" | "en" | "nl";
+type MarketingStatus = "pending" | "subscribed" | "unsubscribed" | "suppressed";
+type MarketingConsentEventType = "subscribed" | "restored" | null;
 
 export type LeadMarketingProfile = {
   email: string;
@@ -130,26 +133,50 @@ export function deriveLeadMarketingProfile(input: LeadMarketingInput): LeadMarke
   };
 }
 
+export function marketingConsentEventType(
+  existingStatus: MarketingStatus | null,
+  optInRequested: boolean,
+  resultingStatus: MarketingStatus,
+): MarketingConsentEventType {
+  if (!optInRequested || resultingStatus !== "subscribed") return null;
+  return existingStatus === "unsubscribed" ? "restored" : "subscribed";
+}
+
 export async function upsertLeadMarketingContact(
   client: PoolClient,
   input: LeadMarketingInput,
   leadId: string,
 ) {
   const profile = deriveLeadMarketingProfile(input);
-  const existing = await client.query<{ id: string }>(
-    `SELECT id FROM crm_marketing_contacts WHERE email = $1`,
+  const optInRequested = input.marketingConsent === true;
+  const consentAt = new Date().toISOString();
+  const existing = await client.query<{
+    id: string;
+    status: MarketingStatus;
+    marketing_consent: boolean;
+  }>(
+    `SELECT id, status, marketing_consent
+     FROM crm_marketing_contacts
+     WHERE email = $1`,
     [profile.email],
   );
 
   const result = await client.query<{
     id: string;
-    status: "pending" | "subscribed" | "unsubscribed" | "suppressed";
+    status: MarketingStatus;
     marketing_consent: boolean;
   }>(
     `INSERT INTO crm_marketing_contacts (
        email, first_name, phone, region, language, contact_type, source,
-       status, tags, marketing_consent
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8::jsonb, false)
+       status, tags, marketing_consent, consent_source, consent_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7,
+       CASE WHEN $9 THEN 'subscribed' ELSE 'pending' END,
+       $8::jsonb,
+       $9,
+       CASE WHEN $9 THEN 'web-form-marketing-opt-in' ELSE NULL END,
+       CASE WHEN $9 THEN $10::timestamptz ELSE NULL END
+     )
      ON CONFLICT (email) DO UPDATE SET
        first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), crm_marketing_contacts.first_name),
        phone = COALESCE(NULLIF(EXCLUDED.phone, ''), crm_marketing_contacts.phone),
@@ -166,6 +193,28 @@ export async function upsertLeadMarketingContact(
            ) AS merged(value)
          ) AS unique_tags
        ),
+       status = CASE
+         WHEN crm_marketing_contacts.status = 'suppressed' THEN 'suppressed'
+         WHEN $9 THEN 'subscribed'
+         ELSE crm_marketing_contacts.status
+       END,
+       marketing_consent = CASE
+         WHEN crm_marketing_contacts.status = 'suppressed' THEN false
+         WHEN $9 THEN true
+         ELSE crm_marketing_contacts.marketing_consent
+       END,
+       consent_source = CASE
+         WHEN $9 AND crm_marketing_contacts.status <> 'suppressed' THEN 'web-form-marketing-opt-in'
+         ELSE crm_marketing_contacts.consent_source
+       END,
+       consent_at = CASE
+         WHEN $9 AND crm_marketing_contacts.status <> 'suppressed' THEN $10::timestamptz
+         ELSE crm_marketing_contacts.consent_at
+       END,
+       unsubscribed_at = CASE
+         WHEN $9 AND crm_marketing_contacts.status <> 'suppressed' THEN NULL
+         ELSE crm_marketing_contacts.unsubscribed_at
+       END,
        updated_at = now()
      RETURNING id, status, marketing_consent`,
     [
@@ -177,6 +226,8 @@ export async function upsertLeadMarketingContact(
       profile.contactType,
       profile.source,
       JSON.stringify(profile.tags),
+      optInRequested,
+      consentAt,
     ],
   );
 
@@ -195,6 +246,7 @@ export async function upsertLeadMarketingContact(
         leadId,
         formMode: profile.formMode,
         privacyConsent: true,
+        marketingOptInRequested: optInRequested,
         marketingConsent: contact.marketing_consent,
         resultingStatus: contact.status,
         tagsAdded: profile.tags,
@@ -203,5 +255,30 @@ export async function upsertLeadMarketingContact(
     ],
   );
 
-  return { ...contact, profile };
+  const consentEvent = marketingConsentEventType(
+    existing.rows[0]?.status ?? null,
+    optInRequested,
+    contact.status,
+  );
+
+  if (consentEvent) {
+    await client.query(
+      `INSERT INTO crm_marketing_consent_events (
+         contact_id, event_type, source, metadata
+       ) VALUES ($1, $2, 'web-form-marketing-opt-in', $3::jsonb)`,
+      [
+        contact.id,
+        consentEvent,
+        JSON.stringify({
+          method: "explicit-checkbox",
+          leadId,
+          formMode: profile.formMode,
+          consentAt,
+          source: profile.source,
+        }),
+      ],
+    );
+  }
+
+  return { ...contact, profile, optInRequested };
 }
