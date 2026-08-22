@@ -29,6 +29,7 @@ const clientSchema = z.object({
   presupuesto: z.string().trim().max(60).optional().or(z.literal("")),
   mensaje: z.string().trim().max(1500).optional().or(z.literal("")),
   consentimiento: z.literal(true, { message: validationMessages.consent }),
+  marketingConsent: z.boolean().optional(),
 });
 
 const partnerSchema = z.object({
@@ -43,6 +44,7 @@ const partnerSchema = z.object({
   website: z.string().trim().max(250).optional().or(z.literal("")),
   mensaje: z.string().trim().max(1500).optional().or(z.literal("")),
   consentimiento: z.literal(true, { message: validationMessages.consent }),
+  marketingConsent: z.boolean().optional(),
 });
 
 export type LeadFormData = z.infer<typeof clientSchema>;
@@ -70,6 +72,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
       tieneFotos: "no",
       tieneProyecto: "no",
       plazo: "sin-fecha",
+      marketingConsent: false,
     },
   });
 
@@ -79,6 +82,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
       categoria: "carpinteria",
       experiencia: "5-10",
       disponibilidad: "proyectos-programados",
+      marketingConsent: false,
     },
   });
 
@@ -174,12 +178,28 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
       {mode === "cliente" ? (
         <form data-lead onSubmit={clientForm.handleSubmit(onClientSubmit, () => track("form_error", { source, mode: "cliente" }))} className="grid gap-5" noValidate>
           <ClientFields form={clientForm} />
-          <PrivacyAndSubmit registerConsent={clientForm.register("consentimiento")} errors={clientForm.formState.errors} submitting={submitting} submitError={submitError} buttonLabel={tr("Enviar solicitud", "Invia richiesta", "Send request")} loadingLabel={tr("Enviando…", "Invio…", "Sending…")} />
+          <PrivacyAndSubmit
+            registerConsent={clientForm.register("consentimiento")}
+            registerMarketingConsent={clientForm.register("marketingConsent")}
+            errors={clientForm.formState.errors}
+            submitting={submitting}
+            submitError={submitError}
+            buttonLabel={tr("Enviar solicitud", "Invia richiesta", "Send request")}
+            loadingLabel={tr("Enviando…", "Invio…", "Sending…")}
+          />
         </form>
       ) : (
         <form data-lead onSubmit={partnerForm.handleSubmit(onPartnerSubmit, () => track("form_error", { source, mode: "partner" }))} className="grid gap-5" noValidate>
           <PartnerFields form={partnerForm} />
-          <PrivacyAndSubmit registerConsent={partnerForm.register("consentimiento")} errors={partnerForm.formState.errors} submitting={submitting} submitError={submitError} buttonLabel={tr("Enviar candidatura", "Invia candidatura", "Send application")} loadingLabel={tr("Enviando…", "Invio…", "Sending…")} />
+          <PrivacyAndSubmit
+            registerConsent={partnerForm.register("consentimiento")}
+            registerMarketingConsent={partnerForm.register("marketingConsent")}
+            errors={partnerForm.formState.errors}
+            submitting={submitting}
+            submitError={submitError}
+            buttonLabel={tr("Enviar candidatura", "Invia candidatura", "Send application")}
+            loadingLabel={tr("Enviando…", "Invio…", "Sending…")}
+          />
         </form>
       )}
     </div>
@@ -355,7 +375,23 @@ function Input({ label: labelText, id, error, children }: { label: string; id: s
   );
 }
 
-function PrivacyAndSubmit({ registerConsent, errors, submitting, submitError, buttonLabel, loadingLabel }: { registerConsent: UseFormRegisterReturn; errors: { consentimiento?: { message?: string } }; submitting: boolean; submitError: string | null; buttonLabel: string; loadingLabel: string }) {
+function PrivacyAndSubmit({
+  registerConsent,
+  registerMarketingConsent,
+  errors,
+  submitting,
+  submitError,
+  buttonLabel,
+  loadingLabel,
+}: {
+  registerConsent: UseFormRegisterReturn;
+  registerMarketingConsent: UseFormRegisterReturn;
+  errors: { consentimiento?: { message?: string } };
+  submitting: boolean;
+  submitError: string | null;
+  buttonLabel: string;
+  loadingLabel: string;
+}) {
   return (
     <>
       <label className="flex items-start gap-3 text-sm text-muted-foreground">
@@ -366,6 +402,22 @@ function PrivacyAndSubmit({ registerConsent, errors, submitting, submitError, bu
         </span>
       </label>
       {errors.consentimiento && <p className={errorCls}>{errors.consentimiento.message}</p>}
+
+      <label className="flex items-start gap-3 rounded-sm border border-border bg-accent/30 p-3 text-sm text-muted-foreground">
+        <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-primary" {...registerMarketingConsent} />
+        <span>
+          <strong className="font-medium text-foreground">
+            {tr("Opcional.", "Facoltativo.", "Optional.", "Optioneel.")}
+          </strong>{" "}
+          {tr(
+            "Quiero recibir por email novedades, consejos y comunicaciones comerciales de Eivitech. Puedo darme de baja en cualquier momento.",
+            "Desidero ricevere via email novità, consigli e comunicazioni commerciali di Eivitech. Posso disiscrivermi in qualsiasi momento.",
+            "I would like to receive Eivitech news, tips and marketing communications by email. I can unsubscribe at any time.",
+            "Ik wil via e-mail nieuws, tips en commerciële communicatie van Eivitech ontvangen. Ik kan me op elk moment uitschrijven."
+          )}
+        </span>
+      </label>
+
       {submitError && <p className="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{submitError}</p>}
 
       <button
