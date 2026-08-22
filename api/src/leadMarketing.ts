@@ -87,7 +87,7 @@ export function deriveLeadMarketingProfile(input: LeadMarketingInput): LeadMarke
   pushTag(tags, "source", source);
 
   let region = input.zona?.trim() || null;
-  let contactType = input.tipoCliente;
+  let contactType: string = input.tipoCliente;
   let formMode: LeadMarketingProfile["formMode"] = "cliente";
 
   if (isPartner) {
