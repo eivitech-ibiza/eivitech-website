@@ -1,4 +1,4 @@
-import { audienceFingerprint, normalizeAudienceEmails } from "./audienceSafety.js";
+import { audienceIsSafeForSend, normalizeAudienceEmails } from "./audienceSafety.js";
 import { query } from "./db.js";
 import { listResendSegmentContacts } from "./resendMarketing.js";
 
@@ -87,13 +87,8 @@ export async function verifyCampaignAudienceBeforeSend(campaignId: string): Prom
       .map((contact) => contact.email),
   );
 
-  const currentFingerprint = audienceFingerprint(currentEligibleEmails);
-  const remoteFingerprint = audienceFingerprint(remoteActiveEmails);
   const preparedCount = Number(campaign.recipient_count || 0);
-  const audienceUnchanged = preparedCount === currentEligibleEmails.length
-    && currentFingerprint === remoteFingerprint;
-
-  if (!audienceUnchanged) {
+  if (!audienceIsSafeForSend(preparedCount, currentEligibleEmails, remoteActiveEmails)) {
     return {
       ok: false,
       reason: "audience_changed",
