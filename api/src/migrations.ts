@@ -42,11 +42,15 @@ CREATE TABLE IF NOT EXISTS crm_leads (
   utm_content text,
   utm_term text,
   consent_privacy boolean NOT NULL DEFAULT false,
+  consent_marketing boolean NOT NULL DEFAULT false,
   assigned_to uuid REFERENCES crm_users(id) ON DELETE SET NULL,
   next_action text,
   last_contact_at timestamptz,
   next_follow_up_at timestamptz
 );
+
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS consent_marketing boolean NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_crm_leads_created_at ON crm_leads(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_status ON crm_leads(status);
