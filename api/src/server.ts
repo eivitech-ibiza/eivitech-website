@@ -11,6 +11,7 @@ import { listCampaignMetricRecipients, type CampaignMetricKey } from "./campaign
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { upsertLeadMarketingContact } from "./leadMarketing.js";
+import { resubscribeResendMarketingContact } from "./resendContactConsent.js";
 import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
@@ -228,6 +229,7 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
   const status = initialStatusForLead(scoringInput);
   const client = await pool.connect();
   let leadId = "";
+  let restoredResendContactId: string | null = null;
 
   try {
     await client.query("BEGIN");
@@ -282,7 +284,10 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
       [lead.id, nextAction]
     );
 
-    await upsertLeadMarketingContact(client, data, lead.id);
+    const marketingContact = await upsertLeadMarketingContact(client, data, lead.id);
+    if (marketingContact.consentEvent === "restored" && marketingContact.resendContactId) {
+      restoredResendContactId = marketingContact.resendContactId;
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -290,6 +295,14 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
     return res.status(500).json({ error: "Failed to create lead" });
   } finally {
     client.release();
+  }
+
+  if (restoredResendContactId) {
+    try {
+      await resubscribeResendMarketingContact(restoredResendContactId);
+    } catch (error) {
+      console.error("[api] lead saved but Resend resubscribe sync failed", error);
+    }
   }
 
   try {
