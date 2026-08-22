@@ -80,6 +80,7 @@ const leadSchema = z.object({
   presupuesto: z.string().trim().max(60).optional().or(z.literal("")),
   mensaje: z.string().trim().max(1500).optional().or(z.literal("")),
   consentimiento: z.literal(true),
+  marketingConsent: z.boolean().optional().default(false),
   source: z.string().trim().max(120).optional(),
   landing_page: z.string().trim().max(300).optional(),
   referrer: z.string().trim().max(500).optional(),
@@ -235,12 +236,12 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
         status, priority, score, nombre, email, telefono, tipo_cliente, tipo_propiedad, zona,
         intervencion, tiene_fotos, tiene_proyecto, plazo, presupuesto, mensaje, source,
         landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-        consent_privacy, next_action
+        consent_privacy, consent_marketing, next_action
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9,
         $10, $11, $12, $13, $14, $15, $16,
         $17, $18, $19, $20, $21, $22, $23,
-        $24, $25
+        $24, $25, $26
       ) RETURNING *`,
       [
         status,
@@ -267,6 +268,7 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
         data.utm_content || null,
         data.utm_term || null,
         data.consentimiento,
+        data.marketingConsent,
         nextAction,
       ]
     );

@@ -104,6 +104,7 @@ export function toPartnerLeadPayload(payload: CrmPartnerPayload): CrmLeadPayload
     presupuesto: payload.empresa || payload.categoria,
     mensaje: partnerSummary,
     consentimiento: payload.consentimiento,
+    marketingConsent: payload.marketingConsent ?? false,
     source: payload.source,
     landing_page: payload.landing_page,
     referrer: payload.referrer,
