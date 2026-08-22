@@ -15,3 +15,14 @@ export function audienceMatchesPreparedSnapshot(
   if (!preparedFingerprint) return false;
   return audienceFingerprint(currentEmails) === preparedFingerprint;
 }
+
+export function audienceIsSafeForSend(
+  preparedCount: number,
+  currentEligibleEmails: string[],
+  remoteActiveEmails: string[],
+) {
+  const current = normalizeAudienceEmails(currentEligibleEmails);
+  const remote = normalizeAudienceEmails(remoteActiveEmails);
+  return preparedCount === current.length
+    && audienceFingerprint(current) === audienceFingerprint(remote);
+}
