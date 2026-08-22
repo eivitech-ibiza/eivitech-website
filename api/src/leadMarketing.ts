@@ -154,8 +154,9 @@ export async function upsertLeadMarketingContact(
     id: string;
     status: MarketingStatus;
     marketing_consent: boolean;
+    resend_contact_id: string | null;
   }>(
-    `SELECT id, status, marketing_consent
+    `SELECT id, status, marketing_consent, resend_contact_id
      FROM crm_marketing_contacts
      WHERE email = $1`,
     [profile.email],
@@ -280,5 +281,11 @@ export async function upsertLeadMarketingContact(
     );
   }
 
-  return { ...contact, profile, optInRequested };
+  return {
+    ...contact,
+    profile,
+    optInRequested,
+    consentEvent,
+    resendContactId: existing.rows[0]?.resend_contact_id ?? null,
+  };
 }
