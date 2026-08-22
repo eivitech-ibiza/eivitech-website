@@ -4,11 +4,20 @@ function marketingAdminApiKey() {
   return process.env.RESEND_MARKETING_API_KEY?.trim() || null;
 }
 
-export async function resubscribeResendMarketingContact(contactIdOrEmail: string) {
-  const apiKey = marketingAdminApiKey();
+type ResubscribeOptions = {
+  apiKey?: string | null;
+  fetchImpl?: typeof fetch;
+};
+
+export async function resubscribeResendMarketingContact(
+  contactIdOrEmail: string,
+  options: ResubscribeOptions = {},
+) {
+  const apiKey = options.apiKey === undefined ? marketingAdminApiKey() : options.apiKey;
   if (!apiKey) return { synced: false as const, reason: "not_configured" as const };
 
-  const response = await fetch(`${RESEND_API}/contacts/${encodeURIComponent(contactIdOrEmail)}`, {
+  const fetchImpl = options.fetchImpl || fetch;
+  const response = await fetchImpl(`${RESEND_API}/contacts/${encodeURIComponent(contactIdOrEmail)}`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${apiKey}`,
