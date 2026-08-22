@@ -5,11 +5,12 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { clerkMiddleware } from "@clerk/express";
 import { z } from "zod";
-import { query } from "./db.js";
+import { pool, query } from "./db.js";
 import { listCampaignsWithDerivedUnsubscribes } from "./campaignMetrics.js";
 import { listCampaignMetricRecipients, type CampaignMetricKey } from "./campaignEventDetails.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
+import { upsertLeadMarketingContact } from "./leadMarketing.js";
 import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
@@ -224,9 +225,12 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
   const priority = priorityFromScore(score);
   const nextAction = nextActionForLead(scoringInput);
   const status = initialStatusForLead(scoringInput);
+  const client = await pool.connect();
+  let leadId = "";
 
   try {
-    const result = await query(
+    await client.query("BEGIN");
+    const result = await client.query(
       `INSERT INTO crm_leads (
         status, priority, score, nombre, email, telefono, tipo_cliente, tipo_propiedad, zona,
         intervencion, tiene_fotos, tiene_proyecto, plazo, presupuesto, mensaje, source,
@@ -268,21 +272,32 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
     );
 
     const lead = result.rows[0] as { id: string };
+    leadId = lead.id;
 
-    await query(
+    await client.query(
       `INSERT INTO crm_activities (lead_id, type, title, notes)
        VALUES ($1, 'automation', 'Nueva solicitud recibida', $2)`,
       [lead.id, nextAction]
     );
 
-    await notifyN8n("lead.created", lead.id, { leadId: lead.id, source: data.source || "web", score, priority });
-    await notifyLeadByEmail({ leadId: lead.id, ...data, email: data.email.toLowerCase(), score, priority });
-
-    return res.status(201).json({ ok: true, leadId: lead.id, score, priority, nextAction });
+    await upsertLeadMarketingContact(client, data, lead.id);
+    await client.query("COMMIT");
   } catch (error) {
-    console.error("[api] failed to create lead", error);
+    await client.query("ROLLBACK");
+    console.error("[api] failed to create lead and marketing contact", error);
     return res.status(500).json({ error: "Failed to create lead" });
+  } finally {
+    client.release();
   }
+
+  try {
+    await notifyN8n("lead.created", leadId, { leadId, source: data.source || "web", score, priority });
+    await notifyLeadByEmail({ leadId, ...data, email: data.email.toLowerCase(), score, priority });
+  } catch (error) {
+    console.error("[api] lead saved but post-create notification failed", error);
+  }
+
+  return res.status(201).json({ ok: true, leadId, score, priority, nextAction });
 });
 
 app.use("/api/leads", crmJsonParser);
