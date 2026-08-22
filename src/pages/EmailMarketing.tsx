@@ -24,6 +24,7 @@ import {
 } from "@/lib/marketing";
 import { parseMarketingContactsCsv } from "@/lib/marketingCsv";
 import { CampaignWorkspace } from "@/components/marketing/CampaignWorkspace";
+import { ContactDetailDrawer } from "@/components/marketing/ContactDetailDrawer";
 import { SegmentManager } from "@/components/marketing/SegmentManager";
 import { tr } from "@/lib/i18n";
 
@@ -86,6 +87,7 @@ function EmailMarketingShell() {
   const [statusFilter, setStatusFilter] = useState<MarketingContactStatus | "">("");
   const [contactForm, setContactForm] = useState<MarketingContactInput>(EMPTY_CONTACT);
   const [segmentForm, setSegmentForm] = useState({ name: "", description: "" });
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   async function tokenOrThrow() {
     const token = await getToken();
@@ -126,6 +128,10 @@ function EmailMarketingShell() {
   }, [hasAccess]);
 
   const filteredContacts = useMemo(() => contacts, [contacts]);
+  const selectedContact = useMemo(
+    () => contacts.find((contact) => contact.id === selectedContactId) || null,
+    [contacts, selectedContactId],
+  );
 
   async function saveContact(event: FormEvent) {
     event.preventDefault();
@@ -227,18 +233,76 @@ function EmailMarketingShell() {
     }
   }
 
-  async function addContactToSegment(contactId: string, segmentId: string) {
+  async function saveContactEdits(contact: MarketingContact, payload: Partial<MarketingContactInput>) {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+
+    const requestedStatus = payload.status || contact.status || "pending";
+    const terminal = contact.status === "unsubscribed" || contact.status === "suppressed";
+    const allowResubscribe = terminal && requestedStatus === "subscribed";
+
+    if (allowResubscribe) {
+      const confirmed = window.confirm(tr(
+        "Este contacto se había dado de baja o estaba suprimido. Confirma que existe un nuevo consentimiento explícito y documentado antes de reinscribirlo.",
+        "Questo contatto era disiscritto o soppresso. Conferma che esiste un nuovo consenso esplicito e documentato prima di reiscriverlo.",
+        "This contact was unsubscribed or suppressed. Confirm new explicit and documented consent before resubscribing.",
+        "Dit contact was uitgeschreven of geblokkeerd. Bevestig nieuwe expliciete en gedocumenteerde toestemming vóór herinschrijving.",
+      ));
+      if (!confirmed) {
+        setSaving(false);
+        return;
+      }
+    }
+
+    try {
+      const token = await tokenOrThrow();
+      const result = await updateMarketingContact(token, contact.id, {
+        ...payload,
+        status: requestedStatus,
+        marketing_consent: requestedStatus === "subscribed",
+        consent_source: requestedStatus === "subscribed" ? contact.consent_source || "manual-crm" : contact.consent_source,
+        consent_at: requestedStatus === "subscribed"
+          ? contact.status === "subscribed" && contact.consent_at
+            ? contact.consent_at
+            : new Date().toISOString()
+          : contact.consent_at,
+        allow_resubscribe: allowResubscribe,
+      });
+      setContacts((current) => current.map((item) => (item.id === contact.id ? result.contact : item)));
+      setStats(await fetchMarketingStats(token));
+      setNotice(allowResubscribe
+        ? tr("Contacto actualizado y reinscripción registrada.", "Contatto aggiornato e reiscrizione registrata.", "Contact updated and resubscription recorded.", "Contact bijgewerkt en herinschrijving vastgelegd.")
+        : tr("Contacto actualizado.", "Contatto aggiornato.", "Contact updated.", "Contact bijgewerkt."));
+    } catch (err) {
+      console.error("[email-marketing] contact edit failed", err);
+      setError(tr("No se ha podido actualizar el contacto.", "Non è stato possibile aggiornare il contatto.", "Could not update the contact.", "Het contact kon niet worden bijgewerkt."));
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeContactSegment(contactId: string, segmentId: string, action: "add" | "remove") {
     if (!segmentId) return;
     setError(null);
     try {
       const token = await tokenOrThrow();
-      await updateMarketingSegmentMembers(token, segmentId, { add: [contactId] });
-      setNotice(tr("Contacto añadido al segmento.", "Contatto aggiunto al segmento.", "Contact added to segment.", "Contact aan segment toegevoegd."));
+      await updateMarketingSegmentMembers(token, segmentId, action === "add" ? { add: [contactId] } : { remove: [contactId] });
+      setNotice(action === "add"
+        ? tr("Contacto añadido al segmento.", "Contatto aggiunto al segmento.", "Contact added to segment.", "Contact aan segment toegevoegd.")
+        : tr("Contacto eliminado del segmento.", "Contatto rimosso dal segmento.", "Contact removed from segment.", "Contact uit segment verwijderd."));
       await loadWorkspace();
     } catch (err) {
       console.error("[email-marketing] segment membership failed", err);
-      setError(tr("No se ha podido añadir el contacto al segmento.", "Non è stato possibile aggiungere il contatto al segmento.", "Could not add the contact to the segment.", "Het contact kon niet aan het segment worden toegevoegd."));
+      setError(tr("No se ha podido actualizar el segmento del contacto.", "Non è stato possibile aggiornare il segmento del contatto.", "Could not update the contact segment.", "Het contactsegment kon niet worden bijgewerkt."));
+      throw err;
     }
+  }
+
+  async function addContactToSegment(contactId: string, segmentId: string) {
+    if (!segmentId) return;
+    await changeContactSegment(contactId, segmentId, "add");
   }
 
   async function saveSegment(event: FormEvent) {
@@ -259,8 +323,6 @@ function EmailMarketingShell() {
       setSaving(false);
     }
   }
-
-
 
   if (!hasAccess) {
     return (
@@ -389,7 +451,12 @@ function EmailMarketingShell() {
                 </thead>
                 <tbody>
                   {filteredContacts.map((contact) => (
-                    <tr key={contact.id} className="border-b border-border/70 align-top">
+                    <tr
+                      key={contact.id}
+                      onClick={() => setSelectedContactId(contact.id)}
+                      className="cursor-pointer border-b border-border/70 align-top transition hover:bg-accent/40"
+                      title={tr("Abrir detalle del contacto", "Apri dettaglio contatto", "Open contact details", "Contactdetails openen")}
+                    >
                       <td className="px-3 py-4">
                         <div className="font-medium">{displayName(contact)}</div>
                         <div className="text-muted-foreground">{contact.email}</div>
@@ -398,7 +465,12 @@ function EmailMarketingShell() {
                       <td className="px-3 py-4 uppercase">{contact.language || "—"}</td>
                       <td className="px-3 py-4">{contact.contact_type || "—"}</td>
                       <td className="px-3 py-4">
-                        <select value={contact.status || "pending"} onChange={(event) => void changeContactStatus(contact, event.target.value as MarketingContactStatus)} className="rounded-sm border border-border bg-background px-2 py-2 text-xs">
+                        <select
+                          value={contact.status || "pending"}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => void changeContactStatus(contact, event.target.value as MarketingContactStatus)}
+                          className="rounded-sm border border-border bg-background px-2 py-2 text-xs"
+                        >
                           {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                         <div className="mt-1 text-xs text-muted-foreground">{contact.marketing_consent ? "consenso: sì" : "consenso: no"}</div>
@@ -407,7 +479,12 @@ function EmailMarketingShell() {
                       <td className="px-3 py-4">
                         <div className="text-xs text-muted-foreground">{contact.segments?.map((segment) => segment.name).join(", ") || "—"}</div>
                         {segments.length > 0 && (
-                          <select defaultValue="" onChange={(event) => { void addContactToSegment(contact.id, event.target.value); event.currentTarget.value = ""; }} className="mt-2 rounded-sm border border-border bg-background px-2 py-2 text-xs">
+                          <select
+                            defaultValue=""
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) => { void addContactToSegment(contact.id, event.target.value); event.currentTarget.value = ""; }}
+                            className="mt-2 rounded-sm border border-border bg-background px-2 py-2 text-xs"
+                          >
                             <option value="">+ {tr("Añadir", "Aggiungi", "Add", "Toevoegen")}</option>
                             {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name}</option>)}
                           </select>
@@ -441,6 +518,15 @@ function EmailMarketingShell() {
       )}
 
       {activeTab === "campaigns" && <CampaignWorkspace campaigns={campaigns} segments={segments} onChanged={loadWorkspace} />}
+
+      <ContactDetailDrawer
+        contact={selectedContact}
+        segments={segments}
+        saving={saving}
+        onClose={() => setSelectedContactId(null)}
+        onSave={saveContactEdits}
+        onSegmentChange={changeContactSegment}
+      />
     </section>
   );
 }
