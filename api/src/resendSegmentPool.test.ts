@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { selectResendSegmentPool } from "./resendSegmentPool.js";
 
@@ -40,4 +41,12 @@ test("returns null when all existing Resend segments are reserved", () => {
   });
 
   assert.equal(selected, null);
+});
+
+test("campaign preparation never creates a new Resend segment", () => {
+  const marketingSource = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(marketingSource, /\bcreateResendSegment\b/);
+  assert.match(marketingSource, /\blistResendSegments\b/);
+  assert.match(marketingSource, /\bselectResendSegmentPool\b/);
 });
