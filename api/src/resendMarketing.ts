@@ -311,6 +311,18 @@ function adminKeyOrThrow() {
   return apiKey;
 }
 
+export type ResendSegment = {
+  id: string;
+  name?: string;
+};
+
+export async function listResendSegments() {
+  const response = await resendRequest<{ data?: ResendSegment[] }>("/segments", {
+    apiKey: adminKeyOrThrow(),
+  });
+  return response.data || [];
+}
+
 export async function createResendSegment(name: string) {
   return resendRequest<{ id: string; name: string }>("/segments", {
     method: "POST",

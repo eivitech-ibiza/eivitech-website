@@ -7,8 +7,8 @@ import { pool, query } from "./db.js";
 import {
   ResendMarketingError,
   createOrUpdateResendBroadcast,
-  createResendSegment,
   deleteResendBroadcast,
+  listResendSegments,
   marketingCapabilities,
   listResendSegmentContacts,
   removeResendContactFromSegment,
@@ -16,6 +16,7 @@ import {
   sendResendBroadcast,
   upsertResendContact,
 } from "./resendMarketing.js";
+import { selectResendSegmentPool } from "./resendSegmentPool.js";
 
 const languageSchema = z.enum(["es", "it", "en", "nl"]);
 const contactStatusSchema = z.enum(["pending", "subscribed", "unsubscribed", "suppressed"]);
@@ -394,28 +395,78 @@ async function recordCampaignEvent(
   );
 }
 
-async function syncSegmentToResend(segmentId: string) {
+async function allocateResendSegmentPool(campaignId: string) {
+  const remoteSegments = await listResendSegments();
+  const availableSegmentIds = remoteSegments.map((segment) => segment.id).filter(Boolean);
+  if (availableSegmentIds.length === 0) {
+    throw new MarketingOperationError(
+      409,
+      "No Resend transport segments are available. Create one segment in Resend, then prepare the campaign again.",
+    );
+  }
+
+  const currentPool = await query<{ resend_segment_id: string | null }>(
+    `SELECT payload->>'resendSegmentId' AS resend_segment_id
+     FROM crm_marketing_campaign_events
+     WHERE campaign_id = $1 AND event_type = 'prepared'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [campaignId],
+  );
+
+  const reservedPools = await query<{ resend_segment_id: string | null }>(
+    `SELECT DISTINCT latest.payload->>'resendSegmentId' AS resend_segment_id
+     FROM crm_marketing_campaigns c
+     JOIN LATERAL (
+       SELECT e.payload
+       FROM crm_marketing_campaign_events e
+       WHERE e.campaign_id = c.id AND e.event_type = 'prepared'
+       ORDER BY e.created_at DESC
+       LIMIT 1
+     ) latest ON true
+     WHERE c.id <> $1
+       AND (
+         c.status = 'sending'
+         OR (c.status = 'draft' AND c.send_confirmation_expires_at > now())
+       )`,
+    [campaignId],
+  );
+
+  const reservedSegmentIds = new Set(
+    reservedPools.rows
+      .map((row) => row.resend_segment_id)
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  const selected = selectResendSegmentPool({
+    availableSegmentIds,
+    reservedSegmentIds,
+    currentSegmentId: currentPool.rows[0]?.resend_segment_id || null,
+  });
+
+  if (!selected) {
+    throw new MarketingOperationError(
+      409,
+      "All Resend transport segments are reserved by campaigns awaiting send confirmation. Send, edit, or wait for one confirmation to expire, then prepare again.",
+    );
+  }
+
+  return selected;
+}
+
+async function syncSegmentToResend(segmentId: string, campaignId: string) {
   const capabilities = marketingCapabilities();
   if (!capabilities.resendSyncConfigured) {
     throw new MarketingOperationError(503, "RESEND_MARKETING_API_KEY is required for contact and campaign sync");
   }
 
-  const segmentResult = await query<{ id: string; name: string; resend_segment_id: string | null }>(
-    `SELECT id, name, resend_segment_id FROM crm_marketing_segments WHERE id = $1`,
+  const segmentResult = await query<{ id: string }>(
+    `SELECT id FROM crm_marketing_segments WHERE id = $1`,
     [segmentId],
   );
   if (segmentResult.rows.length === 0) throw new MarketingOperationError(404, "Segment not found");
 
-  const localSegment = segmentResult.rows[0];
-  let resendSegmentId = localSegment.resend_segment_id;
-  if (!resendSegmentId) {
-    const remote = await createResendSegment(`Eivitech — ${localSegment.name} — ${localSegment.id.slice(0, 8)}`);
-    resendSegmentId = remote.id;
-    await query(
-      `UPDATE crm_marketing_segments SET resend_segment_id = $1, updated_at = now() WHERE id = $2`,
-      [resendSegmentId, segmentId],
-    );
-  }
+  const resendSegmentId = await allocateResendSegmentPool(campaignId);
 
   const contacts = await query<{
     id: string;
@@ -448,7 +499,7 @@ async function syncSegmentToResend(segmentId: string) {
   for (let index = 0; index < contacts.rows.length; index += 5) {
     const batch = contacts.rows.slice(index, index + 5);
     const results = await Promise.all(batch.map(async (contact) => {
-      const resendContactId = await upsertResendContact(contact, resendSegmentId as string);
+      const resendContactId = await upsertResendContact(contact, resendSegmentId);
       await query(
         `UPDATE crm_marketing_contacts SET resend_contact_id = $1, updated_at = now() WHERE id = $2`,
         [resendContactId, contact.id],
@@ -951,11 +1002,10 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
   return res.json({ campaign: result.rows[0] });
 }));
 
-
-
-marketingRouter.post("/segments/:id/sync-resend", asyncRoute(async (req, res) => {
-  const result = await syncSegmentToResend(req.params.id);
-  return res.json(result);
+marketingRouter.post("/segments/:id/sync-resend", asyncRoute(async (_req, res) => {
+  return res.status(409).json({
+    error: "Direct CRM segment sync is disabled. Resend segments are reusable transport pools; prepare a campaign to sync its eligible recipients safely.",
+  });
 }));
 
 marketingRouter.post("/campaigns/:id/test", asyncRoute(async (req, res) => {
@@ -1000,7 +1050,7 @@ marketingRouter.post("/campaigns/:id/prepare", asyncRoute(async (req, res) => {
   if (!campaign.segment_id) return res.status(400).json({ error: "Select a segment before preparing the campaign" });
   if (!campaign.subject.trim() || !campaign.html.trim()) return res.status(400).json({ error: "Subject and HTML are required" });
 
-  const sync = await syncSegmentToResend(campaign.segment_id);
+  const sync = await syncSegmentToResend(campaign.segment_id, campaign.id);
   if (sync.eligible === 0) return res.status(409).json({ error: "The selected segment has no eligible subscribed contacts" });
 
   const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
