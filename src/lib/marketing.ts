@@ -1,3 +1,5 @@
+import { parseMarketingApiError } from "./marketingError";
+
 const CRM_ENDPOINT = "https://ibiza-project-accelerator-production.up.railway.app";
 
 export type MarketingLanguage = "es" | "it" | "en" | "nl";
@@ -129,8 +131,8 @@ async function marketingRequest<T>(path: string, options: ApiOptions) {
   });
 
   if (!response.ok) {
-    const message = await response.text().catch(() => "Email marketing request failed");
-    throw new Error(message || "Email marketing request failed");
+    const body = await response.text().catch(() => "Email marketing request failed");
+    throw parseMarketingApiError(response.status, body);
   }
 
   return response.json() as Promise<T>;

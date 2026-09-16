@@ -26,6 +26,10 @@ import {
   type MarketingLanguage,
   type MarketingSegment,
 } from "@/lib/marketing";
+import {
+  getAudienceChangedAfterPrepareDetails,
+  type AudienceChangedAfterPrepareDetails,
+} from "@/lib/marketingError";
 import { tr } from "@/lib/i18n";
 import {
   DEFAULT_HTML_CAMPAIGN_CONTENT,
@@ -114,6 +118,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
   const [testEmail, setTestEmail] = useState(user?.primaryEmailAddress?.emailAddress || "");
   const [capabilities, setCapabilities] = useState<MarketingCapabilities | null>(null);
   const [preparation, setPreparation] = useState<{ campaign: MarketingCampaign; data: MarketingCampaignPreparation } | null>(null);
+  const [audienceChange, setAudienceChange] = useState<AudienceChangedAfterPrepareDetails | null>(null);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [resendCampaign, setResendCampaign] = useState<MarketingCampaign | null>(null);
@@ -276,6 +281,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       const data = await prepareMarketingCampaign(token, result.campaign.id);
       setResendCampaign(null);
       setPreparation({ campaign: result.campaign, data });
+      setAudienceChange(null);
       setConfirmationPhrase("");
       setReviewConfirmed(false);
       setNotice(tr(
@@ -366,12 +372,62 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
     try {
       const data = await prepareMarketingCampaign(await tokenOrThrow(), campaign.id);
       setPreparation({ campaign, data });
+      setAudienceChange(null);
       setConfirmationPhrase("");
       setReviewConfirmed(false);
       setNotice(tr("Campaña preparada. Todavía no se ha enviado nada.", "Campagna preparata. Non è stata ancora inviata alcuna email.", "Campaign prepared. Nothing has been sent yet.", "Campagne voorbereid. Er is nog niets verzonden."));
       await onChanged();
     } catch (err) { setError(err instanceof Error ? err.message : "Preparation failed"); }
     finally { setSaving(false); }
+  }
+
+  async function refreshAudienceAndPrepare() {
+    if (!preparation) return;
+
+    const current = preparation;
+
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const data = await prepareMarketingCampaign(
+        await tokenOrThrow(),
+        current.campaign.id
+      );
+
+      setPreparation({
+        campaign: {
+          ...current.campaign,
+          recipient_count: data.recipient_count,
+        },
+        data,
+      });
+
+      setAudienceChange(null);
+      setConfirmationPhrase("");
+      setReviewConfirmed(false);
+
+      setNotice(
+        tr(
+          "Audiencia sincronizada y preparación actualizada. Revisa el nuevo número de destinatarios.",
+          "Audience sincronizzata e preparazione aggiornata. Controlla il nuovo numero di destinatari.",
+          "Audience synced and preparation refreshed. Review the new recipient count.",
+          "Doelgroep gesynchroniseerd en voorbereiding bijgewerkt. Controleer het nieuwe aantal ontvangers."
+        )
+      );
+
+      await onChanged();
+    } catch (err) {
+      console.error("[campaign-workspace] audience refresh failed", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Audience refresh failed"
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function confirmSend() {
@@ -385,7 +441,18 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setPreparation(null);
       setNotice(tr("Envío iniciado.", "Invio avviato.", "Send started.", "Verzending gestart."));
       await onChanged();
-    } catch (err) { setError(err instanceof Error ? err.message : "Send failed"); }
+    } catch (err) {
+      const changed = getAudienceChangedAfterPrepareDetails(err);
+
+      if (changed) {
+        setAudienceChange(changed);
+        setConfirmationPhrase("");
+        setReviewConfirmed(false);
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : "Send failed");
+      }
+    }
     finally { setSaving(false); }
   }
 
@@ -434,6 +501,102 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
 
     {resendCampaign && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><div className="font-medium">{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</div><p className="mt-1 text-sm text-muted-foreground">{tr("Se creará una nueva campaña para conservar intactas las métricas y el historial del envío original.", "Verrà creata una nuova campagna per mantenere intatti metriche e storico dell’invio originale.", "A new campaign will be created so the original send history and metrics remain intact.", "Er wordt een nieuwe campagne gemaakt zodat de oorspronkelijke geschiedenis en statistieken intact blijven.")}</p></div><button type="button" onClick={() => setResendCampaign(null)} aria-label="Chiudi"><X /></button></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => { setResendMode("same"); setResendSegmentId(resendCampaign.segment_id || ""); }} className={`rounded-sm border p-4 text-left transition ${resendMode === "same" ? "border-primary bg-primary/5" : "border-border bg-background"}`}><div className="font-medium">{tr("Mismo segmento", "Stesso segmento", "Same segment", "Zelfde segment")}</div><div className="mt-1 text-sm text-muted-foreground">{resendCampaign.segment_name || tr("Sin segmento", "Nessun segmento", "No segment", "Geen segment")}</div></button><button type="button" onClick={() => { setResendMode("different"); if (!resendSegmentId || resendSegmentId === resendCampaign.segment_id) setResendSegmentId(segments.find((segment) => segment.id !== resendCampaign.segment_id)?.id || ""); }} className={`rounded-sm border p-4 text-left transition ${resendMode === "different" ? "border-primary bg-primary/5" : "border-border bg-background"}`}><div className="font-medium">{tr("Otro segmento", "Segmento diverso", "Different segment", "Ander segment")}</div><div className="mt-1 text-sm text-muted-foreground">{tr("Elige entre los segmentos existentes.", "Scegli tra i segmenti esistenti.", "Choose from existing segments.", "Kies uit bestaande segmenten.")}</div></button></div>{resendMode === "different" && <div className="mt-4"><Select label={tr("Segmento de destino", "Segmento di destinazione", "Destination segment", "Doelsegment")} value={resendSegmentId} options={[{ value: "", label: tr("Selecciona un segmento", "Seleziona un segmento", "Select a segment", "Selecteer een segment") }, ...segments.filter((segment) => segment.id !== resendCampaign.segment_id).map((segment) => ({ value: segment.id, label: `${segment.name} (${segment.member_count})` }))]} onChange={setResendSegmentId} />{segments.filter((segment) => segment.id !== resendCampaign.segment_id).length === 0 && <p className="mt-2 text-xs text-muted-foreground">{tr("No hay otros segmentos disponibles.", "Non ci sono altri segmenti disponibili.", "No other segments are available.", "Er zijn geen andere segmenten beschikbaar.")}</p>}</div>}<div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setResendCampaign(null)} className="rounded-sm border border-border px-4 py-3 text-sm">{tr("Cancelar", "Annulla", "Cancel", "Annuleren")}</button><button type="button" onClick={() => void createResendDraftAndPrepare()} disabled={saving || (resendMode === "same" ? !resendCampaign.segment_id : !resendSegmentId)} className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-40"><ShieldCheck size={16} />{tr("Crear y preparar envío", "Crea e prepara invio", "Create and prepare send", "Aanmaken en verzending voorbereiden")}</button></div></div></div>}
 
-    {preparation && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div><button onClick={() => setPreparation(null)}><X /></button></div><div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4"><div className="text-3xl font-medium">{preparation.data.recipient_count}</div><div className="text-sm text-muted-foreground">{tr("destinatarios elegibles", "destinatari idonei", "eligible recipients", "geschikte ontvangers")}</div></div><label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} /><span>{tr("He revisado asunto, contenido, segmento y destinatarios.", "Ho controllato oggetto, contenuto, segmento e destinatari.", "I reviewed the subject, content, segment and recipients.", "Ik heb onderwerp, inhoud, segment en ontvangers gecontroleerd.")}</span></label><div className="mt-4"><Input label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`} value={confirmationPhrase} onChange={setConfirmationPhrase} /></div>{!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{tr("El envío masivo permanece desactivado en Railway.", "L’invio massivo è ancora disattivato su Railway.", "Bulk sending is still disabled in Railway.", "Bulkverzending is nog uitgeschakeld op Railway.")}</div>}<button onClick={() => void confirmSend()} disabled={saving || !reviewConfirmed || confirmationPhrase !== preparation.data.confirmation_phrase || !preparation.data.bulk_send_enabled} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground disabled:opacity-40"><Send size={16} />{tr("Enviar campaña", "Invia campagna", "Send campaign", "Campagne verzenden")}</button><p className="mt-3 text-center text-xs text-muted-foreground">Token monouso, valido per 10 minuti.</p></div></div>}
+    {audienceChange && preparation && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="font-medium">
+              {tr(
+                "La audiencia debe actualizarse",
+                "L'audience deve essere aggiornata",
+                "The audience must be refreshed",
+                "De doelgroep moet worden bijgewerkt"
+              )}
+            </div>
+
+            <p className="mt-2 text-sm text-muted-foreground">
+              {audienceChange.reason === "segment_not_synced"
+                ? tr(
+                    "El segmento debe volver a sincronizarse con Resend. Puedes actualizar esta misma campaña.",
+                    "Il segmento deve essere risincronizzato con Resend. Puoi aggiornare questa stessa campagna.",
+                    "The segment must be synced with Resend again. You can refresh this same campaign.",
+                    "Het segment moet opnieuw met Resend worden gesynchroniseerd. Je kunt dezelfde campagne bijwerken."
+                  )
+                : tr(
+                    "Los destinatarios han cambiado desde la preparación. Actualiza la audiencia antes de continuar.",
+                    "I destinatari sono cambiati dopo la preparazione. Aggiorna l'audience prima di continuare.",
+                    "The recipients changed after preparation. Refresh the audience before continuing.",
+                    "De ontvangers zijn gewijzigd na de voorbereiding. Werk de doelgroep bij voordat je doorgaat."
+                  )}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setAudienceChange(null)}
+            aria-label="Chiudi"
+          >
+            <X />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-sm border border-border bg-background p-4">
+            <div className="text-2xl font-medium">{audienceChange.preparedCount}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {tr("Preparados", "Preparati", "Prepared", "Voorbereid")}
+            </div>
+          </div>
+
+          <div className="rounded-sm border border-border bg-background p-4">
+            <div className="text-2xl font-medium">
+              {audienceChange.reason === "segment_not_synced"
+                ? "—"
+                : audienceChange.currentEligibleCount}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {tr("Elegibles ahora", "Idonei attuali", "Currently eligible", "Nu geschikt")}
+            </div>
+          </div>
+
+          <div className="rounded-sm border border-border bg-background p-4">
+            <div className="text-2xl font-medium">
+              {audienceChange.reason === "segment_not_synced"
+                ? "—"
+                : audienceChange.resendActiveCount}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {tr("Activos en Resend", "Attivi in Resend", "Active in Resend", "Actief in Resend")}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void refreshAudienceAndPrepare()}
+          disabled={saving || !capabilities?.resendSyncConfigured}
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-40"
+        >
+          <Repeat2 size={16} />
+          {tr(
+            "Sincronizar y actualizar destinatarios",
+            "Sincronizza e aggiorna destinatari",
+            "Sync and refresh recipients",
+            "Synchroniseren en ontvangers bijwerken"
+          )}
+        </button>
+
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {tr(
+            "La campaña actual se mantendrá. Se generará una nueva confirmación de envío.",
+            "La campagna attuale verrà mantenuta. Verrà generata una nuova conferma di invio.",
+            "The current campaign will be kept. A new send confirmation will be generated.",
+            "De huidige campagne blijft behouden. Er wordt een nieuwe verzendbevestiging gegenereerd."
+          )}
+        </p>
+      </div>
+    </div>}
+
+    {preparation && !audienceChange && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div><button onClick={() => setPreparation(null)}><X /></button></div><div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4"><div className="text-3xl font-medium">{preparation.data.recipient_count}</div><div className="text-sm text-muted-foreground">{tr("destinatarios elegibles", "destinatari idonei", "eligible recipients", "geschikte ontvangers")}</div></div><label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} /><span>{tr("He revisado asunto, contenido, segmento y destinatarios.", "Ho controllato oggetto, contenuto, segmento e destinatari.", "I reviewed the subject, content, segment and recipients.", "Ik heb onderwerp, inhoud, segment en ontvangers gecontroleerd.")}</span></label><div className="mt-4"><Input label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`} value={confirmationPhrase} onChange={setConfirmationPhrase} /></div>{!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{tr("El envío masivo permanece desactivado en Railway.", "L’invio massivo è ancora disattivato su Railway.", "Bulk sending is still disabled in Railway.", "Bulkverzending is nog uitgeschakeld op Railway.")}</div>}<button onClick={() => void confirmSend()} disabled={saving || !reviewConfirmed || confirmationPhrase !== preparation.data.confirmation_phrase || !preparation.data.bulk_send_enabled} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground disabled:opacity-40"><Send size={16} />{tr("Enviar campaña", "Invia campagna", "Send campaign", "Campagne verzenden")}</button><p className="mt-3 text-center text-xs text-muted-foreground">Token monouso, valido per 10 minuti.</p></div></div>}
   </div>;
 }
