@@ -27,17 +27,30 @@ export type CampaignAudienceSafetyResult =
       remoteActiveCount: number;
     };
 
+export function campaignAudienceContextSql() {
+  return `
+    SELECT c.id,
+           c.status,
+           c.segment_id,
+           c.recipient_count,
+           c.resend_broadcast_id,
+           prepared.resend_segment_id
+    FROM crm_marketing_campaigns c
+    LEFT JOIN LATERAL (
+      SELECT e.payload->>'resendSegmentId' AS resend_segment_id
+      FROM crm_marketing_campaign_events e
+      WHERE e.campaign_id = c.id
+        AND e.event_type = 'prepared'
+      ORDER BY e.created_at DESC
+      LIMIT 1
+    ) prepared ON true
+    WHERE c.id = $1
+  `;
+}
+
 export async function verifyCampaignAudienceBeforeSend(campaignId: string): Promise<CampaignAudienceSafetyResult> {
   const campaignResult = await query<CampaignAudienceContext>(
-    `SELECT c.id,
-            c.status,
-            c.segment_id,
-            c.recipient_count,
-            c.resend_broadcast_id,
-            s.resend_segment_id
-     FROM crm_marketing_campaigns c
-     LEFT JOIN crm_marketing_segments s ON s.id = c.segment_id
-     WHERE c.id = $1`,
+    campaignAudienceContextSql(),
     [campaignId],
   );
 
