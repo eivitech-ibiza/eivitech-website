@@ -17,7 +17,7 @@ test("Lead Ads webhook uses raw JSON before Clerk and Graph API v26.0 is explici
   const server = read("api/src/server.ts");
   const config = read("api/src/meta/crmConfig.ts");
   const leadAds = read("api/src/meta/leadAds.ts");
-  const rawIndex = server.indexOf('"/api/meta/webhook"');
+  const rawIndex = server.indexOf('"/api/webhooks/meta/leadgen"');
   const clerkIndex = server.indexOf("app.use(clerkMiddleware())");
   assert.ok(rawIndex >= 0 && rawIndex < clerkIndex);
   assert.match(server, /express\.raw/);
