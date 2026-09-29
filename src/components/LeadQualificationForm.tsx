@@ -4,7 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
 import { captureUtm } from "@/lib/utm";
-import { track } from "@/lib/tracking";
+import { getStoredConsent, track } from "@/lib/tracking";
+import { captureMetaAttribution, storeMetaRevocationToken } from "@/lib/metaAttribution";
 import { submitLeadToCrm, submitPartnerToCrm } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
@@ -59,6 +60,8 @@ const errorCls = "mt-1 text-xs text-destructive";
 export function LeadQualificationForm({ source = "contacto" }: { source?: string }) {
   const navigate = useNavigate();
   const startedRef = useRef(false);
+  const clientSubmissionRef = useRef<{ id: string; timestamp: string } | null>(null);
+  const partnerSubmissionRef = useRef<{ id: string; timestamp: string } | null>(null);
   const [mode, setMode] = useState<FormMode>("cliente");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -104,18 +107,46 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
     };
   }, [source, mode]);
 
-  const basePayload = () => ({ ...captureUtm(), source: mode === "partner" ? `${source}-partner` : source, timestamp: new Date().toISOString() });
+  const getSubmissionIdentity = (kind: FormMode) => {
+    const target = kind === "cliente" ? clientSubmissionRef : partnerSubmissionRef;
+    if (!target.current) {
+      target.current = { id: crypto.randomUUID(), timestamp: new Date().toISOString() };
+    }
+    return target.current;
+  };
+
+  const basePayload = (kind: FormMode) => {
+    const identity = getSubmissionIdentity(kind);
+    const consent = getStoredConsent();
+    const metaConsent = Boolean(consent?.marketing);
+    return {
+      ...captureUtm(),
+      ...captureMetaAttribution(metaConsent),
+      source: kind === "partner" ? `${source}-partner` : source,
+      timestamp: identity.timestamp,
+      submission_id: identity.id,
+      lead_kind: kind === "partner" ? "partner" as const : "customer" as const,
+      meta_consent: metaConsent,
+      meta_consent_source: metaConsent ? "cookie_banner" as const : "none" as const,
+      meta_consent_at: metaConsent ? consent?.updatedAt : undefined,
+      meta_consent_version: metaConsent ? consent?.version : undefined,
+    };
+  };
 
   const onClientSubmit = async (data: LeadFormData) => {
     setSubmitting(true);
     setSubmitError(null);
-    const payload = { ...data, ...basePayload() };
+    const payload = { ...data, ...basePayload("cliente") };
     track("form_submit", { source, mode: "cliente" });
-    track("quote_request", { source, tipoCliente: data.tipoCliente, intervencion: data.intervencion });
 
     try {
-      await submitLeadToCrm(payload);
-      track("lead", { source, mode: "cliente", tipoCliente: data.tipoCliente, intervencion: data.intervencion });
+      const response = await submitLeadToCrm(payload);
+      storeMetaRevocationToken(response.metaConsentRevocationToken);
+      track(
+        "lead",
+        { source, mode: "cliente", tipoCliente: data.tipoCliente, intervencion: data.intervencion },
+        { eventId: response.eventId || undefined }
+      );
       await new Promise((r) => setTimeout(r, 400));
       navigate("/gracias");
     } catch (error) {
@@ -134,13 +165,17 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
   const onPartnerSubmit = async (data: PartnerFormData) => {
     setSubmitting(true);
     setSubmitError(null);
-    const payload = { ...data, ...basePayload() };
+    const payload = { ...data, ...basePayload("partner") };
     track("form_submit", { source, mode: "partner", categoria: data.categoria });
 
     try {
-      await submitPartnerToCrm(payload);
-      track("partner_application", { source, mode: "partner", categoria: data.categoria });
-      track("lead", { source, mode: "partner", categoria: data.categoria });
+      const response = await submitPartnerToCrm(payload);
+      storeMetaRevocationToken(response.metaConsentRevocationToken);
+      track(
+        "partner_application",
+        { source, mode: "partner", categoria: data.categoria },
+        { eventId: response.eventId || undefined }
+      );
       await new Promise((r) => setTimeout(r, 400));
       navigate("/gracias");
     } catch (error) {
@@ -430,9 +465,10 @@ function PrivacyAndSubmit({
 
       <p className="text-xs text-muted-foreground">
         {tr(
-          "Puedes cambiar tus preferencias de cookies en cualquier momento desde el footer. La medición publicitaria solo se activa si aceptas analítica o marketing.",
-          "Puoi modificare le preferenze cookie in qualsiasi momento dal footer. La misurazione pubblicitaria si attiva solo se accetti analitica o marketing.",
-          "You can change your cookie preferences at any time from the footer. Advertising measurement is activated only if you accept analytics or marketing."
+          "Puedes cambiar tus preferencias de cookies en cualquier momento desde el footer. La medición y compartición publicitaria con Meta solo se activa si aceptas marketing.",
+          "Puoi modificare le preferenze cookie in qualsiasi momento dal footer. La misurazione e condivisione pubblicitaria con Meta si attiva solo se accetti marketing.",
+          "You can change your cookie preferences at any time from the footer. Advertising measurement and sharing with Meta is activated only if you accept marketing.",
+          "Je kunt je cookievoorkeuren op elk moment via de footer wijzigen. Advertentiemeting en gegevensdeling met Meta worden alleen geactiveerd als je marketing accepteert."
         )}
       </p>
     </>

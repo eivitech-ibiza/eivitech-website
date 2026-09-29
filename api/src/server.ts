@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -18,6 +19,9 @@ import { notifyLeadByEmail } from "./email.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
 import { marketingRouter } from "./marketing.js";
 import { marketingPublicRouter } from "./marketingPublic.js";
+import { buildLeadSubmissionFingerprint, isPgUniqueViolation, sanitizeAttributionValue, sanitizeLandingPage, sanitizeReferrer } from "./leadSubmission.js";
+import { createMetaConsentToken } from "./meta/consent.js";
+import { metaRouter } from "./meta/routes.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -67,6 +71,7 @@ app.use(
   marketingPublicRouter
 );
 app.use(clerkMiddleware());
+app.use("/api/meta", express.json({ limit: "20kb" }), metaRouter);
 
 const leadSchema = z.object({
   nombre: z.string().trim().min(2).max(80),
@@ -83,6 +88,15 @@ const leadSchema = z.object({
   mensaje: z.string().trim().max(1500).optional().or(z.literal("")),
   consentimiento: z.literal(true),
   marketingConsent: z.boolean().optional().default(false),
+  submission_id: z.string().uuid().optional(),
+  lead_kind: z.enum(["customer", "partner"]).optional().default("customer"),
+  meta_consent: z.boolean().optional().default(false),
+  meta_consent_source: z.enum(["cookie_banner", "none"]).optional().default("none"),
+  meta_consent_at: z.string().datetime().optional(),
+  meta_consent_version: z.number().int().min(1).max(20).optional(),
+  fbp: z.string().trim().max(255).optional(),
+  fbc: z.string().trim().max(255).optional(),
+  fbclid: z.string().trim().max(512).optional(),
   source: z.string().trim().max(120).optional(),
   landing_page: z.string().trim().max(300).optional(),
   referrer: z.string().trim().max(500).optional(),
@@ -239,6 +253,43 @@ app.use(
   marketingRouter
 );
 
+type ExistingSubmission = {
+  id: string;
+  submission_fingerprint: string | null;
+  meta_event_id: string | null;
+  score: number;
+  priority: string;
+  next_action: string | null;
+  token: string | null;
+};
+
+async function findExistingSubmission(submissionId: string) {
+  const result = await query<ExistingSubmission>(
+    `SELECT l.id, l.submission_fingerprint, l.meta_event_id, l.score, l.priority, l.next_action,
+            CASE WHEN t.revoked_at IS NULL THEN t.token ELSE NULL END AS token
+     FROM crm_leads l
+     LEFT JOIN crm_meta_consent_tokens t ON t.lead_id = l.id
+     WHERE l.submission_id = $1
+     LIMIT 1`,
+    [submissionId]
+  );
+  return result.rows[0] ?? null;
+}
+
+function buildIdempotentLeadResponse(existing: ExistingSubmission, submissionId: string) {
+  return {
+    ok: true,
+    duplicate: true,
+    leadId: existing.id,
+    submissionId,
+    eventId: existing.meta_event_id,
+    score: existing.score,
+    priority: existing.priority,
+    nextAction: existing.next_action,
+    metaConsentRevocationToken: existing.token,
+  };
+}
+
 app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => {
   const parsed = leadSchema.safeParse(req.body);
 
@@ -247,6 +298,30 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
   }
 
   const data = parsed.data;
+  if (
+    data.meta_consent &&
+    (data.meta_consent_source !== "cookie_banner" || !data.meta_consent_at || !data.meta_consent_version)
+  ) {
+    return res.status(400).json({ error: "Meta consent proof is incomplete" });
+  }
+
+  const submissionFingerprint = data.submission_id
+    ? buildLeadSubmissionFingerprint(data as Record<string, unknown>)
+    : null;
+
+  if (data.submission_id) {
+    const existing = await findExistingSubmission(data.submission_id);
+    if (existing) {
+      if (existing.submission_fingerprint !== submissionFingerprint) {
+        return res.status(409).json({
+          error: "Submission ID already exists with a different payload",
+          code: "SUBMISSION_ID_CONFLICT",
+        });
+      }
+      return res.status(200).json(buildIdempotentLeadResponse(existing, data.submission_id));
+    }
+  }
+
   const scoringInput = {
     plazo: data.plazo,
     intervencion: data.intervencion,
@@ -261,9 +336,22 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
   const priority = priorityFromScore(score);
   const nextAction = nextActionForLead(scoringInput);
   const status = initialStatusForLead(scoringInput);
+  const eventId = randomUUID();
+  const safeLandingPage = sanitizeLandingPage(data.landing_page);
+  const safeReferrer = sanitizeReferrer(data.referrer);
+  const safeUtmSource = sanitizeAttributionValue(data.utm_source, 120);
+  const safeUtmMedium = sanitizeAttributionValue(data.utm_medium, 120);
+  const safeUtmCampaign = sanitizeAttributionValue(data.utm_campaign, 160);
+  const safeUtmContent = sanitizeAttributionValue(data.utm_content, 160);
+  const safeUtmTerm = sanitizeAttributionValue(data.utm_term, 160);
+  const safeFbp = data.meta_consent ? sanitizeAttributionValue(data.fbp, 255) : null;
+  const safeFbc = data.meta_consent ? sanitizeAttributionValue(data.fbc, 255) : null;
+  const safeFbclid = data.meta_consent ? sanitizeAttributionValue(data.fbclid, 512) : null;
+
   const client = await pool.connect();
   let leadId = "";
   let restoredResendContactId: string | null = null;
+  let metaConsentRevocationToken: string | null = null;
 
   try {
     await client.query("BEGIN");
@@ -272,12 +360,18 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
         status, priority, score, nombre, email, telefono, tipo_cliente, tipo_propiedad, zona,
         intervencion, tiene_fotos, tiene_proyecto, plazo, presupuesto, mensaje, source,
         landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-        consent_privacy, consent_marketing, next_action
+        consent_privacy, consent_marketing, next_action,
+        submission_id, submission_fingerprint, meta_event_id, lead_kind,
+        meta_consent, meta_consent_source, meta_consent_at, meta_consent_version,
+        meta_fbp, meta_fbc, meta_fbclid
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9,
         $10, $11, $12, $13, $14, $15, $16,
         $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26
+        $24, $25, $26,
+        $27, $28, $29, $30,
+        $31, $32, $33, $34,
+        $35, $36, $37
       ) RETURNING *`,
       [
         status,
@@ -296,21 +390,34 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
         data.presupuesto || null,
         data.mensaje || null,
         data.source || "web",
-        data.landing_page || null,
-        data.referrer || null,
-        data.utm_source || null,
-        data.utm_medium || null,
-        data.utm_campaign || null,
-        data.utm_content || null,
-        data.utm_term || null,
+        safeLandingPage,
+        safeReferrer,
+        safeUtmSource,
+        safeUtmMedium,
+        safeUtmCampaign,
+        safeUtmContent,
+        safeUtmTerm,
         data.consentimiento,
         data.marketingConsent,
         nextAction,
+        data.submission_id || null,
+        submissionFingerprint,
+        eventId,
+        data.lead_kind,
+        data.meta_consent,
+        data.meta_consent ? data.meta_consent_source : "none",
+        data.meta_consent ? data.meta_consent_at || null : null,
+        data.meta_consent ? data.meta_consent_version || null : null,
+        safeFbp,
+        safeFbc,
+        safeFbclid,
       ]
     );
 
     const lead = result.rows[0] as { id: string };
     leadId = lead.id;
+
+    metaConsentRevocationToken = await createMetaConsentToken(client, lead.id, data.meta_consent);
 
     await client.query(
       `INSERT INTO crm_activities (lead_id, type, title, notes)
@@ -325,6 +432,20 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
+
+    if (data.submission_id && isPgUniqueViolation(error)) {
+      const existing = await findExistingSubmission(data.submission_id);
+      if (existing && existing.submission_fingerprint === submissionFingerprint) {
+        return res.status(200).json(buildIdempotentLeadResponse(existing, data.submission_id));
+      }
+      if (existing) {
+        return res.status(409).json({
+          error: "Submission ID already exists with a different payload",
+          code: "SUBMISSION_ID_CONFLICT",
+        });
+      }
+    }
+
     console.error("[api] failed to create lead and marketing contact", error);
     return res.status(500).json({ error: "Failed to create lead" });
   } finally {
@@ -346,7 +467,17 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
     console.error("[api] lead saved but post-create notification failed", error);
   }
 
-  return res.status(201).json({ ok: true, leadId, score, priority, nextAction });
+  return res.status(201).json({
+    ok: true,
+    duplicate: false,
+    leadId,
+    submissionId: data.submission_id || null,
+    eventId,
+    score,
+    priority,
+    nextAction,
+    metaConsentRevocationToken,
+  });
 });
 
 app.use("/api/leads", crmJsonParser);

@@ -102,9 +102,10 @@ const Privacidad = () => (
               <LegalPurpose
                 title={tr("Analítica y publicidad", "Analitica e pubblicità", "Analytics and advertising")}
                 text={tr(
-                  "Medir visitas, conversiones, rendimiento de landing pages, campañas de Google y Meta y realizar remarketing. Base jurídica: consentimiento del usuario, que puede retirarse desde la configuración de cookies.",
-                  "Misurare visite, conversioni, rendimento delle landing page, campagne Google e Meta ed effettuare remarketing. Base giuridica: consenso dell'utente, revocabile dalle preferenze cookie.",
-                  "Measuring visits, conversions, landing-page performance, Google and Meta campaigns and carrying out remarketing. Legal basis: user consent, which may be withdrawn through cookie settings."
+                  "Medir visitas, conversiones, rendimiento de landing pages, campañas de Google y Meta y realizar remarketing. Cuando el usuario lo autoriza, pueden conservarse identificadores de atribución y la prueba del consentimiento junto al lead para futuras mediciones publicitarias permitidas. Este consentimiento es independiente del consentimiento para recibir emails comerciales y puede retirarse desde la configuración de cookies.",
+                  "Misurare visite, conversioni, rendimento delle landing page, campagne Google e Meta ed effettuare remarketing. Quando l'utente lo autorizza, gli identificatori di attribuzione e la prova del consenso possono essere conservati insieme al lead per future misurazioni pubblicitarie consentite. Questo consenso è distinto dal consenso a ricevere email commerciali e può essere revocato dalle preferenze cookie.",
+                  "Measuring visits, conversions, landing-page performance, Google and Meta campaigns and carrying out remarketing. Where the user authorises it, attribution identifiers and proof of consent may be retained with the lead for future permitted advertising measurement. This consent is separate from consent to receive marketing email and may be withdrawn through cookie settings.",
+                  "Bezoeken, conversies, prestaties van landingspagina's en campagnes van Google en Meta meten en remarketing uitvoeren. Wanneer de gebruiker dit toestaat, kunnen attributie-identificatoren en bewijs van toestemming bij de lead worden bewaard voor toekomstige toegestane advertentiemeting. Deze toestemming staat los van toestemming voor marketing-e-mail en kan via de cookie-instellingen worden ingetrokken."
                 )}
               />
             </div>

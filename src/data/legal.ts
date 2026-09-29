@@ -15,9 +15,9 @@ export const LEGAL = {
   leadRetentionMonths: 24,
   consentValidityMonths: 24,
   leadRetention: "24 meses desde el último contacto, salvo que exista una relación contractual, una obligación legal o sea necesario conservarlos para formular, ejercer o defender reclamaciones",
-  lastUpdated: "10 de julio de 2026",
-  lastUpdatedIt: "10 luglio 2026",
-  lastUpdatedEn: "10 July 2026",
+  lastUpdated: "29 de septiembre de 2026",
+  lastUpdatedIt: "29 settembre 2026",
+  lastUpdatedEn: "29 September 2026",
 };
 
 export const TRACKING_PROVIDERS = [
