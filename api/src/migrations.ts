@@ -99,6 +99,17 @@ CREATE TABLE IF NOT EXISTS crm_meta_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE crm_meta_settings
+  ADD COLUMN IF NOT EXISTS capi_mode text NOT NULL DEFAULT 'disabled';
+ALTER TABLE crm_meta_settings
+  ADD COLUMN IF NOT EXISTS test_event_code text;
+
+ALTER TABLE crm_meta_settings
+  DROP CONSTRAINT IF EXISTS crm_meta_settings_capi_mode_check;
+ALTER TABLE crm_meta_settings
+  ADD CONSTRAINT crm_meta_settings_capi_mode_check
+  CHECK (capi_mode IN ('disabled', 'test', 'production'));
+
 CREATE TABLE IF NOT EXISTS crm_meta_config_audit (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   scope text NOT NULL,
