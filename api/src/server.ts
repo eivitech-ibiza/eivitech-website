@@ -26,6 +26,7 @@ import { enqueueWebsiteLeadEvent, startMetaOutboxWorker } from "./meta/outbox.js
 import { metaRouter } from "./meta/routes.js";
 import { handleLeadWorkflow } from "./leadWorkflow.js";
 
+// Deployment sync marker: ensure Railway rebuilds the API after Meta config reload fix.
 const PORT = Number(process.env.PORT || 3000);
 
 const allowedOrigins = (process.env.ALLOWED_ORIGIN ?? "https://lncoachmrc.github.io,http://localhost:5173")
