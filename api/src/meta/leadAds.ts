@@ -265,7 +265,7 @@ async function processWebhookRow(row: WebhookRow) {
   }
 
   const fields = "id,created_time,form_id,ad_id,adset_id,campaign_id,field_data";
-  let response: Response;
+  let response: globalThis.Response;
   try {
     response = await fetch(
       `https://graph.facebook.com/${META_GRAPH_API_VERSION}/${encodeURIComponent(row.leadgen_id)}?fields=${encodeURIComponent(fields)}`,
