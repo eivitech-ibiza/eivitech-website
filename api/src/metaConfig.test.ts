@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeMetaWebConfigInput, validateMetaPixelId } from "./meta/config.js";
+import { normalizeMetaWebConfigInput, validateMetaPixelId } from "./meta/configValidation.js";
 
 test("Meta Pixel IDs accept decimal asset identifiers and reject unsafe input", () => {
   assert.equal(validateMetaPixelId("123456789012345"), true);

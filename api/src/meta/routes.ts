@@ -3,7 +3,8 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { requireCrmUser, requireRole } from "../auth.js";
 import { pool } from "../db.js";
-import { getMetaWebConfig, normalizeMetaWebConfigInput } from "./config.js";
+import { getMetaWebConfig } from "./config.js";
+import { normalizeMetaWebConfigInput } from "./configValidation.js";
 import { revokeMetaConsentByToken } from "./consent.js";
 
 export const metaRouter = Router();
