@@ -467,7 +467,8 @@ function PrivacyAndSubmit({
         {tr(
           "Puedes cambiar tus preferencias de cookies en cualquier momento desde el footer. La medición y compartición publicitaria con Meta solo se activa si aceptas marketing.",
           "Puoi modificare le preferenze cookie in qualsiasi momento dal footer. La misurazione e condivisione pubblicitaria con Meta si attiva solo se accetti marketing.",
-          "You can change your cookie preferences at any time from the footer. Advertising measurement and sharing with Meta is activated only if you accept marketing."
+          "You can change your cookie preferences at any time from the footer. Advertising measurement and sharing with Meta is activated only if you accept marketing.",
+          "Je kunt je cookievoorkeuren op elk moment via de footer wijzigen. Advertentiemeting en gegevensdeling met Meta worden alleen geactiveerd als je marketing accepteert."
         )}
       </p>
     </>

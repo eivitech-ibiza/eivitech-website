@@ -9,7 +9,7 @@ test("Meta Pixel lead signal is emitted only after CRM success and partner appli
   const tracking = read("src/lib/tracking.ts");
 
   const submitIndex = form.indexOf("await submitLeadToCrm");
-  const leadIndex = form.indexOf('track("lead"');
+  const leadIndex = form.indexOf('"lead"', submitIndex);
   assert.ok(submitIndex >= 0, "client submit must call CRM");
   assert.ok(leadIndex > submitIndex, "Lead tracking must happen only after CRM success");
   assert.equal(
