@@ -36,7 +36,7 @@ test("CRM workflow is atomic and replaces the old two-request Dashboard write pa
   assert.match(crm, /\/workflow/);
   assert.match(workflow, /BEGIN/);
   assert.match(workflow, /crm_lead_outcomes/);
-  assert.match(workflow, /crm_meta_outbox/);
+  assert.match(workflow, /enqueueCrmEvent/);
   assert.match(workflow, /COMMIT/);
 });
 
