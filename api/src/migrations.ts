@@ -52,10 +52,74 @@ CREATE TABLE IF NOT EXISTS crm_leads (
 ALTER TABLE crm_leads
   ADD COLUMN IF NOT EXISTS consent_marketing boolean NOT NULL DEFAULT false;
 
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS submission_id uuid;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS submission_fingerprint text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_event_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS lead_kind text NOT NULL DEFAULT 'customer';
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_consent boolean NOT NULL DEFAULT false;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_consent_source text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_consent_at timestamptz;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_consent_version integer;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_fbp text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_fbc text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_fbclid text;
+
+ALTER TABLE crm_leads
+  DROP CONSTRAINT IF EXISTS crm_leads_lead_kind_check;
+ALTER TABLE crm_leads
+  ADD CONSTRAINT crm_leads_lead_kind_check
+  CHECK (lead_kind IN ('customer', 'partner'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_submission_id
+  ON crm_leads(submission_id)
+  WHERE submission_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_crm_leads_created_at ON crm_leads(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_status ON crm_leads(status);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_priority ON crm_leads(priority);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_email ON crm_leads(email);
+
+CREATE TABLE IF NOT EXISTS crm_meta_settings (
+  scope text PRIMARY KEY CHECK (scope IN ('web')),
+  pixel_id text,
+  enabled boolean NOT NULL DEFAULT false,
+  updated_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS crm_meta_config_audit (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scope text NOT NULL,
+  changed_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  before_value jsonb NOT NULL DEFAULT '{}'::jsonb,
+  after_value jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_meta_config_audit_created_at
+  ON crm_meta_config_audit(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS crm_meta_consent_tokens (
+  lead_id uuid PRIMARY KEY REFERENCES crm_leads(id) ON DELETE CASCADE,
+  token text UNIQUE NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  revoked_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_meta_consent_tokens_token
+  ON crm_meta_consent_tokens(token);
 
 CREATE TABLE IF NOT EXISTS crm_activities (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
