@@ -17,6 +17,26 @@ function hasAttributionConsent() {
   return Boolean(consent?.analytics || consent?.marketing);
 }
 
+function sanitizeCampaignValue(value: string | null) {
+  if (!value) return undefined;
+  const trimmed = value.trim().slice(0, 160);
+  if (!trimmed) return undefined;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return undefined;
+  if (/^\+?[\d\s().-]{9,}$/.test(trimmed)) return undefined;
+  return trimmed;
+}
+
+function sanitizeReferrer(value: string) {
+  if (!value) return "direct";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "direct";
+    return `${url.origin}${url.pathname}`.slice(0, 500);
+  } catch {
+    return "direct";
+  }
+}
+
 function saveSessionAttribution(value: UTM) {
   if (!hasAttributionConsent()) return;
   try {
@@ -36,6 +56,8 @@ function clearSessionAttribution() {
 
 function languageAwareLandingPage(pathname: string) {
   const url = new URL(pathname || "/", window.location.origin);
+  url.search = "";
+  url.hash = "";
   url.searchParams.set("lang", CURRENT_LANGUAGE);
   return `${url.pathname}${url.search}`;
 }
@@ -55,7 +77,7 @@ export function captureUtm(): UTM {
   let hasNew = false;
 
   for (const key of KEYS) {
-    const value = params.get(key);
+    const value = sanitizeCampaignValue(params.get(key));
     if (value) {
       fromUrl[key] = value;
       hasNew = true;
@@ -64,7 +86,7 @@ export function captureUtm(): UTM {
 
   if (hasNew) {
     fromUrl.landing_page = languageAwareLandingPage(window.location.pathname);
-    fromUrl.referrer = document.referrer || "direct";
+    fromUrl.referrer = sanitizeReferrer(document.referrer);
     fromUrl.timestamp = new Date().toISOString();
     inMemoryUtm = fromUrl;
 
@@ -99,7 +121,7 @@ export function captureUtm(): UTM {
 
   return {
     landing_page: languageAwareLandingPage(window.location.pathname),
-    referrer: document.referrer || "direct",
+    referrer: sanitizeReferrer(document.referrer),
     timestamp: new Date().toISOString(),
   };
 }

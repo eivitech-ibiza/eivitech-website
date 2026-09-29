@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { LEGAL } from "@/data/legal";
 import { acceptAllConsent, getStoredConsent, rejectOptionalConsent, saveConsent } from "@/lib/tracking";
 import { tr } from "@/lib/i18n";
+import { revokeStoredMetaConsents } from "@/lib/metaAttribution";
 
 type Preferences = {
   preferences: boolean;
@@ -56,15 +57,19 @@ export function CookieConsent() {
   };
 
   const rejectAll = () => {
+    const previous = getStoredConsent();
     rejectOptionalConsent();
     clearAttributionStorageWhenRejected(defaultPreferences);
+    if (previous?.marketing) void revokeStoredMetaConsents();
     setPrefs(defaultPreferences);
     setVisible(false);
   };
 
   const saveCustom = () => {
+    const previous = getStoredConsent();
     saveConsent(prefs);
     clearAttributionStorageWhenRejected(prefs);
+    if (previous?.marketing && !prefs.marketing) void revokeStoredMetaConsents();
     setVisible(false);
   };
 

@@ -1,8 +1,32 @@
 import type { LeadFormData, PartnerFormData } from "@/components/LeadQualificationForm";
 
-const CRM_ENDPOINT = "https://ibiza-project-accelerator-production.up.railway.app";
+export const CRM_ENDPOINT = "https://ibiza-project-accelerator-production.up.railway.app";
 
-export type CrmLeadPayload = LeadFormData & {
+export type MetaSubmissionContext = {
+  submission_id?: string;
+  lead_kind?: "customer" | "partner";
+  meta_consent?: boolean;
+  meta_consent_source?: "cookie_banner" | "none";
+  meta_consent_at?: string;
+  meta_consent_version?: number;
+  fbp?: string;
+  fbc?: string;
+  fbclid?: string;
+};
+
+export type CrmLeadResponse = {
+  ok: boolean;
+  duplicate?: boolean;
+  leadId: string;
+  submissionId?: string | null;
+  eventId?: string | null;
+  score: number;
+  priority: string;
+  nextAction?: string | null;
+  metaConsentRevocationToken?: string | null;
+};
+
+export type CrmLeadPayload = LeadFormData & MetaSubmissionContext & {
   source: string;
   landing_page?: string;
   referrer?: string;
@@ -15,7 +39,7 @@ export type CrmLeadPayload = LeadFormData & {
   ts?: string;
 };
 
-export type CrmPartnerPayload = PartnerFormData & {
+export type CrmPartnerPayload = PartnerFormData & MetaSubmissionContext & {
   source: string;
   landing_page?: string;
   referrer?: string;
@@ -74,7 +98,7 @@ export async function submitLeadToCrm(payload: CrmLeadPayload) {
     throw new Error(message || "CRM submit failed");
   }
 
-  return response.json();
+  return response.json() as Promise<CrmLeadResponse>;
 }
 
 export function toPartnerLeadPayload(payload: CrmPartnerPayload): CrmLeadPayload {
@@ -115,6 +139,15 @@ export function toPartnerLeadPayload(payload: CrmPartnerPayload): CrmLeadPayload
     utm_content: payload.utm_content,
     utm_term: payload.utm_term,
     ts: payload.ts,
+    submission_id: payload.submission_id,
+    lead_kind: "partner",
+    meta_consent: payload.meta_consent,
+    meta_consent_source: payload.meta_consent_source,
+    meta_consent_at: payload.meta_consent_at,
+    meta_consent_version: payload.meta_consent_version,
+    fbp: payload.fbp,
+    fbc: payload.fbc,
+    fbclid: payload.fbclid,
   };
 }
 

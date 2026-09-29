@@ -1,3 +1,6 @@
+import { clearMetaAttributionCookies } from "@/lib/metaAttribution";
+import { fetchPublicMetaConfig, type MetaPublicWebConfig } from "@/lib/metaIntegration";
+
 export type TrackEvent =
   | "page_view"
   | "service_page_view"
@@ -15,12 +18,16 @@ export type TrackEvent =
   | "google_landing_view";
 
 export type ConsentState = {
-  version: 2;
+  version: 3;
   necessary: true;
   preferences: boolean;
   analytics: boolean;
   marketing: boolean;
   updatedAt: string;
+};
+
+export type TrackOptions = {
+  eventId?: string;
 };
 
 type Fbq = ((...args: unknown[]) => void) & {
@@ -31,11 +38,11 @@ type Fbq = ((...args: unknown[]) => void) & {
   push?: (...args: unknown[]) => void;
 };
 
-export const COOKIE_CONSENT_KEY = "eivitech_cookie_consent_v2";
+export const COOKIE_CONSENT_KEY = "eivitech_cookie_consent_v3";
 export const CONSENT_VALIDITY_MONTHS = 24;
 
 const DEFAULT_CONSENT: ConsentState = {
-  version: 2,
+  version: 3,
   necessary: true,
   preferences: false,
   analytics: false,
@@ -48,12 +55,13 @@ const trackingConfig = {
   ga4Id: import.meta.env.VITE_GA4_ID || "",
   googleAdsId: import.meta.env.VITE_GOOGLE_ADS_ID || "",
   googleAdsLeadLabel: import.meta.env.VITE_GOOGLE_ADS_LEAD_LABEL || "",
-  metaPixelId: import.meta.env.VITE_META_PIXEL_ID || "",
+  fallbackMetaPixelId: import.meta.env.VITE_META_PIXEL_ID || "",
 };
 
 let gtmLoaded = false;
 let gtagLoaded = false;
-let metaLoaded = false;
+let metaLoadedPixelId: string | null = null;
+let metaConfigPromise: Promise<MetaPublicWebConfig> | null = null;
 
 declare global {
   interface Window {
@@ -67,6 +75,11 @@ declare global {
 
 function canUseDom() {
   return typeof window !== "undefined" && typeof document !== "undefined";
+}
+
+function isPrivateCrmPath() {
+  if (!canUseDom()) return false;
+  return window.location.pathname.startsWith("/dashboard") || /\/(?:es|it|en|nl)\/dashboard(?:\/|$)/.test(window.location.pathname);
 }
 
 function ensureDataLayer() {
@@ -114,7 +127,7 @@ export function getStoredConsent(): ConsentState | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<ConsentState>;
-    if (parsed.version !== 2 || !parsed.updatedAt) {
+    if (parsed.version !== 3 || !parsed.updatedAt) {
       window.localStorage.removeItem(COOKIE_CONSENT_KEY);
       return null;
     }
@@ -136,7 +149,7 @@ export function getStoredConsent(): ConsentState | null {
       ...DEFAULT_CONSENT,
       ...parsed,
       necessary: true,
-      version: 2,
+      version: 3,
       updatedAt: parsed.updatedAt,
     };
   } catch {
@@ -148,7 +161,7 @@ export function getStoredConsent(): ConsentState | null {
 export function saveConsent(consent: Omit<ConsentState, "version" | "necessary" | "updatedAt">) {
   if (!canUseDom()) return;
   const next: ConsentState = {
-    version: 2,
+    version: 3,
     necessary: true,
     preferences: consent.preferences,
     analytics: consent.analytics,
@@ -193,9 +206,38 @@ function loadGoogleStack(consent: ConsentState) {
   }
 }
 
-function loadMetaPixel(consent: ConsentState) {
-  if (!canUseDom() || !consent.marketing || !trackingConfig.metaPixelId || metaLoaded) return;
+async function resolveMetaConfig() {
+  if (!metaConfigPromise) {
+    metaConfigPromise = fetchPublicMetaConfig()
+      .then(({ web }) => {
+        if (web.configured) return web;
+        const fallback = trackingConfig.fallbackMetaPixelId.trim();
+        if (fallback) {
+          return {
+            configured: false,
+            enabled: true,
+            pixelId: fallback,
+            updatedAt: null,
+            source: "vite_fallback" as const,
+          };
+        }
+        return { ...web, source: "runtime" as const };
+      })
+      .catch(() => {
+        const fallback = trackingConfig.fallbackMetaPixelId.trim();
+        return {
+          configured: false,
+          enabled: Boolean(fallback),
+          pixelId: fallback || null,
+          updatedAt: null,
+          source: "vite_fallback" as const,
+        };
+      });
+  }
+  return metaConfigPromise;
+}
 
+function createFbq() {
   const fbq: Fbq = function fbqProxy(...args: unknown[]) {
     if (fbq.callMethod) {
       fbq.callMethod(...args);
@@ -203,48 +245,120 @@ function loadMetaPixel(consent: ConsentState) {
       fbq.queue?.push(args);
     }
   };
+  fbq.queue = [];
+  fbq.loaded = true;
+  fbq.version = "2.0";
+  return fbq;
+}
+
+async function loadMetaPixel(consent: ConsentState) {
+  if (!canUseDom() || isPrivateCrmPath() || !consent.marketing) return false;
+  const currentConsent = getStoredConsent();
+  if (!currentConsent?.marketing) return false;
+
+  const config = await resolveMetaConfig();
+  if (!config.enabled || !config.pixelId) return false;
+
+  if (metaLoadedPixelId && metaLoadedPixelId !== config.pixelId) {
+    return false;
+  }
 
   if (!window.fbq) {
-    fbq.queue = [];
-    fbq.loaded = true;
-    fbq.version = "2.0";
+    const fbq = createFbq();
     window.fbq = fbq;
     window._fbq = fbq;
   }
 
-  metaLoaded = true;
-  loadScript("eivitech-meta-pixel", "https://connect.facebook.net/en_US/fbevents.js");
-  window.fbq?.("init", trackingConfig.metaPixelId);
-  window.fbq?.("track", "PageView");
+  if (!metaLoadedPixelId) {
+    metaLoadedPixelId = config.pixelId;
+    loadScript("eivitech-meta-pixel", "https://connect.facebook.net/en_US/fbevents.js");
+    window.fbq?.("init", config.pixelId);
+  }
+  window.fbq?.("consent", "grant");
+  return true;
+}
+
+function revokeMetaPixel() {
+  if (!canUseDom()) return;
+  window.fbq?.("consent", "revoke");
+  clearMetaAttributionCookies();
 }
 
 export function applyTrackingConsent(consent: ConsentState) {
   if (!canUseDom()) return;
   setDefaultConsent();
   loadGoogleStack(consent);
-  loadMetaPixel(consent);
+  if (consent.marketing) {
+    void loadMetaPixel(consent);
+  } else {
+    revokeMetaPixel();
+  }
 }
 
 export function initTrackingFromStoredConsent() {
-  if (!canUseDom()) return;
+  if (!canUseDom() || isPrivateCrmPath()) return;
   setDefaultConsent();
   const stored = getStoredConsent();
   if (stored) applyTrackingConsent(stored);
 }
 
-function metaEventName(event: TrackEvent) {
-  if (event === "page_view") return "PageView";
-  if (event === "lead" || event === "quote_request") return "Lead";
-  if (event === "whatsapp_click" || event === "phone_click" || event === "email_click") return "Contact";
+function metaEventDescriptor(event: TrackEvent) {
+  if (["page_view", "service_page_view", "project_view", "meta_landing_view", "google_landing_view"].includes(event)) {
+    return { name: "PageView", custom: false };
+  }
+  if (event === "lead") return { name: "Lead", custom: false };
+  if (event === "whatsapp_click" || event === "phone_click" || event === "email_click") {
+    return { name: "Contact", custom: false };
+  }
+  if (event === "partner_application") return { name: "PartnerApplication", custom: true };
   return null;
 }
 
-export function track(event: TrackEvent, payload: Record<string, unknown> = {}) {
+function safeMetaPayload(payload: Record<string, unknown>) {
+  const allowed = new Set([
+    "source",
+    "mode",
+    "tipoCliente",
+    "intervencion",
+    "categoria",
+    "path",
+    "content_type",
+    "content_name",
+    "contact_channel",
+  ]);
+  return Object.fromEntries(
+    Object.entries(payload)
+      .filter(([key, value]) => allowed.has(key) && ["string", "number", "boolean"].includes(typeof value))
+      .map(([key, value]) => [key, typeof value === "string" ? value.slice(0, 160) : value])
+  );
+}
+
+async function emitMetaEvent(event: TrackEvent, payload: Record<string, unknown>, eventId?: string) {
+  const consent = getStoredConsent();
+  if (!consent?.marketing || isPrivateCrmPath()) return;
+  const descriptor = metaEventDescriptor(event);
+  if (!descriptor) return;
+
+  const ready = await loadMetaPixel(consent);
+  if (!ready || !getStoredConsent()?.marketing || !window.fbq) return;
+
+  const params = safeMetaPayload(payload);
+  const options = eventId ? { eventID: eventId } : undefined;
+  if (descriptor.custom) {
+    window.fbq("trackCustom", descriptor.name, params, options);
+  } else {
+    window.fbq("track", descriptor.name, params, options);
+  }
+}
+
+export function track(event: TrackEvent, payload: Record<string, unknown> = {}, options: TrackOptions = {}) {
   if (!canUseDom()) return;
 
   const entry = { event, payload, ts: Date.now() };
   window.__eivitechEvents = window.__eivitechEvents || [];
   window.__eivitechEvents.push(entry);
+
+  if (isPrivateCrmPath()) return;
 
   ensureDataLayer();
   window.dataLayer?.push({ event, ...payload });
@@ -256,11 +370,7 @@ export function track(event: TrackEvent, payload: Record<string, unknown> = {}) 
   }
 
   if (consent?.marketing) {
-    const metaEvent = metaEventName(event);
-    if (metaEvent && window.fbq) {
-      if (metaEvent === "PageView") window.fbq("track", "PageView");
-      else window.fbq("track", metaEvent, payload);
-    }
+    void emitMetaEvent(event, payload, options.eventId);
 
     if (event === "lead" && trackingConfig.googleAdsId && trackingConfig.googleAdsLeadLabel) {
       window.gtag?.("event", "conversion", {
@@ -272,6 +382,6 @@ export function track(event: TrackEvent, payload: Record<string, unknown> = {}) 
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
-    console.debug("[track]", event, payload, { consent });
+    console.debug("[track]", event, payload, { consent, eventId: options.eventId });
   }
 }
