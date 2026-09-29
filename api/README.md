@@ -174,7 +174,7 @@ Resend segment synchronization is reconciliatory: contacts no longer eligible lo
 
 The CRM exposes a private Meta integration page at `/dashboard/meta`. In this first phase it manages only the public Meta Pixel ID and an explicit enabled/disabled switch. Configuration changes are audited in PostgreSQL; no access token, App Secret or Conversions API credential is exposed to the browser.
 
-The public website reads the Pixel configuration at runtime. `VITE_META_PIXEL_ID` remains only as a transition fallback when no runtime row exists or the runtime endpoint is temporarily unavailable. Once a runtime configuration has been saved, its disabled state takes precedence over the fallback.
+The public website reads the Pixel configuration at runtime. `VITE_META_PIXEL_ID` remains only as a transition fallback when the runtime endpoint successfully confirms that no runtime row exists. If the runtime endpoint is unavailable, tracking fails closed and the Pixel stays disabled. Once a runtime configuration has been saved, its disabled state takes precedence over the fallback.
 
 New website form submissions may include a client-generated `submission_id`. The API stores it under a unique constraint with a payload fingerprint. Retrying the same logical submission returns the existing lead and the same canonical `eventId`; reusing the same `submission_id` with a different payload returns a controlled conflict. Older frontends remain compatible because the new fields are optional.
 

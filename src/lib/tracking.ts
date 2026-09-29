@@ -223,16 +223,13 @@ async function resolveMetaConfig() {
         }
         return { ...web, source: "runtime" as const };
       })
-      .catch(() => {
-        const fallback = trackingConfig.fallbackMetaPixelId.trim();
-        return {
-          configured: false,
-          enabled: Boolean(fallback),
-          pixelId: fallback || null,
-          updatedAt: null,
-          source: "vite_fallback" as const,
-        };
-      });
+      .catch(() => ({
+        configured: true,
+        enabled: false,
+        pixelId: null,
+        updatedAt: null,
+        source: "runtime" as const,
+      }));
   }
   return metaConfigPromise;
 }

@@ -45,6 +45,11 @@ test("Meta foundation exposes runtime config, idempotent submission identity and
   assert.match(layout, /dashboard\/meta/);
   assert.match(tracking, /startsWith\("\/dashboard"\)/);
   assert.match(tracking, /eventID/);
+  assert.match(
+    tracking,
+    /\.catch\(\(\) => \(\{[\s\S]*configured: true,[\s\S]*enabled: false,[\s\S]*pixelId: null/,
+    "runtime config errors must fail closed instead of re-enabling the VITE fallback",
+  );
 });
 
 test("Consent and Meta attribution are separate from email marketing consent", () => {
