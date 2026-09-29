@@ -31,10 +31,12 @@ test("website events preserve website source and validated public URL", () => {
     phone: "+34600000000",
     fbp: "fb.1.1.1",
     fbc: "fb.1.1.abc",
+    clientUserAgent: "Mozilla/5.0 Eivitech-Test",
   });
   assert.equal(event.action_source, "website");
   assert.equal(event.event_source_url, "https://eivitech.com/it/contatto");
   assert.equal(event.event_id, "evt-web");
+  assert.equal(event.user_data.client_user_agent, "Mozilla/5.0 Eivitech-Test");
 });
 
 test("invalid website URLs are rejected instead of forwarded", () => {
