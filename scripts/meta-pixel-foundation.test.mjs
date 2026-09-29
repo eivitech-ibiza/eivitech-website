@@ -18,7 +18,10 @@ test("Meta Pixel lead signal is emitted only after CRM success and partner appli
     "quote_request must not be mapped to Meta Lead",
   );
 
-  const partnerBlock = form.slice(form.indexOf("const onPartnerSubmit"), form.indexOf("return ("));
+  const partnerStart = form.indexOf("const onPartnerSubmit");
+  const partnerEnd = form.indexOf("\n  return (", partnerStart);
+  const partnerBlock = form.slice(partnerStart, partnerEnd);
+  assert.ok(partnerStart >= 0 && partnerEnd > partnerStart, "partner submit block must be found");
   assert.equal(
     /track\("lead"[\s\S]*mode:\s*"partner"/.test(partnerBlock),
     false,

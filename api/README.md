@@ -67,6 +67,8 @@ Public:
 - `GET /health`
 - `GET /api/health`
 - `POST /api/leads`
+- `GET /api/meta/public-config` — returns only the public Pixel runtime state
+- `POST /api/meta/revoke` — revokes Meta sharing for a previously submitted lead using its opaque revocation token
 - `POST /api/webhooks/resend/owner` (signed Resend delivery events)
 
 Protected by Clerk + CRM user authorization:
@@ -76,6 +78,11 @@ Protected by Clerk + CRM user authorization:
 - `PATCH /api/leads/:id`
 - `POST /api/leads/:id/activities`
 - `GET /api/dashboard/stats`
+
+Protected by Clerk and restricted to `admin`:
+
+- `GET /api/meta/config`
+- `PATCH /api/meta/config`
 
 Protected by Clerk and restricted to `admin` or `manager` roles:
 
@@ -161,3 +168,18 @@ Public page:
 - `/unsubscribe?token=<64-character-token>&lang=it|es|en|nl`
 
 Resend segment synchronization is reconciliatory: contacts no longer eligible locally are removed from the remote segment, and routine updates never clear a global Resend opt-out.
+
+
+## Meta Pixel foundation
+
+The CRM exposes a private Meta integration page at `/dashboard/meta`. In this first phase it manages only the public Meta Pixel ID and an explicit enabled/disabled switch. Configuration changes are audited in PostgreSQL; no access token, App Secret or Conversions API credential is exposed to the browser.
+
+The public website reads the Pixel configuration at runtime. `VITE_META_PIXEL_ID` remains only as a transition fallback when no runtime row exists or the runtime endpoint is temporarily unavailable. Once a runtime configuration has been saved, its disabled state takes precedence over the fallback.
+
+New website form submissions may include a client-generated `submission_id`. The API stores it under a unique constraint with a payload fingerprint. Retrying the same logical submission returns the existing lead and the same canonical `eventId`; reusing the same `submission_id` with a different payload returns a controlled conflict. Older frontends remain compatible because the new fields are optional.
+
+A successful customer request receives a backend-generated canonical event ID that the browser can reuse as the Meta Pixel `eventID`. Professional partner applications remain a separate funnel and do not emit the commercial customer `Lead` signal.
+
+Meta advertising identifiers (`fbclid`, `_fbp`, `_fbc`) are accepted only when the current advertising consent is present. The backend stores the consent source, timestamp and version with the lead. A consented submission can receive an opaque revocation token; the browser can later use that token to disable future Meta sharing for that lead without exposing an email address in a public endpoint.
+
+No Meta Conversions API sending or Lead Ads import is enabled by this phase.
