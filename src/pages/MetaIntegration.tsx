@@ -92,16 +92,40 @@ function MetaPanel() {
     try {
       const token = await getToken();
       if (!token) throw new Error("Missing CRM authentication token");
-      const [nextConfig, nextStatus, nextInbox] = await Promise.all([
-        fetchMetaAdminConfig(token),
+
+      // Configuration is the source of truth for the form and must load
+      // independently from optional operational diagnostics.
+      const nextConfig = await fetchMetaAdminConfig(token);
+      applyConfig(nextConfig);
+
+      const [statusResult, inboxResult] = await Promise.allSettled([
         fetchMetaOperationalStatus(token),
         fetchMetaLeadInbox(token),
       ]);
-      applyConfig(nextConfig);
-      setStatus(nextStatus);
-      setInbox(nextInbox.leads);
+
+      if (statusResult.status === "fulfilled") {
+        setStatus(statusResult.value);
+      }
+      if (inboxResult.status === "fulfilled") {
+        setInbox(inboxResult.value.leads);
+      }
+
+      const secondaryErrors: string[] = [];
+      if (statusResult.status === "rejected") {
+        secondaryErrors.push("diagnostica operativa");
+      }
+      if (inboxResult.status === "rejected") {
+        secondaryErrors.push("inbox Lead Ads");
+      }
+      if (secondaryErrors.length > 0) {
+        setError(`Configurazione Meta caricata correttamente, ma non è stato possibile aggiornare: ${secondaryErrors.join(", ")}.`);
+      }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Meta integration unavailable");
+      setError(
+        loadError instanceof Error
+          ? `Impossibile caricare la configurazione Meta: ${loadError.message}`
+          : "Impossibile caricare la configurazione Meta"
+      );
     } finally {
       setBusy(false);
     }

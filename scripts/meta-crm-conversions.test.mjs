@@ -58,3 +58,19 @@ test("website CAPI captures and forwards the browser user agent", () => {
   assert.match(outbox, /clientUserAgent/);
   assert.match(events, /client_user_agent/);
 });
+
+
+test("Meta admin form reloads saved configuration independently from diagnostics", () => {
+  const page = read("src/pages/MetaIntegration.tsx");
+  const configIndex = page.indexOf("const nextConfig = await fetchMetaAdminConfig(token)");
+  const applyIndex = page.indexOf("applyConfig(nextConfig)", configIndex);
+  const optionalIndex = page.indexOf("Promise.allSettled", applyIndex);
+  assert.ok(configIndex >= 0, "admin config fetch must exist");
+  assert.ok(applyIndex > configIndex, "saved config must hydrate the form");
+  assert.ok(optionalIndex > applyIndex, "diagnostics must be optional and run after config hydration");
+  assert.equal(
+    page.includes("const [nextConfig, nextStatus, nextInbox] = await Promise.all("),
+    false,
+    "config hydration must not depend on status/inbox success"
+  );
+});
