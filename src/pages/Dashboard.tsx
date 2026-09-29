@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
-import { fetchCrmLeads, submitCrmLeadWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
+import { fetchCrmLeads, submitCrmWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
 type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
@@ -593,7 +593,7 @@ function DashboardShell() {
         },
       };
 
-      const result = await submitCrmLeadWorkflow(token, lead.id, payload);
+      const result = await submitCrmWorkflow(token, lead.id, payload);
       const updated = mapLead(result.lead as ApiLead);
       setLeads((current) => current.map((item) => (item.id === lead.id ? updated : item)));
       return true;
