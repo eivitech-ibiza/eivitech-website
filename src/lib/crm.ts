@@ -245,7 +245,7 @@ export async function addCrmLeadActivity(token: string, leadId: string, payload:
   return response.json() as Promise<{ activity: unknown }>;
 }
 
-export async function submitCrmLeadWorkflow(token: string, leadId: string, payload: CrmWorkflowPayload) {
+export async function submitCrmWorkflow(token: string, leadId: string, payload: CrmWorkflowPayload) {
   const response = await fetch(`${CRM_ENDPOINT}/api/leads/${leadId}/workflow`, {
     method: "POST",
     headers: {
