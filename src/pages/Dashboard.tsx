@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
-import { addCrmLeadActivity, fetchCrmLeads, updateCrmLead, type CrmLeadUpdatePayload } from "@/lib/crm";
+import { fetchCrmLeads, submitCrmLeadWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
 type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
@@ -577,21 +577,23 @@ function DashboardShell() {
       const token = await getToken();
       if (!token) throw new Error("Missing Clerk token");
 
-      const payload: CrmLeadUpdatePayload = {
-        status: action.status,
-        priority: action.priority,
+      const payload: CrmWorkflowPayload = {
+        action_key: action.key as CrmWorkflowPayload["action_key"],
+        outcome: form.outcome || undefined,
         next_action: action.nextAction,
         next_follow_up_at: toIsoDate(form.nextFollowUp),
+        visit_date: toIsoDate(form.visitDate),
+        budget: form.budget || undefined,
+        amount: form.amount || undefined,
+        activity: {
+          type: action.activityType,
+          title: action.activityTitle,
+          notes: buildActivityNotes(action, form),
+          due_at: toIsoDate(form.nextFollowUp),
+        },
       };
 
-      const result = await updateCrmLead(token, lead.id, payload);
-      await addCrmLeadActivity(token, lead.id, {
-        type: action.activityType,
-        title: action.activityTitle,
-        notes: buildActivityNotes(action, form),
-        due_at: toIsoDate(form.nextFollowUp),
-      });
-
+      const result = await submitCrmLeadWorkflow(token, lead.id, payload);
       const updated = mapLead(result.lead as ApiLead);
       setLeads((current) => current.map((item) => (item.id === lead.id ? updated : item)));
       return true;
