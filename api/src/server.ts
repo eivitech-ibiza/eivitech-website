@@ -356,6 +356,9 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
   const safeFbp = data.meta_consent ? sanitizeAttributionValue(data.fbp, 255) : null;
   const safeFbc = data.meta_consent ? sanitizeAttributionValue(data.fbc, 255) : null;
   const safeFbclid = data.meta_consent ? sanitizeAttributionValue(data.fbclid, 512) : null;
+  const safeClientUserAgent = data.meta_consent
+    ? sanitizeAttributionValue(req.get("user-agent"), 512)
+    : null;
 
   const client = await pool.connect();
   let leadId = "";
@@ -434,6 +437,7 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
       eventTime: new Date().toISOString(),
       eventSourceUrl: safeLandingPage || "https://eivitech.com/",
       metaConsent: data.meta_consent,
+      clientUserAgent: safeClientUserAgent,
     });
 
     await client.query(
