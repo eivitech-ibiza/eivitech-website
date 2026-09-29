@@ -66,6 +66,7 @@ export type WebMetaEventInput = {
   phone?: string | null;
   fbp?: string | null;
   fbc?: string | null;
+  clientUserAgent?: string | null;
 };
 
 export function validatePublicEivitechUrl(value: string) {
@@ -94,6 +95,7 @@ export function buildWebMetaEvent(input: WebMetaEventInput) {
       ...hashedUserData(input),
       ...(input.fbp ? { fbp: input.fbp } : {}),
       ...(input.fbc ? { fbc: input.fbc } : {}),
+      ...(input.clientUserAgent ? { client_user_agent: input.clientUserAgent } : {}),
     },
   };
 }
