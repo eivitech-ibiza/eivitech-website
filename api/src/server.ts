@@ -21,7 +21,10 @@ import { marketingRouter } from "./marketing.js";
 import { marketingPublicRouter } from "./marketingPublic.js";
 import { buildLeadSubmissionFingerprint, isPgUniqueViolation, sanitizeAttributionValue, sanitizeLandingPage, sanitizeReferrer } from "./leadSubmission.js";
 import { createMetaConsentToken } from "./meta/consent.js";
+import { handleMetaWebhookDelivery, handleMetaWebhookVerification, startMetaLeadAdsWorker } from "./meta/leadAds.js";
+import { enqueueWebsiteLeadEvent, startMetaOutboxWorker } from "./meta/outbox.js";
 import { metaRouter } from "./meta/routes.js";
+import { handleLeadWorkflow } from "./leadWorkflow.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -38,6 +41,12 @@ app.post(
   "/api/webhooks/resend/owner",
   express.raw({ type: "application/json", limit: "256kb" }),
   handleResendOwnerWebhook
+);
+app.get("/api/webhooks/meta/leadgen", handleMetaWebhookVerification);
+app.post(
+  "/api/webhooks/meta/leadgen",
+  express.raw({ type: "application/json", limit: "256kb" }),
+  handleMetaWebhookDelivery
 );
 app.use(cors({
   origin(origin, callback) {
@@ -419,6 +428,14 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
 
     metaConsentRevocationToken = await createMetaConsentToken(client, lead.id, data.meta_consent);
 
+    await enqueueWebsiteLeadEvent(client, {
+      leadId: lead.id,
+      eventId,
+      eventTime: new Date().toISOString(),
+      eventSourceUrl: safeLandingPage || "https://eivitech.com/",
+      metaConsent: data.meta_consent,
+    });
+
     await client.query(
       `INSERT INTO crm_activities (lead_id, type, title, notes)
        VALUES ($1, 'automation', 'Nueva solicitud recibida', $2)`,
@@ -481,6 +498,13 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
 });
 
 app.use("/api/leads", crmJsonParser);
+
+app.post(
+  "/api/leads/:id/workflow",
+  requireCrmUser,
+  requireRole(["admin", "manager", "operator"]),
+  handleLeadWorkflow
+);
 
 app.get("/api/leads", requireCrmUser, async (_req, res) => {
   const result = await query(
@@ -612,6 +636,8 @@ async function notifyN8n(eventType: string, leadId: string, payload: Record<stri
 
 async function start() {
   await runMigrations();
+  startMetaLeadAdsWorker();
+  startMetaOutboxWorker();
   app.listen(PORT, () => {
     console.log(`[api] Eivitech CRM API listening on port ${PORT}`);
   });

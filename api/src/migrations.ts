@@ -99,6 +99,17 @@ CREATE TABLE IF NOT EXISTS crm_meta_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE crm_meta_settings
+  ADD COLUMN IF NOT EXISTS capi_mode text NOT NULL DEFAULT 'disabled';
+ALTER TABLE crm_meta_settings
+  ADD COLUMN IF NOT EXISTS test_event_code text;
+
+ALTER TABLE crm_meta_settings
+  DROP CONSTRAINT IF EXISTS crm_meta_settings_capi_mode_check;
+ALTER TABLE crm_meta_settings
+  ADD CONSTRAINT crm_meta_settings_capi_mode_check
+  CHECK (capi_mode IN ('disabled', 'test', 'production'));
+
 CREATE TABLE IF NOT EXISTS crm_meta_config_audit (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   scope text NOT NULL,
@@ -110,6 +121,148 @@ CREATE TABLE IF NOT EXISTS crm_meta_config_audit (
 
 CREATE INDEX IF NOT EXISTS idx_crm_meta_config_audit_created_at
   ON crm_meta_config_audit(created_at DESC);
+
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_lead_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_page_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_form_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_ad_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_adset_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS meta_campaign_id text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS qualification_outcome text;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS qualified_at timestamptz;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS visit_confirmed_at timestamptz;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS proposal_sent_at timestamptz;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS deal_closed_at timestamptz;
+ALTER TABLE crm_leads
+  ADD COLUMN IF NOT EXISTS last_meta_sync_at timestamptz;
+
+ALTER TABLE crm_leads
+  DROP CONSTRAINT IF EXISTS crm_leads_qualification_outcome_check;
+ALTER TABLE crm_leads
+  ADD CONSTRAINT crm_leads_qualification_outcome_check
+  CHECK (qualification_outcome IS NULL OR qualification_outcome IN ('qualified', 'incomplete', 'unqualified'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_meta_lead_id
+  ON crm_leads(meta_lead_id)
+  WHERE meta_lead_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS crm_meta_crm_settings (
+  id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  dataset_id text,
+  page_id text,
+  allowed_form_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  form_mappings jsonb NOT NULL DEFAULT '{}'::jsonb,
+  event_mappings jsonb NOT NULL DEFAULT '{}'::jsonb,
+  mode text NOT NULL DEFAULT 'disabled' CHECK (mode IN ('disabled', 'test', 'production')),
+  test_event_code text,
+  graph_api_version text NOT NULL DEFAULT 'v26.0',
+  updated_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS crm_meta_webhook_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  delivery_key text UNIQUE NOT NULL,
+  leadgen_id text,
+  page_id text,
+  form_id text,
+  payload jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'received'
+    CHECK (status IN ('received', 'processing', 'processed', 'retry', 'failed', 'ignored')),
+  attempts integer NOT NULL DEFAULT 0,
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  last_error_code text,
+  last_error_message text,
+  received_at timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz,
+  locked_at timestamptz,
+  lock_token uuid
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_meta_webhook_events_work
+  ON crm_meta_webhook_events(status, next_attempt_at, received_at);
+
+CREATE TABLE IF NOT EXISTS crm_meta_lead_inbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  meta_lead_id text UNIQUE NOT NULL,
+  page_id text,
+  form_id text,
+  ad_id text,
+  adset_id text,
+  campaign_id text,
+  meta_created_time timestamptz,
+  field_data jsonb NOT NULL DEFAULT '[]'::jsonb,
+  mapped_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  missing_fields jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'to_complete'
+    CHECK (status IN ('to_complete', 'ready', 'promoted', 'error')),
+  promoted_lead_id uuid REFERENCES crm_leads(id) ON DELETE SET NULL,
+  last_error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_meta_lead_inbox_status
+  ON crm_meta_lead_inbox(status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS crm_lead_outcomes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id uuid NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+  action_key text NOT NULL,
+  outcome text,
+  milestone_key text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  occurred_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_lead_outcomes_lead
+  ON crm_lead_outcomes(lead_id, occurred_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_lead_outcomes_milestone
+  ON crm_lead_outcomes(lead_id, milestone_key)
+  WHERE milestone_key IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS crm_meta_outbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  destination_dataset_id text NOT NULL,
+  lead_id uuid REFERENCES crm_leads(id) ON DELETE SET NULL,
+  event_name text NOT NULL,
+  event_id text NOT NULL,
+  event_time timestamptz NOT NULL,
+  event_kind text NOT NULL CHECK (event_kind IN ('web', 'crm')),
+  source_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+  mode text NOT NULL DEFAULT 'disabled' CHECK (mode IN ('disabled', 'test', 'production')),
+  test_event_code text,
+  status text NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'processing', 'sent', 'retry', 'failed', 'skipped', 'cancelled')),
+  attempts integer NOT NULL DEFAULT 0,
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  locked_at timestamptz,
+  lock_token uuid,
+  last_error_code text,
+  last_error_message text,
+  meta_request_id text,
+  sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (destination_dataset_id, event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_meta_outbox_work
+  ON crm_meta_outbox(status, next_attempt_at, created_at);
 
 CREATE TABLE IF NOT EXISTS crm_meta_consent_tokens (
   lead_id uuid PRIMARY KEY REFERENCES crm_leads(id) ON DELETE CASCADE,

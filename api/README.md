@@ -183,3 +183,40 @@ A successful customer request receives a backend-generated canonical event ID th
 Meta advertising identifiers (`fbclid`, `_fbp`, `_fbc`) are accepted only when the current advertising consent is present. The backend stores the consent source, timestamp and version with the lead. A consented submission can receive an opaque revocation token; the browser can later use that token to disable future Meta sharing for that lead without exposing an email address in a public endpoint.
 
 No Meta Conversions API sending or Lead Ads import is enabled by this phase.
+
+
+## Meta CRM, Lead Ads and Conversions API
+
+The second Meta integration phase extends the Pixel foundation with server-side CRM events and Meta Lead Ads ingestion.
+
+Railway-only variables:
+
+- `META_CAPI_ACCESS_TOKEN`
+- `META_PAGE_ACCESS_TOKEN`
+- `META_APP_SECRET`
+- `META_WEBHOOK_VERIFY_TOKEN`
+
+These values are never returned to the frontend. The CRM only reports whether each prerequisite is present.
+
+Public Meta webhook endpoints:
+
+- `GET /api/webhooks/meta/leadgen` — webhook verification
+- `POST /api/webhooks/meta/leadgen` — signed Lead Ads delivery endpoint
+
+Protected Meta endpoints:
+
+- `GET /api/meta/config` — admin-only web + CRM Meta configuration and credential presence
+- `PATCH /api/meta/config` — admin-only Pixel/CAPI web settings
+- `PATCH /api/meta/crm-config` — admin-only CRM dataset, Page ID, allowed forms, mappings and mode
+- `GET /api/meta/status` — admin/manager operational status
+- `GET /api/meta/lead-inbox` — admin/manager/operator Lead Ads staging inbox
+- `POST /api/meta/lead-inbox/process` — admin-only manual processing trigger
+- `POST /api/meta/lead-inbox/:id/promote` — promote a completed staged Meta lead into the CRM
+- `POST /api/meta/outbox/retry-failed` — admin-only controlled retry for failed Meta events
+- `POST /api/leads/:id/workflow` — atomic CRM workflow update + activity + structured outcome + optional Meta event
+
+Activation is deliberately fail-closed. Both web CAPI and CRM CAPI default to `disabled`; saving migrations or deploying this PR does not send production events. Use `test` first with Meta Test Events, then switch to `production` only after webhook, consent, deduplication and mapping checks are complete.
+
+For website leads, the browser Pixel and server CAPI reuse the backend-generated event ID so Meta can deduplicate the logical Lead. Advertising-sharing revocation cancels unsent website events and removes locally stored Meta browser identifiers. Native Meta leads retain their Meta `lead_id` as a string and are staged idempotently before promotion.
+
+The Lead Ads worker and CAPI outbox worker use PostgreSQL as durable state. Retries preserve the original event identity and event time; CRM saves are not blocked by Meta availability.

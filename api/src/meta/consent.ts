@@ -50,6 +50,19 @@ export async function revokeMetaConsentByToken(token: string) {
          WHERE lead_id = $1`,
         [row.lead_id]
       );
+      await client.query(
+        `UPDATE crm_meta_outbox
+         SET status = 'cancelled',
+             locked_at = NULL,
+             lock_token = NULL,
+             last_error_code = 'CONSENT_REVOKED',
+             last_error_message = 'Cancelled before send because Meta sharing consent was revoked',
+             updated_at = now()
+         WHERE lead_id = $1
+           AND event_kind = 'web'
+           AND status IN ('queued', 'retry', 'processing')`,
+        [row.lead_id]
+      );
     }
 
     await client.query("COMMIT");
