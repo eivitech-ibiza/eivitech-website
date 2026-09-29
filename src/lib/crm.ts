@@ -67,6 +67,45 @@ export type CrmActivityPayload = {
   completed_at?: string | null;
 };
 
+export type CrmWorkflowPayload = {
+  action_key:
+    | "first-contact"
+    | "qualify"
+    | "high-priority"
+    | "visit"
+    | "proposal"
+    | "follow-up"
+    | "won"
+    | "lost"
+    | "partner-contact"
+    | "partner-evaluate"
+    | "partner-approved"
+    | "partner-reserve"
+    | "partner-rejected";
+  outcome?: string;
+  next_action?: string | null;
+  next_follow_up_at?: string | null;
+  visit_date?: string | null;
+  budget?: string;
+  amount?: string;
+  activity: {
+    type: Exclude<NonNullable<CrmActivityPayload["type"]>, "automation">;
+    title: string;
+    notes?: string;
+    due_at?: string | null;
+  };
+};
+
+export type CrmWorkflowResponse = {
+  status: "saved";
+  lead: unknown;
+  activity: unknown;
+  milestone: string | null;
+  milestoneInserted: boolean;
+  metaQueued: boolean;
+  metaEventId: string | null;
+};
+
 const STORAGE_KEY = "eivitech_leads";
 
 export function saveLeadPreview(payload: CrmLeadPayload) {
@@ -204,4 +243,22 @@ export async function addCrmLeadActivity(token: string, leadId: string, payload:
   }
 
   return response.json() as Promise<{ activity: unknown }>;
+}
+
+export async function submitCrmLeadWorkflow(token: string, leadId: string, payload: CrmWorkflowPayload) {
+  const response = await fetch(`${CRM_ENDPOINT}/api/leads/${leadId}/workflow`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "CRM workflow failed");
+    throw new Error(message || "CRM workflow failed");
+  }
+
+  return response.json() as Promise<CrmWorkflowResponse>;
 }
