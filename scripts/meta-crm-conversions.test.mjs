@@ -48,3 +48,13 @@ test("Meta CRM worker preserves event identity and has bounded retry states", ()
   assert.match(outbox, /event_id/);
   assert.match(outbox, /FOR UPDATE SKIP LOCKED/);
 });
+
+
+test("website CAPI captures and forwards the browser user agent", () => {
+  const server = read("api/src/server.ts");
+  const outbox = read("api/src/meta/outbox.ts");
+  const events = read("api/src/meta/events.ts");
+  assert.match(server, /req\.get\("user-agent"\)/);
+  assert.match(outbox, /clientUserAgent/);
+  assert.match(events, /client_user_agent/);
+});

@@ -31,7 +31,14 @@ type LeadRow = {
 
 export async function enqueueWebsiteLeadEvent(
   client: PoolClient,
-  input: { leadId: string; eventId: string; eventTime: string; eventSourceUrl: string; metaConsent: boolean }
+  input: {
+    leadId: string;
+    eventId: string;
+    eventTime: string;
+    eventSourceUrl: string;
+    metaConsent: boolean;
+    clientUserAgent?: string | null;
+  }
 ) {
   if (!input.metaConsent) return false;
   const cfg = await client.query<{
@@ -59,7 +66,10 @@ export async function enqueueWebsiteLeadEvent(
       input.leadId,
       input.eventId,
       input.eventTime,
-      JSON.stringify({ eventSourceUrl: input.eventSourceUrl }),
+      JSON.stringify({
+        eventSourceUrl: input.eventSourceUrl,
+        clientUserAgent: input.clientUserAgent || null,
+      }),
       row.capi_mode,
       row.test_event_code,
     ]
@@ -218,6 +228,9 @@ async function processRow(row: OutboxRow) {
     const sourceUrl = typeof row.source_snapshot?.eventSourceUrl === "string"
       ? row.source_snapshot.eventSourceUrl
       : "https://eivitech.com/";
+    const clientUserAgent = typeof row.source_snapshot?.clientUserAgent === "string"
+      ? row.source_snapshot.clientUserAgent
+      : null;
     event = buildWebMetaEvent({
       eventName: row.event_name,
       eventId: row.event_id,
@@ -227,6 +240,7 @@ async function processRow(row: OutboxRow) {
       phone: lead.telefono,
       fbp: lead.meta_fbp,
       fbc: lead.meta_fbc,
+      clientUserAgent,
     });
   } else {
     if (!lead.meta_lead_id && !lead.meta_consent) {
