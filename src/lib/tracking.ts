@@ -257,6 +257,8 @@ async function loadMetaPixel(consent: ConsentState) {
   if (!currentConsent?.marketing) return false;
 
   const config = await resolveMetaConfig();
+  // Consent can be withdrawn while the asynchronous config request is pending.
+  if (!getStoredConsent()?.marketing || isPrivateCrmPath()) return false;
   if (!config.enabled || !config.pixelId) return false;
 
   if (metaLoadedPixelId && metaLoadedPixelId !== config.pixelId) {
