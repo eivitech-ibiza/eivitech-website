@@ -436,7 +436,7 @@ app.post("/api/leads", publicLeadLimiter, publicJsonParser, async (req, res) => 
       leadId: lead.id,
       eventId,
       eventTime: new Date().toISOString(),
-      eventSourceUrl: safeLandingPage || "https://eivitech.com/",
+      eventSourceUrl: new URL(safeLandingPage || "/", "https://eivitech.com").toString(),
       metaConsent: data.meta_consent,
       clientUserAgent: safeClientUserAgent,
     });
