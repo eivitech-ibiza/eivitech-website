@@ -314,7 +314,7 @@ metaRouter.get(
   requireRole(["admin", "manager"]),
   async (_req, res, next) => {
     try {
-      const [outbox, inbox, lastSent, lastError, audit] = await Promise.all([
+      const [outbox, inbox, lastSent, lastError, lastPendingError, audit] = await Promise.all([
         pool.query(
           `SELECT status, count(*)::int AS total
            FROM crm_meta_outbox
@@ -342,6 +342,15 @@ metaRouter.get(
            LIMIT 1`
         ),
         pool.query(
+          `SELECT updated_at, event_name, event_id, status, attempts,
+                  next_attempt_at, last_error_code, last_error_message
+           FROM crm_meta_outbox
+           WHERE status IN ('retry', 'processing')
+             AND last_error_code IS NOT NULL
+           ORDER BY updated_at DESC
+           LIMIT 1`
+        ),
+        pool.query(
           `SELECT scope, created_at, changed_by
            FROM crm_meta_config_audit
            ORDER BY created_at DESC
@@ -355,6 +364,7 @@ metaRouter.get(
         inbox: inbox.rows,
         lastSuccess: lastSent.rows[0] ?? null,
         lastError: lastError.rows[0] ?? null,
+        lastPendingError: lastPendingError.rows[0] ?? null,
         audit: audit.rows,
       });
     } catch (error) {

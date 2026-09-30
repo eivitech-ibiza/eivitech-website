@@ -49,3 +49,21 @@ test("invalid website URLs are rejected instead of forwarded", () => {
     phone: "+34600000000",
   }), /public Eivitech URL/i);
 });
+
+test("previously queued relative landing paths become safe absolute website URLs", () => {
+  const event = buildWebMetaEvent({
+    eventName: "Lead",
+    eventId: "previously-queued-web-lead",
+    eventTime: "2026-09-30T07:15:53.299Z",
+    eventSourceUrl: "/es/proyectos-reformas-ibiza/?lang=es&email=hidden@example.com",
+    email: "ada@example.com",
+    phone: "+34600000000",
+  });
+  assert.equal(event.event_source_url, "https://eivitech.com/es/proyectos-reformas-ibiza");
+  assert.throws(() => buildWebMetaEvent({
+    eventName: "Lead",
+    eventId: "untrusted-relative-url",
+    eventTime: "2026-09-30T07:15:53.299Z",
+    eventSourceUrl: "//evil.example/path",
+  }), /Invalid URL|public Eivitech URL/);
+});

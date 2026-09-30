@@ -331,12 +331,46 @@ async function processRow(row: OutboxRow) {
   );
 }
 
+// Catch failures outside the HTTP fetch (e.g. event URL validation) so that
+// a claimed event cannot remain in "processing" until its lease expires.
+async function recoverUnhandledProcessingError(row: OutboxRow, error: unknown) {
+  const detail = error instanceof Error ? error.message : "Unknown worker exception";
+  console.error("[meta] CAPI outbox worker exception", {
+    eventId: row.event_id,
+    errorName: error instanceof Error ? error.name : "unknown",
+  });
+  const knownSafeError = [
+    "Invalid URL",
+    "A public Eivitech URL is required",
+    "Invalid Meta event time",
+    "Phone cannot be empty after normalization",
+    "Meta event name is required",
+    "Meta event ID is required",
+  ].includes(detail);
+  const attempts = row.attempts + 1;
+  await pool.query(
+    `UPDATE crm_meta_outbox
+     SET status = CASE WHEN $2 >= 5 THEN 'failed' ELSE 'retry' END,
+         attempts = $2,
+         next_attempt_at = now() + (($2 * $2) || ' minutes')::interval,
+         locked_at = NULL, lock_token = NULL,
+         last_error_code = 'WORKER_EXCEPTION',
+         last_error_message = $3, updated_at = now()
+     WHERE id = $1 AND status = 'processing'`,
+    [row.id, attempts, knownSafeError ? detail : "Unexpected CAPI worker exception; check server logs"]
+  );
+}
+
 export async function processMetaOutboxBatch(limit = 10) {
   let processed = 0;
   while (processed < limit) {
     const row = await claimNext();
     if (!row) break;
-    await processRow(row);
+    try {
+      await processRow(row);
+    } catch (error) {
+      await recoverUnhandledProcessingError(row, error);
+    }
     processed += 1;
   }
   return processed;

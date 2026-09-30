@@ -87,3 +87,15 @@ test("Meta admin exposes CAPI sent state and manual processing", () => {
   assert.match(page, /Outbox sent/);
   assert.match(page, /Ultimo evento CAPI inviato/);
 });
+
+test("website CAPI source URLs and worker recovery preserve existing queued leads", () => {
+  const server = read("api/src/server.ts");
+  const events = read("api/src/meta/events.ts");
+  const outbox = read("api/src/meta/outbox.ts");
+  const routes = read("api/src/meta/routes.ts");
+  assert.match(server, /new URL\(safeLandingPage \|\| "\/", "https:\/\/eivitech\.com"\)/);
+  assert.match(events, /value\.startsWith\("\/"\)/);
+  assert.match(outbox, /recoverUnhandledProcessingError/);
+  assert.match(outbox, /WORKER_EXCEPTION/);
+  assert.match(routes, /lastPendingError/);
+});

@@ -51,6 +51,16 @@ export type MetaOperationalStatus = {
     last_error_code?: string;
     last_error_message?: string;
   } | null;
+  lastPendingError: {
+    updated_at?: string;
+    event_name?: string;
+    event_id?: string;
+    status?: string;
+    attempts?: number;
+    next_attempt_at?: string;
+    last_error_code?: string;
+    last_error_message?: string;
+  } | null;
   audit: Array<{ scope: string; created_at: string; changed_by?: string | null }>;
 };
 

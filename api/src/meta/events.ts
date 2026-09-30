@@ -70,7 +70,11 @@ export type WebMetaEventInput = {
 };
 
 export function validatePublicEivitechUrl(value: string) {
-  const url = new URL(value);
+  // Previously queued website leads store a sanitized root-relative landing path.
+  // Convert those paths to an absolute URL while retaining the strict host allowlist.
+  const url = value.startsWith("/") && !value.startsWith("//")
+    ? new URL(value, "https://eivitech.com")
+    : new URL(value);
   if (url.protocol !== "https:" || !["eivitech.com", "www.eivitech.com"].includes(url.hostname)) {
     throw new Error("A public Eivitech URL is required");
   }
