@@ -62,6 +62,9 @@ let gtmLoaded = false;
 let gtagLoaded = false;
 let metaLoadedPixelId: string | null = null;
 let metaConfigPromise: Promise<MetaPublicWebConfig> | null = null;
+let metaConsentGranted = false;
+
+const META_CONVERSION_READY_TIMEOUT_MS = 1200;
 
 declare global {
   interface Window {
@@ -254,6 +257,8 @@ async function loadMetaPixel(consent: ConsentState) {
   if (!currentConsent?.marketing) return false;
 
   const config = await resolveMetaConfig();
+  // Consent can be withdrawn while the asynchronous config request is pending.
+  if (!getStoredConsent()?.marketing || isPrivateCrmPath()) return false;
   if (!config.enabled || !config.pixelId) return false;
 
   if (metaLoadedPixelId && metaLoadedPixelId !== config.pixelId) {
@@ -271,13 +276,33 @@ async function loadMetaPixel(consent: ConsentState) {
     loadScript("eivitech-meta-pixel", "https://connect.facebook.net/en_US/fbevents.js");
     window.fbq?.("init", config.pixelId);
   }
-  window.fbq?.("consent", "grant");
+  // loadMetaPixel also runs on route changes and for each event: grant only
+  // on the consent transition so tracking cannot flood the Pixel with grants.
+  if (!metaConsentGranted) {
+    window.fbq?.("consent", "grant");
+    metaConsentGranted = true;
+  }
   return true;
+}
+
+// A queued fbq stub call is not evidence that fbevents.js has actually loaded.
+// Give conversion events a bounded chance to reach the real Pixel library
+// before routing to the thank-you page. Never wait indefinitely on blockers.
+async function waitForMetaPixelLibrary() {
+  if (typeof window.fbq?.callMethod === "function") return true;
+  const deadline = Date.now() + META_CONVERSION_READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+    if (!getStoredConsent()?.marketing || isPrivateCrmPath()) return false;
+    if (typeof window.fbq?.callMethod === "function") return true;
+  }
+  return false;
 }
 
 function revokeMetaPixel() {
   if (!canUseDom()) return;
-  window.fbq?.("consent", "revoke");
+  if (metaConsentGranted) window.fbq?.("consent", "revoke");
+  metaConsentGranted = false;
   clearMetaAttributionCookies();
 }
 
@@ -339,6 +364,14 @@ async function emitMetaEvent(event: TrackEvent, payload: Record<string, unknown>
   const ready = await loadMetaPixel(consent);
   if (!ready || !getStoredConsent()?.marketing || !window.fbq) return;
 
+  // Wait only for post-CRM conversion events. The library can be delayed or
+  // blocked by browser privacy settings; in that case retain fbq's queue
+  // behaviour and let the separately consent-gated CAPI event proceed.
+  if (event === "lead" || event === "partner_application") {
+    await waitForMetaPixelLibrary();
+    if (!getStoredConsent()?.marketing || isPrivateCrmPath()) return;
+  }
+
   const params = safeMetaPayload(payload);
   const options = eventId ? { eventID: eventId } : undefined;
   if (descriptor.custom) {
@@ -348,14 +381,14 @@ async function emitMetaEvent(event: TrackEvent, payload: Record<string, unknown>
   }
 }
 
-export function track(event: TrackEvent, payload: Record<string, unknown> = {}, options: TrackOptions = {}) {
-  if (!canUseDom()) return;
+export function track(event: TrackEvent, payload: Record<string, unknown> = {}, options: TrackOptions = {}): Promise<void> {
+  if (!canUseDom()) return Promise.resolve();
 
   const entry = { event, payload, ts: Date.now() };
   window.__eivitechEvents = window.__eivitechEvents || [];
   window.__eivitechEvents.push(entry);
 
-  if (isPrivateCrmPath()) return;
+  if (isPrivateCrmPath()) return Promise.resolve();
 
   ensureDataLayer();
   window.dataLayer?.push({ event, ...payload });
@@ -366,9 +399,13 @@ export function track(event: TrackEvent, payload: Record<string, unknown> = {}, 
     window.gtag?.("event", event, payload);
   }
 
-  if (consent?.marketing) {
-    void emitMetaEvent(event, payload, options.eventId);
+  // Always absorb Pixel script/config failures: a successful CRM submission
+  // must never be turned into a user-visible form error by optional analytics.
+  const pixelDispatch = consent?.marketing
+    ? emitMetaEvent(event, payload, options.eventId).catch(() => undefined)
+    : Promise.resolve();
 
+  if (consent?.marketing) {
     if (event === "lead" && trackingConfig.googleAdsId && trackingConfig.googleAdsLeadLabel) {
       window.gtag?.("event", "conversion", {
         send_to: `${trackingConfig.googleAdsId}/${trackingConfig.googleAdsLeadLabel}`,
@@ -381,4 +418,7 @@ export function track(event: TrackEvent, payload: Record<string, unknown> = {}, 
     // eslint-disable-next-line no-console
     console.debug("[track]", event, payload, { consent, eventId: options.eventId });
   }
+  // Callers sending a confirmed Lead await this promise before SPA navigation.
+  // This confirms fbq dispatch/queueing, never an HTTP 200 from Meta.
+  return pixelDispatch;
 }
