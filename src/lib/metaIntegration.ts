@@ -178,6 +178,16 @@ export async function processMetaLeadInbox(token: string, limit = 20) {
   return response.json() as Promise<{ ok: boolean; processed: number }>;
 }
 
+export async function processMetaOutbox(token: string, limit = 20) {
+  const response = await fetch(`${CRM_ENDPOINT}/api/meta/outbox/process`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ limit }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Meta CAPI processing failed"));
+  return response.json() as Promise<{ ok: boolean; processed: number }>;
+}
+
 export async function retryFailedMetaEvents(token: string) {
   const response = await fetch(`${CRM_ENDPOINT}/api/meta/outbox/retry-failed`, {
     method: "POST",
