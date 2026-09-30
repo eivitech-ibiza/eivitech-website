@@ -142,7 +142,9 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
     try {
       const response = await submitLeadToCrm(payload);
       storeMetaRevocationToken(response.metaConsentRevocationToken);
-      track(
+      // Wait for the consent-gated browser Pixel to dispatch (or queue) the
+      // same event ID as CAPI before moving to the SPA thank-you route.
+      await track(
         "lead",
         { source, mode: "cliente", tipoCliente: data.tipoCliente, intervencion: data.intervencion },
         { eventId: response.eventId || undefined }
@@ -171,7 +173,7 @@ export function LeadQualificationForm({ source = "contacto" }: { source?: string
     try {
       const response = await submitPartnerToCrm(payload);
       storeMetaRevocationToken(response.metaConsentRevocationToken);
-      track(
+      await track(
         "partner_application",
         { source, mode: "partner", categoria: data.categoria },
         { eventId: response.eventId || undefined }
