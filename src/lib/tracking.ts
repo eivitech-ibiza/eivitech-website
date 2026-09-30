@@ -60,7 +60,24 @@ const trackingConfig = {
 
 let gtmLoaded = false;
 let gtagLoaded = false;
+let ga4Configured = false;
 let metaLoadedPixelId: string | null = null;
+
+type PendingGa4PageView = {
+  url: string;
+  payload: Record<string, unknown>;
+};
+
+const GA4_PAGE_EVENTS = new Set<TrackEvent>([
+  "page_view",
+  "service_page_view",
+  "project_view",
+  "meta_landing_view",
+  "google_landing_view",
+]);
+
+let pendingGa4PageView: PendingGa4PageView | null = null;
+let lastGa4PageLocation: string | null = null;
 let metaConfigPromise: Promise<MetaPublicWebConfig> | null = null;
 let metaConsentGranted = false;
 
@@ -171,8 +188,20 @@ export function saveConsent(consent: Omit<ConsentState, "version" | "necessary" 
     marketing: consent.marketing,
     updatedAt: new Date().toISOString(),
   };
+  const previous = getStoredConsent();
   window.localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(next));
   applyTrackingConsent(next);
+
+  // A visitor may accept analytics after SEO already tracked the initial route
+  // without consent. Send exactly one page_view for the current page on the
+  // denied -> granted transition, without replaying form/conversion events.
+  if (!previous?.analytics && next.analytics && !isPrivateCrmPath()) {
+    const currentUrl = window.location.href;
+    const pageView = pendingGa4PageView?.url === currentUrl
+      ? pendingGa4PageView
+      : captureGa4PageView({});
+    sendGa4PageView(pageView);
+  }
 }
 
 export function rejectOptionalConsent() {
@@ -200,13 +229,42 @@ function loadGoogleStack(consent: ConsentState) {
     window.gtag?.("js", new Date());
   }
 
-  if (consent.analytics && trackingConfig.ga4Id) {
+  if (consent.analytics && trackingConfig.ga4Id && !ga4Configured) {
     window.gtag?.("config", trackingConfig.ga4Id, { send_page_view: false });
+    ga4Configured = true;
   }
 
   if (consent.marketing && trackingConfig.googleAdsId) {
     window.gtag?.("config", trackingConfig.googleAdsId);
   }
+}
+
+function captureGa4PageView(payload: Record<string, unknown>): PendingGa4PageView {
+  return {
+    url: window.location.href,
+    payload: {
+      ...payload,
+      page_location: window.location.href,
+      page_path: window.location.pathname + window.location.search,
+      page_title: document.title,
+    },
+  };
+}
+
+// GA4 automatic page views are disabled above because React Router handles
+// navigation. Centralise page views here so late consent and SPA route changes
+// are measured once per location; keep the other custom view events as before.
+function sendGa4PageView(pageView: PendingGa4PageView): boolean {
+  if (!trackingConfig.ga4Id || !window.gtag || lastGa4PageLocation === pageView.url) {
+    return false;
+  }
+  window.gtag("event", "page_view", {
+    ...pageView.payload,
+    send_to: trackingConfig.ga4Id,
+  });
+  lastGa4PageLocation = pageView.url;
+  pendingGa4PageView = null;
+  return true;
 }
 
 async function resolveMetaConfig() {
@@ -310,6 +368,7 @@ export function applyTrackingConsent(consent: ConsentState) {
   if (!canUseDom()) return;
   setDefaultConsent();
   loadGoogleStack(consent);
+  if (!consent.analytics) lastGa4PageLocation = null;
   if (consent.marketing) {
     void loadMetaPixel(consent);
   } else {
@@ -394,9 +453,22 @@ export function track(event: TrackEvent, payload: Record<string, unknown> = {}, 
   window.dataLayer?.push({ event, ...payload });
 
   const consent = getStoredConsent();
+  const isPageView = GA4_PAGE_EVENTS.has(event);
+  if (isPageView) pendingGa4PageView = captureGa4PageView(payload);
 
   if (consent?.analytics) {
-    window.gtag?.("event", event, payload);
+    // SEO effects can run before the Layout bootstrap on a returning visit.
+    // Initialise GA4 first so the first route event is not lost in that race.
+    if (trackingConfig.ga4Id && !ga4Configured) loadGoogleStack(consent);
+
+    if (isPageView && trackingConfig.ga4Id && pendingGa4PageView) {
+      const sent = sendGa4PageView(pendingGa4PageView);
+      if (sent && event !== "page_view") {
+        window.gtag?.("event", event, payload);
+      }
+    } else if (!isPageView || !trackingConfig.ga4Id) {
+      window.gtag?.("event", event, payload);
+    }
   }
 
   // Always absorb Pixel script/config failures: a successful CRM submission
