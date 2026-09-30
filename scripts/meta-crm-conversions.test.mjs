@@ -74,3 +74,16 @@ test("Meta admin form reloads saved configuration independently from diagnostics
     "config hydration must not depend on status/inbox success"
   );
 });
+
+
+test("Meta admin exposes CAPI sent state and manual processing", () => {
+  const routes = read("api/src/meta/routes.ts");
+  const client = read("src/lib/metaIntegration.ts");
+  const page = read("src/pages/MetaIntegration.tsx");
+  assert.match(routes, /\/outbox\/process/);
+  assert.match(routes, /processMetaOutboxBatch/);
+  assert.match(client, /processMetaOutbox/);
+  assert.match(page, /Elabora CAPI ora/);
+  assert.match(page, /Outbox sent/);
+  assert.match(page, /Ultimo evento CAPI inviato/);
+});
