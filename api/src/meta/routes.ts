@@ -13,6 +13,7 @@ import {
 } from "./crmConfig.js";
 import { listMetaLeadInbox, promoteMetaLeadInbox } from "./leadInbox.js";
 import { processMetaLeadWebhookBatch } from "./leadAds.js";
+import { processMetaOutboxBatch } from "./outbox.js";
 
 export const metaRouter = Router();
 
@@ -265,6 +266,22 @@ metaRouter.post(
       const parsed = z.object({ limit: z.number().int().min(1).max(100).optional() }).safeParse(req.body ?? {});
       if (!parsed.success) return res.status(400).json({ error: "Invalid process request" });
       const processed = await processMetaLeadWebhookBatch(parsed.data.limit ?? 20);
+      return res.json({ ok: true, processed });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+metaRouter.post(
+  "/outbox/process",
+  requireCrmUser,
+  requireRole(["admin"]),
+  async (req, res, next) => {
+    try {
+      const parsed = z.object({ limit: z.number().int().min(1).max(100).optional() }).safeParse(req.body ?? {});
+      if (!parsed.success) return res.status(400).json({ error: "Invalid process request" });
+      const processed = await processMetaOutboxBatch(parsed.data.limit ?? 20);
       return res.json({ ok: true, processed });
     } catch (error) {
       return next(error);
