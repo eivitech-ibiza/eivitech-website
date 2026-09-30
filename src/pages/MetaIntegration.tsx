@@ -9,6 +9,7 @@ import {
   fetchMetaOperationalStatus,
   fetchPublicMetaConfig,
   processMetaLeadInbox,
+  processMetaOutbox,
   retryFailedMetaEvents,
   updateMetaAdminConfig,
   updateMetaCrmConfig,
@@ -209,6 +210,19 @@ function MetaPanel() {
     } finally { setBusy(false); }
   };
 
+  const processCapi = async () => {
+    setBusy(true); setError(null); setMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Missing CRM authentication token");
+      const result = await processMetaOutbox(token, 20);
+      setMessage(`Eventi CAPI elaborati: ${result.processed}`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Meta CAPI processing failed");
+    } finally { setBusy(false); }
+  };
+
   const retryFailed = async () => {
     setBusy(true); setError(null); setMessage(null);
     try {
@@ -287,17 +301,30 @@ function MetaPanel() {
       <div className="rounded-sm border border-border bg-card p-6 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-semibold"><Inbox className="h-4 w-4" /> Operatività</div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy} onClick={() => void processCapi()} className="rounded-sm border border-border px-3 py-2 text-sm">Elabora CAPI ora</button>
             <button type="button" disabled={busy} onClick={() => void processInbox()} className="rounded-sm border border-border px-3 py-2 text-sm">Elabora Lead Ads</button>
             <button type="button" disabled={busy} onClick={() => void retryFailed()} className="rounded-sm border border-border px-3 py-2 text-sm">Riprova eventi falliti</button>
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-sm border border-border p-4"><div className="text-xs text-muted-foreground">Outbox queued</div><div className="mt-1 text-2xl">{statusCount(status?.outbox, "queued")}</div></div>
+          <div className="rounded-sm border border-border p-4"><div className="text-xs text-muted-foreground">Outbox processing / retry</div><div className="mt-1 text-2xl">{statusCount(status?.outbox, "processing") + statusCount(status?.outbox, "retry")}</div></div>
+          <div className="rounded-sm border border-emerald-500/30 bg-emerald-500/5 p-4"><div className="text-xs text-muted-foreground">Outbox sent</div><div className="mt-1 text-2xl">{statusCount(status?.outbox, "sent")}</div></div>
           <div className="rounded-sm border border-border p-4"><div className="text-xs text-muted-foreground">Outbox failed</div><div className="mt-1 text-2xl">{statusCount(status?.outbox, "failed")}</div></div>
+          <div className="rounded-sm border border-border p-4"><div className="text-xs text-muted-foreground">Outbox skipped</div><div className="mt-1 text-2xl">{statusCount(status?.outbox, "skipped")}</div></div>
           <div className="rounded-sm border border-border p-4"><div className="text-xs text-muted-foreground">Lead da completare</div><div className="mt-1 text-2xl">{statusCount(status?.inbox, "to_complete")}</div></div>
           <div className="rounded-sm border border-border p-4"><div className="text-xs text-muted-foreground">Lead promossi</div><div className="mt-1 text-2xl">{statusCount(status?.inbox, "promoted")}</div></div>
         </div>
+
+        {status?.lastSuccess && (
+          <div className="mt-4 rounded-sm border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
+            <div className="flex items-center gap-2 font-medium"><CheckCircle2 className="h-4 w-4" /> Ultimo evento CAPI inviato</div>
+            <div className="mt-1 text-muted-foreground">
+              {status.lastSuccess.event_name || "—"} · event_id {status.lastSuccess.event_id || "—"} · {status.lastSuccess.sent_at || "ora non disponibile"}
+            </div>
+          </div>
+        )}
 
         {status?.lastError && (
           <div className="mt-4 rounded-sm border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
