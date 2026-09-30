@@ -326,6 +326,20 @@ function MetaPanel() {
           </div>
         )}
 
+        {status?.lastPendingError && (
+          <div className="mt-4 rounded-sm border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+            <div className="flex items-center gap-2 font-medium"><AlertTriangle className="h-4 w-4" /> Ultimo evento CAPI in attesa / retry</div>
+            <div className="mt-1 text-muted-foreground">
+              {status.lastPendingError.event_name || "—"} · event_id {status.lastPendingError.event_id || "—"} ·
+              stato {status.lastPendingError.status || "—"} · tentativi {status.lastPendingError.attempts ?? 0}
+            </div>
+            <div className="mt-1 text-muted-foreground">
+              {status.lastPendingError.last_error_code || "—"}: {status.lastPendingError.last_error_message || "Dettaglio non disponibile"}
+              {status.lastPendingError.next_attempt_at ? ` · Prossimo tentativo: ${status.lastPendingError.next_attempt_at}` : ""}
+            </div>
+          </div>
+        )}
+
         {status?.lastError && (
           <div className="mt-4 rounded-sm border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
             <div className="flex items-center gap-2 font-medium"><AlertTriangle className="h-4 w-4" /> Ultimo errore Meta</div>
