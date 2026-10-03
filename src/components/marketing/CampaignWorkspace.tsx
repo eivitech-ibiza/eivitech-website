@@ -331,6 +331,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setAudienceChange(null);
       setConfirmationPhrase("");
       setReviewConfirmed(false);
+      resetSendChoice();
       setNotice(tr(
         "Se ha creado una nueva campaña para el reenvío. La campaña original y sus métricas permanecen intactas.",
         "È stata creata una nuova campagna per il reinvio. La campagna originale e le sue metriche restano intatte.",
@@ -422,6 +423,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setAudienceChange(null);
       setConfirmationPhrase("");
       setReviewConfirmed(false);
+      resetSendChoice();
       setNotice(tr("Campaña preparada. Todavía no se ha enviado nada.", "Campagna preparata. Non è stata ancora inviata alcuna email.", "Campaign prepared. Nothing has been sent yet.", "Campagne voorbereid. Er is nog niets verzonden."));
       await onChanged();
     } catch (err) { setError(err instanceof Error ? err.message : "Preparation failed"); }
@@ -455,6 +457,8 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setConfirmationPhrase("");
       setReviewConfirmed(false);
 
+      resetSendChoice();
+
       setNotice(
         tr(
           "Audiencia sincronizada y preparación actualizada. Revisa el nuevo número de destinatarios.",
@@ -479,14 +483,54 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
 
   async function confirmSend() {
     if (!preparation) return;
-    setSaving(true); setError(null);
+    if (sendMode === "scheduled" && (!scheduleDate || !scheduleTime)) {
+      setError(tr(
+        "Selecciona fecha y hora para la programación.",
+        "Seleziona data e ora per la programmazione.",
+        "Select a date and time for the scheduled send.",
+        "Selecteer een datum en tijd voor de geplande verzending.",
+      ));
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
     try {
-      await sendMarketingCampaign(await tokenOrThrow(), preparation.campaign.id, {
+      const result = await sendMarketingCampaign(await tokenOrThrow(), preparation.campaign.id, {
         confirmation_token: preparation.data.confirmation_token,
         confirmation_phrase: confirmationPhrase,
+        send_mode: sendMode,
+        ...(sendMode === "scheduled"
+          ? {
+              scheduled_local: `${scheduleDate}T${scheduleTime}`,
+              scheduled_time_zone: MARKETING_TIME_ZONE,
+            }
+          : {}),
       });
+
       setPreparation(null);
-      setNotice(tr("Envío iniciado.", "Invio avviato.", "Send started.", "Verzending gestart."));
+      setConfirmationPhrase("");
+      setReviewConfirmed(false);
+      resetSendChoice();
+
+      if (result.status === "scheduled") {
+        setNotice(
+          `${tr(
+            "Programación aceptada por Resend para",
+            "Programmazione accettata da Resend per",
+            "Schedule accepted by Resend for",
+            "Planning geaccepteerd door Resend voor",
+          )} ${formatMadridDate(result.scheduled_at)} (${MARKETING_TIME_ZONE}).`,
+        );
+      } else {
+        setNotice(tr(
+          "Envío aceptado por Resend. El estado cambiará a «Envío iniciado» cuando comience la expedición real.",
+          "Invio accettato da Resend. Lo stato passerà a «Invio avviato» quando inizierà la spedizione effettiva.",
+          "Send accepted by Resend. The status will change to “Send started” when actual dispatch begins.",
+          "Verzending geaccepteerd door Resend. De status verandert naar ‘Verzending gestart’ zodra de echte verzending begint.",
+        ));
+      }
+
       await onChanged();
     } catch (err) {
       const changed = getAudienceChangedAfterPrepareDetails(err);
@@ -499,8 +543,59 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       } else {
         setError(err instanceof Error ? err.message : "Send failed");
       }
+    } finally {
+      setSaving(false);
     }
-    finally { setSaving(false); }
+  }
+
+  async function cancelScheduled(campaign: MarketingCampaign) {
+    const when = formatMadridDate(campaign.scheduled_at);
+    if (!window.confirm(tr(
+      `¿Cancelar el envío programado para ${when} (${MARKETING_TIME_ZONE})?`,
+      `Annullare l'invio programmato per ${when} (${MARKETING_TIME_ZONE})?`,
+      `Cancel the send scheduled for ${when} (${MARKETING_TIME_ZONE})?`,
+      `De verzending gepland voor ${when} (${MARKETING_TIME_ZONE}) annuleren?`,
+    ))) return;
+
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await cancelScheduledMarketingCampaign(await tokenOrThrow(), campaign.id);
+      setNotice(tr(
+        "Programación cancelada y confirmada por Resend.",
+        "Programmazione annullata e confermata da Resend.",
+        "Schedule cancelled and confirmed by Resend.",
+        "Planning geannuleerd en bevestigd door Resend.",
+      ));
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Scheduled cancellation failed");
+      await onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reconcileCampaign(campaign: MarketingCampaign) {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await reconcileMarketingCampaign(await tokenOrThrow(), campaign.id);
+      setNotice(
+        `${tr(
+          "Estado sincronizado con Resend:",
+          "Stato sincronizzato con Resend:",
+          "Status synchronized with Resend:",
+          "Status gesynchroniseerd met Resend:",
+        )} ${campaignStatusLabel(result.status)}.`,
+      );
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Status reconciliation failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return <div className="mt-6 grid gap-6 xl:grid-cols-[480px_1fr]">
