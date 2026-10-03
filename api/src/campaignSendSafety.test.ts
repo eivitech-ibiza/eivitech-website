@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 process.env.DATABASE_URL ||= "postgresql://test:test@localhost:5432/test";
@@ -20,4 +21,12 @@ test("send safety no longer depends on crm_marketing_segments.resend_segment_id"
 
   assert.doesNotMatch(sql, /crm_marketing_segments/);
   assert.doesNotMatch(sql, /s\.resend_segment_id/);
+});
+
+
+test("campaign send revalidates the prepared audience before provider submission", () => {
+  const marketingSource = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
+
+  assert.match(marketingSource, /verifyCampaignAudienceBeforeSend\(campaign\.id\)/);
+  assert.match(marketingSource, /AUDIENCE_CHANGED_AFTER_PREPARE/);
 });
