@@ -6,8 +6,10 @@ import { z } from "zod";
 import { pool, query } from "./db.js";
 import {
   ResendMarketingError,
+  cancelResendBroadcast,
   createOrUpdateResendBroadcast,
   deleteResendBroadcast,
+  getResendBroadcast,
   listResendSegments,
   marketingCapabilities,
   listResendSegmentContacts,
@@ -17,6 +19,11 @@ import {
   upsertResendContact,
 } from "./resendMarketing.js";
 import { selectResendSegmentPool } from "./resendSegmentPool.js";
+import {
+  MARKETING_TIME_ZONE,
+  MarketingScheduleError,
+  resolveMadridLocalDateTime,
+} from "./marketingSchedule.js";
 
 const languageSchema = z.enum(["es", "it", "en", "nl"]);
 const contactStatusSchema = z.enum(["pending", "subscribed", "unsubscribed", "suppressed"]);
@@ -114,6 +121,26 @@ const campaignTestSchema = z.object({
 const campaignSendSchema = z.object({
   confirmation_token: z.string().regex(/^[a-f0-9]{64}$/i),
   confirmation_phrase: z.string().trim().min(1).max(200),
+  send_mode: z.enum(["now", "scheduled"]).default("now"),
+  scheduled_local: z.string().trim().optional(),
+  scheduled_time_zone: z.literal(MARKETING_TIME_ZONE).optional(),
+}).superRefine((value, ctx) => {
+  if (value.send_mode === "scheduled") {
+    if (!value.scheduled_local) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduled_local"],
+        message: "Date and time are required for a scheduled send",
+      });
+    }
+    if (value.scheduled_time_zone !== MARKETING_TIME_ZONE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduled_time_zone"],
+        message: "Scheduled sends must use Europe/Madrid",
+      });
+    }
+  }
 });
 
 type ContactEventType = "created" | "updated" | "subscribed" | "unsubscribed" | "suppressed" | "restored" | "imported";
@@ -347,6 +374,8 @@ type MarketingCampaignRow = {
   html: string;
   resend_broadcast_id: string | null;
   recipient_count: number;
+  scheduled_at: Date | string | null;
+  sent_at: Date | string | null;
   send_confirmation_token_hash: string | null;
   send_confirmation_expires_at: Date | string | null;
 };
