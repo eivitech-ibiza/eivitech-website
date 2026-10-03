@@ -67,7 +67,7 @@ jobs:
             scripts/marketing-scheduling.test.mjs \
             src/components/marketing/CampaignWorkspace.tsx \
             src/lib/marketing.ts
-          git rm \
+          git rm -f \
             scripts/harden-scheduled-newsletters.py \
             scripts/harden-scheduled-newsletters.trigger \
             .github/workflows/harden-scheduled-newsletters.yml
