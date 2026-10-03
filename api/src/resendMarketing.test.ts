@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   buildMarketingTestPayload,
@@ -134,4 +135,13 @@ test("plain-text test payload does not include an HTML body", () => {
   const payload = buildMarketingTestPayload(textCampaign, "test@example.com") as Record<string, unknown>;
   assert.equal("html" in payload, false);
   assert.equal(typeof payload.text, "string");
+});
+
+
+test("Resend Broadcast transport supports native scheduling and cancellation", () => {
+  const source = readFileSync(new URL("./resendMarketing.ts", import.meta.url), "utf8");
+
+  assert.match(source, /body: scheduledAt \? \{ scheduled_at: scheduledAt \} : \{\}/);
+  assert.match(source, /\/broadcasts\/\$\{encodeURIComponent\(broadcastId\)\}\/cancel/);
+  assert.match(source, /eivitech-broadcast-send-\$\{broadcastId\}-\$\{scheduledAt \|\| "now"\}/);
 });
