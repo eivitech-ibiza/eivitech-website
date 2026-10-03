@@ -496,7 +496,7 @@ export async function sendResendBroadcast(
   return resendRequest<{ id: string }>(`/broadcasts/${encodeURIComponent(broadcastId)}/send`, {
     method: "POST",
     apiKey: adminKeyOrThrow(),
-    idempotencyKey: `eivitech-broadcast-send-${broadcastId}`,
+    idempotencyKey: `eivitech-broadcast-send-${broadcastId}-${scheduledAt || "now"}`,
     body: scheduledAt ? { scheduled_at: scheduledAt } : {},
   });
 }
