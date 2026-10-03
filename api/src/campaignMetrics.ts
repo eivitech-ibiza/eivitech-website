@@ -16,10 +16,18 @@ async function reconcileCampaign(campaign: ActiveCampaignForReconciliation) {
   const mapped = mapResendBroadcastState(providerStatus, mode);
   let localStatus = mapped.localStatus;
 
-  if (providerStatus === "draft") {
-    localStatus = campaign.status === "paused" || campaign.status === "scheduled"
-      ? "cancelled"
-      : "draft";
+  if (campaign.status === "paused") {
+    if (providerStatus === "draft" || providerStatus === "canceled" || providerStatus === "cancelled") {
+      localStatus = "cancelled";
+    } else if (providerStatus === "sent") {
+      localStatus = "sent";
+    } else {
+      return;
+    }
+  } else if (campaign.status === "sending" && providerStatus === "draft") {
+    return;
+  } else if (providerStatus === "draft") {
+    localStatus = "cancelled";
   } else if (!mapped.accepted) {
     return;
   }
@@ -34,12 +42,13 @@ async function reconcileCampaign(campaign: ActiveCampaignForReconciliation) {
          END,
          updated_at = now()
      WHERE id = $4
-       AND status IN ('scheduled', 'sending', 'paused')`,
+       AND status = $5`,
     [
       localStatus,
       provider.scheduled_at || null,
       provider.sent_at || null,
       campaign.id,
+      campaign.status,
     ],
   );
 }

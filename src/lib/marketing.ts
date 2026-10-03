@@ -309,5 +309,7 @@ export function cancelMarketingCampaign(token: string, campaignId: string) {
     provider_status?: string | null;
     idempotent?: boolean;
     reconciled?: boolean;
+    code?: string;
+    message?: string;
   }>(`/campaigns/${campaignId}/cancel`, { method: "POST", token, body: {} });
 }

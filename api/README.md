@@ -228,6 +228,6 @@ Campaign preparation supports immediate sending or one-time scheduling through t
 
 - `POST /api/marketing/campaigns/:id/prepare` records the selected mode and issues the existing 10-minute one-time confirmation token;
 - `POST /api/marketing/campaigns/:id/send` either starts immediately or submits `scheduled_at` to Resend;
-- `POST /api/marketing/campaigns/:id/cancel` accepts cancellation while the campaign is provider-confirmed as scheduled; Resend may also complete that cancellation after it has internally moved the Broadcast to its queue.
+- `POST /api/marketing/campaigns/:id/cancel` verifies the provider state and supports both Resend-cancellable states: `scheduled` (which returns to provider `draft`) and `queued` (which becomes provider `canceled`). Local status changes to `cancelled` only after one of those effective provider outcomes is observed.
 
-Resend executes future sends independently of the browser, user session, computer, GitHub Actions, or Railway cron. Scheduled/sending/cancellation-verification campaigns retain exclusive use of their Resend transport pool. Provider acceptance, queueing/sending, final Broadcast completion, and per-email delivery metrics remain distinct states.
+Resend executes future sends independently of the browser, user session, computer, GitHub Actions, or Railway cron. Scheduled/sending/cancellation-verification campaigns retain exclusive use of their Resend transport pool. Provider acceptance, queueing/sending, final Broadcast completion, and per-email delivery metrics remain distinct states. A send with an uncertain network outcome remains blocked rather than being automatically reset to draft; it requires provider reconciliation before a new preparation can be allowed.

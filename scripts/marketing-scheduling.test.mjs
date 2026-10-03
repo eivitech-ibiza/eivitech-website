@@ -14,6 +14,7 @@ test("campaign workspace exposes immediate and Europe/Madrid scheduled delivery 
   assert.match(confirmation, /recipient_count/);
   assert.match(confirmation, /scheduled_at/);
   assert.match(workspace, /cancelMarketingCampaign/);
-  assert.match(workspace, /campaign\.status === "scheduled"/);
+  assert.match(workspace, /\["scheduled", "sending"\]\.includes\(campaign\.status\)/);
+  assert.match(workspace, /Annullamento in verifica/);
   assert.match(client, /campaigns\/\$\{campaignId\}\/cancel/);
 });

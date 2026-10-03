@@ -112,7 +112,7 @@ async function persistAcceptedBroadcastState(
   const mapped = mapResendBroadcastState(providerStatus, mode);
   if (!mapped.accepted) return null;
 
-  await query(
+  const persisted = await query<Pick<MarketingCampaignRow, "status">>(
     `UPDATE crm_marketing_campaigns
      SET status = $1,
          scheduled_at = COALESCE($2::timestamptz, scheduled_at),
@@ -121,11 +121,18 @@ async function persistAcceptedBroadcastState(
            ELSE sent_at
          END,
          updated_at = now()
-     WHERE id = $4`,
+     WHERE id = $4
+       AND (status <> 'paused' OR $1 IN ('sent', 'cancelled'))
+     RETURNING status`,
     [mapped.localStatus, providerScheduledAt || null, providerSentAt || null, campaign.id],
   );
+  if (persisted.rows[0]) return persisted.rows[0].status;
 
-  return mapped.localStatus;
+  const current = await query<Pick<MarketingCampaignRow, "status">>(
+    `SELECT status FROM crm_marketing_campaigns WHERE id = $1`,
+    [campaign.id],
+  );
+  return current.rows[0]?.status || null;
 }
 
 async function reconcileCampaignAfterOperation(campaign: MarketingCampaignRow) {
@@ -356,9 +363,14 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
       scheduledAt: isoString(campaign.scheduled_at),
       providerStatus,
     });
+    const cancellationPending = localStatus === "paused";
     return res.status(localStatus === "sent" ? 200 : 202).json({
-      ok: true,
+      ok: !cancellationPending,
       status: localStatus,
+      code: cancellationPending ? "CANCEL_ACCEPTANCE_PENDING" : undefined,
+      message: cancellationPending
+        ? "L'invio è stato accettato, ma è già in corso una richiesta di annullamento."
+        : undefined,
       broadcast_id: broadcastId,
       scheduled_at: isoString(campaign.scheduled_at),
       provider_status: providerStatus,
@@ -387,9 +399,14 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
           providerStatus: provider.status,
           recoveredAfterError: true,
         });
+        const cancellationPending = recoveredStatus === "paused";
         return res.status(recoveredStatus === "sent" ? 200 : 202).json({
-          ok: true,
+          ok: !cancellationPending,
           status: recoveredStatus,
+          code: cancellationPending ? "CANCEL_ACCEPTANCE_PENDING" : undefined,
+          message: cancellationPending
+            ? "L'invio è stato accettato, ma è già in corso una richiesta di annullamento."
+            : undefined,
           broadcast_id: broadcastId,
           scheduled_at: provider.scheduled_at || isoString(campaign.scheduled_at),
           provider_status: provider.status,
@@ -426,7 +443,7 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
     });
     throw new MarketingDeliveryOperationError(
       502,
-      "L'esito della richiesta a Resend è incerto. La campagna resta bloccata e verrà riconciliata automaticamente: aggiorna l'elenco e non ripetere l'invio.",
+      "L'esito della richiesta a Resend è incerto. La campagna resta bloccata: aggiorna l'elenco e non ripetere l'invio. Se Resend continua a mostrarla come bozza, serve una verifica operativa prima di prepararla di nuovo.",
     );
   }
 }));
@@ -439,23 +456,93 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
   if (!campaign.scheduled_at) {
     return res.status(409).json({ error: "Only scheduled campaigns can be cancelled" });
   }
-  if (!campaign.resend_broadcast_id) return res.status(409).json({ error: "Campaign has no Resend Broadcast to cancel" });
+  if (!campaign.resend_broadcast_id) {
+    return res.status(409).json({ error: "Campaign has no Resend Broadcast to cancel" });
+  }
   if (campaign.status === "paused") {
     return res.status(202).json({
-      ok: true,
+      ok: false,
       status: "paused",
+      code: "CANCEL_ACCEPTANCE_PENDING",
+      message: "La richiesta di annullamento è in verifica presso Resend.",
       broadcast_id: campaign.resend_broadcast_id,
       idempotent: true,
     });
   }
-  if (campaign.status !== "scheduled") {
+  if (!["scheduled", "sending"].includes(campaign.status)) {
     return res.status(409).json({ error: `Campaign cannot be cancelled from status ${campaign.status}` });
+  }
+
+  const broadcastId = campaign.resend_broadcast_id;
+  const previousStatus = campaign.status;
+
+  // A local `sending` state can mean either an immediate send or a scheduled
+  // Broadcast that Resend has moved to `queued`. Only the latter is cancellable.
+  if (campaign.status === "sending") {
+    let provider: Awaited<ReturnType<typeof getResendBroadcast>>;
+    try {
+      provider = await getResendBroadcast(broadcastId);
+    } catch (error) {
+      throw new MarketingDeliveryOperationError(
+        502,
+        "Non è stato possibile verificare se il Broadcast è già in coda. Aggiorna l'elenco prima di riprovare.",
+        "CANCEL_STATUS_UNAVAILABLE",
+      );
+    }
+
+    const providerStatus = String(provider.status || "").toLowerCase();
+    if (providerStatus === "draft") {
+      return res.status(409).json({
+        error: "Resend non ha ancora confermato che il Broadcast sia programmato o in coda. Non ripetere l'operazione.",
+        code: "CANCEL_NOT_READY",
+        provider_status: provider.status,
+      });
+    }
+    if (providerStatus === "canceled" || providerStatus === "cancelled") {
+      await query(
+        `UPDATE crm_marketing_campaigns SET status = 'cancelled', updated_at = now() WHERE id = $1`,
+        [campaign.id],
+      );
+      await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
+        action: "cancelled",
+        broadcastId,
+        providerStatus: provider.status,
+        reconciledBeforeCancel: true,
+      });
+      return res.json({
+        ok: true,
+        status: "cancelled",
+        broadcast_id: broadcastId,
+        provider_status: provider.status,
+        reconciled: true,
+      });
+    }
+    if (providerStatus === "sent") {
+      await persistAcceptedBroadcastState(
+        campaign,
+        "scheduled",
+        provider.status,
+        provider.scheduled_at,
+        provider.sent_at,
+      );
+      return res.status(409).json({
+        error: "L'invio è già iniziato o terminato e non può più essere annullato.",
+        code: "CANCEL_TOO_LATE",
+      });
+    }
+    if (providerStatus !== "scheduled" && providerStatus !== "queued") {
+      return res.status(409).json({
+        error: `Resend non consente l'annullamento dallo stato ${provider.status}.`,
+        code: "CANCEL_NOT_AVAILABLE",
+        provider_status: provider.status,
+      });
+    }
   }
 
   const claimed = await query<MarketingCampaignRow>(
     `UPDATE crm_marketing_campaigns
      SET status = 'paused', updated_at = now()
-     WHERE id = $1 AND status = 'scheduled'
+     WHERE id = $1 AND status IN ('scheduled', 'sending')
      RETURNING id, status, recipient_count, scheduled_at, sent_at, resend_broadcast_id`,
     [campaign.id],
   );
@@ -471,8 +558,10 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
     }
     if (campaign.status === "paused") {
       return res.status(202).json({
-        ok: true,
+        ok: false,
         status: campaign.status,
+        code: "CANCEL_ACCEPTANCE_PENDING",
+        message: "La richiesta di annullamento è in verifica presso Resend.",
         broadcast_id: campaign.resend_broadcast_id,
         idempotent: true,
       });
@@ -483,40 +572,82 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
     });
   }
   campaign = claimed.rows[0];
-  const broadcastId = campaign.resend_broadcast_id;
-  if (!broadcastId) throw new MarketingDeliveryOperationError(409, "Campaign has no Resend Broadcast to cancel");
 
   try {
     const cancelled = await cancelResendBroadcast(broadcastId);
-    let providerStatus: string | null = null;
+    let provider: Awaited<ReturnType<typeof getResendBroadcast>> | null = null;
     try {
-      const provider = await getResendBroadcast(broadcastId);
-      providerStatus = provider.status;
-      if (provider.status.toLowerCase() === "sent") {
-        await persistAcceptedBroadcastState(campaign, "scheduled", provider.status, provider.scheduled_at, provider.sent_at);
-        return res.status(409).json({ error: "L'invio è già iniziato o terminato e non può più essere annullato.", code: "CANCEL_TOO_LATE" });
-      }
+      provider = await getResendBroadcast(broadcastId);
     } catch (reconcileError) {
       console.warn("[marketing] Broadcast cancellation accepted but immediate reconciliation failed", reconcileError);
     }
 
-    await query(
-      `UPDATE crm_marketing_campaigns
-       SET status = 'cancelled', updated_at = now()
-       WHERE id = $1 AND status = 'paused'`,
-      [campaign.id],
-    );
+    if (!provider) {
+      await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
+        action: "cancel_requested",
+        broadcastId,
+        resendResponseId: cancelled.id,
+        providerStatus: null,
+      });
+      return res.status(202).json({
+        ok: false,
+        status: "paused",
+        code: "CANCEL_ACCEPTANCE_PENDING",
+        message: "Resend ha accettato la richiesta di annullamento; lo stato effettivo è ancora in verifica.",
+        broadcast_id: broadcastId,
+        provider_status: null,
+      });
+    }
+
+    const providerStatus = String(provider.status || "").toLowerCase();
+    if (providerStatus === "draft" || providerStatus === "canceled" || providerStatus === "cancelled") {
+      await query(
+        `UPDATE crm_marketing_campaigns
+         SET status = 'cancelled', updated_at = now()
+         WHERE id = $1 AND status = 'paused'`,
+        [campaign.id],
+      );
+      await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
+        action: "cancelled",
+        broadcastId,
+        resendResponseId: cancelled.id,
+        providerStatus: provider.status,
+      });
+      return res.json({
+        ok: true,
+        status: "cancelled",
+        broadcast_id: broadcastId,
+        provider_status: provider.status,
+      });
+    }
+
+    if (providerStatus === "sent") {
+      await persistAcceptedBroadcastState(
+        campaign,
+        "scheduled",
+        provider.status,
+        provider.scheduled_at,
+        provider.sent_at,
+      );
+      return res.status(409).json({
+        error: "L'invio è già iniziato o terminato e non può più essere annullato.",
+        code: "CANCEL_TOO_LATE",
+      });
+    }
+
     await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
-      action: "cancelled",
+      action: "cancel_requested",
       broadcastId,
       resendResponseId: cancelled.id,
-      providerStatus,
+      providerStatus: provider.status,
     });
-    return res.json({
-      ok: true,
-      status: "cancelled",
+    return res.status(202).json({
+      ok: false,
+      status: "paused",
+      code: "CANCEL_ACCEPTANCE_PENDING",
+      message: "Resend ha accettato la richiesta di annullamento; lo stato effettivo è ancora in verifica.",
       broadcast_id: broadcastId,
-      provider_status: providerStatus,
+      provider_status: provider.status,
     });
   } catch (error) {
     let provider: Awaited<ReturnType<typeof getResendBroadcast>> | null = null;
@@ -527,9 +658,18 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
     }
 
     if (provider) {
-      const providerStatus = provider.status.toLowerCase();
+      const providerStatus = String(provider.status || "").toLowerCase();
       if (providerStatus === "draft" || providerStatus === "canceled" || providerStatus === "cancelled") {
-        await query(`UPDATE crm_marketing_campaigns SET status = 'cancelled', updated_at = now() WHERE id = $1`, [campaign.id]);
+        await query(
+          `UPDATE crm_marketing_campaigns SET status = 'cancelled', updated_at = now() WHERE id = $1`,
+          [campaign.id],
+        );
+        await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
+          action: "cancelled",
+          broadcastId,
+          providerStatus: provider.status,
+          reconciledAfterError: true,
+        });
         return res.json({
           ok: true,
           status: "cancelled",
@@ -539,23 +679,64 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
         });
       }
       if (providerStatus === "sent") {
-        await persistAcceptedBroadcastState(campaign, "scheduled", provider.status, provider.scheduled_at, provider.sent_at);
-        return res.status(409).json({ error: "L'invio è già iniziato o terminato e non può più essere annullato.", code: "CANCEL_TOO_LATE" });
-      }
-      if (providerStatus === "scheduled" || providerStatus === "queued") {
-        const restoredStatus = providerStatus === "scheduled" ? "scheduled" : "sending";
-        await query(`UPDATE crm_marketing_campaigns SET status = $1, updated_at = now() WHERE id = $2`, [restoredStatus, campaign.id]);
+        await persistAcceptedBroadcastState(
+          campaign,
+          "scheduled",
+          provider.status,
+          provider.scheduled_at,
+          provider.sent_at,
+        );
         return res.status(409).json({
-          error: `Resend non ha annullato la campagna: ${readableResendError(error)}`,
+          error: "L'invio è già iniziato o terminato e non può più essere annullato.",
+          code: "CANCEL_TOO_LATE",
+        });
+      }
+      if (
+        (providerStatus === "scheduled" || providerStatus === "queued")
+        && error instanceof ResendMarketingError
+        && error.status >= 400
+        && error.status < 500
+      ) {
+        const restoredStatus = providerStatus === "scheduled" ? "scheduled" : "sending";
+        await query(
+          `UPDATE crm_marketing_campaigns
+           SET status = $1, updated_at = now()
+           WHERE id = $2 AND status = 'paused'`,
+          [restoredStatus, campaign.id],
+        );
+        return res.status(409).json({
+          error: `Resend non ha accettato l'annullamento: ${readableResendError(error)}`,
           code: "CANCEL_REJECTED",
           provider_status: provider.status,
         });
       }
+    } else if (
+      error instanceof ResendMarketingError
+      && error.status >= 400
+      && error.status < 500
+    ) {
+      await query(
+        `UPDATE crm_marketing_campaigns
+         SET status = $1, updated_at = now()
+         WHERE id = $2 AND status = 'paused'`,
+        [previousStatus, campaign.id],
+      );
+      return res.status(409).json({
+        error: `Resend non ha accettato l'annullamento: ${readableResendError(error)}`,
+        code: "CANCEL_REJECTED",
+      });
     }
 
+    await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
+      action: "cancel_uncertain",
+      broadcastId,
+      message: readableResendError(error),
+      providerStatus: provider?.status || null,
+    });
     throw new MarketingDeliveryOperationError(
       502,
-      "L'esito dell'annullamento è incerto. La campagna resta bloccata e verrà riconciliata automaticamente: aggiorna l'elenco prima di qualsiasi altra azione.",
+      "L'esito dell'annullamento è incerto. La campagna resta bloccata: aggiorna l'elenco e verifica lo stato Resend prima di qualsiasi altra azione.",
+      "CANCEL_OUTCOME_UNCERTAIN",
     );
   }
 }));

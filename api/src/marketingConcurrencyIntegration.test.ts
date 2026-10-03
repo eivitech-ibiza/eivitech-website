@@ -22,11 +22,27 @@ test("concurrent send retries do not report success before provider acceptance",
   assert.match(source, /confirmationAttemptId/);
 });
 
-test("cancellation cannot race the initial provider send request", () => {
+test("provider-confirmed queued scheduled campaigns remain cancellable", () => {
   const source = readFileSync(new URL("./marketingCampaignDelivery.ts", import.meta.url), "utf8");
-  assert.match(source, /campaign\.status !== "scheduled"/);
-  assert.match(source, /WHERE id = \$1 AND status = 'scheduled'/);
-  assert.doesNotMatch(source, /status IN \('scheduled', 'sending'\)/);
+  assert.match(source, /campaign\.status === "sending"/);
+  assert.match(source, /providerStatus !== "scheduled" && providerStatus !== "queued"/);
+  assert.match(source, /WHERE id = \$1 AND status IN \('scheduled', 'sending'\)/);
+  assert.match(source, /CANCEL_ACCEPTANCE_PENDING/);
+});
+
+test("cancellation claims cannot be overwritten by a queued-state reconciliation", () => {
+  const delivery = readFileSync(new URL("./marketingCampaignDelivery.ts", import.meta.url), "utf8");
+  const metrics = readFileSync(new URL("./campaignMetrics.ts", import.meta.url), "utf8");
+  assert.match(delivery, /status <> 'paused'/);
+  assert.match(delivery, /\$1 IN \('sent', 'cancelled'\)/);
+  assert.match(metrics, /campaign\.status === "paused"/);
+  assert.match(metrics, /AND status = \$5/);
+});
+
+test("an uncertain send is never reset to draft only because the provider still reports draft", () => {
+  const source = readFileSync(new URL("./campaignMetrics.ts", import.meta.url), "utf8");
+  assert.match(source, /campaign\.status === "sending" && providerStatus === "draft"/);
+  assert.match(source, /return;/);
 });
 
 test("only explicit provider rejections release an uncertain send immediately", () => {
