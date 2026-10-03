@@ -220,3 +220,14 @@ Activation is deliberately fail-closed. Both web CAPI and CRM CAPI default to `d
 For website leads, the browser Pixel and server CAPI reuse the backend-generated event ID so Meta can deduplicate the logical Lead. Advertising-sharing revocation cancels unsent website events and removes locally stored Meta browser identifiers. Native Meta leads retain their Meta `lead_id` as a string and are staged idempotently before promotion.
 
 The Lead Ads worker and CAPI outbox worker use PostgreSQL as durable state. Retries preserve the original event identity and event time; CRM saves are not blocked by Meta availability.
+
+
+### One-time scheduled newsletters
+
+Campaign preparation supports immediate sending or one-time scheduling through the native Resend Broadcast API. Wall-clock values are interpreted strictly in `Europe/Madrid`, stored in UTC, and rejected when they are past, more than 30 days ahead, nonexistent, or ambiguous during daylight-saving transitions.
+
+- `POST /api/marketing/campaigns/:id/prepare` records the selected mode and issues the existing 10-minute one-time confirmation token;
+- `POST /api/marketing/campaigns/:id/send` either starts immediately or submits `scheduled_at` to Resend;
+- `POST /api/marketing/campaigns/:id/cancel` cancels a provider-accepted scheduled/queued Broadcast before completion.
+
+Resend executes future sends independently of the browser, user session, computer, GitHub Actions, or Railway cron. Scheduled/sending/cancellation-verification campaigns retain exclusive use of their Resend transport pool. Provider acceptance, queueing/sending, final Broadcast completion, and per-email delivery metrics remain distinct states.

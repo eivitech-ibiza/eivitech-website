@@ -49,14 +49,13 @@ test("rejects scheduled instants in the past", () => {
   );
 });
 
-test("rejects scheduled instants more than 30 days ahead", () => {
-  assert.throws(
-    () => validateScheduledInstant(
-      "2026-11-03T09:00:01.000Z",
+test("accepts valid future Broadcast instants without applying a transactional-email limit", () => {
+  assert.equal(
+    validateScheduledInstant(
+      "2027-01-03T09:00:00.000Z",
       new Date("2026-10-03T09:00:00.000Z"),
     ),
-    (error: unknown) => error instanceof MarketingScheduleError
-      && error.code === "SCHEDULE_TOO_FAR",
+    "2027-01-03T09:00:00.000Z",
   );
 });
 

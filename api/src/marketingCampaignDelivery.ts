@@ -80,7 +80,7 @@ async function recordCampaignEvent(
   payload: Record<string, unknown>,
 ) {
   await query(
-    `INSERT INTO crm_marketing_campaign_events (campaign_id, event_type, actor_id, payload)
+    `INSERT INTO crm_marketing_campaign_events (campaign_id, event_type, created_by, payload)
      VALUES ($1, $2, $3, $4)`,
     [campaignId, eventType, actorId, JSON.stringify(payload)],
   );

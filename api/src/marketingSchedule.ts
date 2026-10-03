@@ -1,11 +1,10 @@
 export const MARKETING_TIME_ZONE = "Europe/Madrid" as const;
-export const MAX_SCHEDULE_AHEAD_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type MarketingDeliveryMode = "now" | "scheduled";
 export type ScheduledCampaignLocalStatus = "draft" | "scheduled" | "sending" | "sent" | "cancelled" | "failed";
 
 export class MarketingScheduleError extends Error {
-  code: "INVALID_LOCAL_DATETIME" | "NONEXISTENT_LOCAL_TIME" | "AMBIGUOUS_LOCAL_TIME" | "SCHEDULE_IN_PAST" | "SCHEDULE_TOO_FAR";
+  code: "INVALID_LOCAL_DATETIME" | "NONEXISTENT_LOCAL_TIME" | "AMBIGUOUS_LOCAL_TIME" | "SCHEDULE_IN_PAST";
   status: number;
 
   constructor(
@@ -159,12 +158,6 @@ export function validateScheduledInstant(value: string, now = new Date()) {
     throw new MarketingScheduleError(
       "SCHEDULE_IN_PAST",
       "La data e l'ora programmate devono essere nel futuro.",
-    );
-  }
-  if (instant.getTime() > now.getTime() + MAX_SCHEDULE_AHEAD_MS) {
-    throw new MarketingScheduleError(
-      "SCHEDULE_TOO_FAR",
-      "Resend consente di programmare un Broadcast fino a 30 giorni prima dell'invio.",
     );
   }
   return instant.toISOString();

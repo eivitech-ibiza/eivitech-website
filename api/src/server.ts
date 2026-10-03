@@ -18,6 +18,7 @@ import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
 import { marketingRouter } from "./marketing.js";
+import { marketingCampaignDeliveryRouter } from "./marketingCampaignDelivery.js";
 import { marketingPublicRouter } from "./marketingPublic.js";
 import { buildLeadSubmissionFingerprint, isPgUniqueViolation, sanitizeAttributionValue, sanitizeLandingPage, sanitizeReferrer } from "./leadSubmission.js";
 import { createMetaConsentToken } from "./meta/consent.js";
@@ -260,6 +261,7 @@ app.use(
   requireCrmUser,
   requireRole(["admin", "manager"]),
   marketingJsonParser,
+  marketingCampaignDeliveryRouter,
   marketingRouter
 );
 

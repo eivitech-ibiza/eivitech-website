@@ -4,11 +4,14 @@ import test from "node:test";
 
 const server = readFileSync("api/src/server.ts", "utf8");
 const marketing = readFileSync("api/src/marketing.ts", "utf8");
+const delivery = readFileSync("api/src/marketingCampaignDelivery.ts", "utf8");
+const schedule = readFileSync("api/src/marketingSchedule.ts", "utf8");
 const resend = readFileSync("api/src/resendMarketing.ts", "utf8");
 const webhook = readFileSync("api/src/resendWebhook.ts", "utf8");
 const migrations = readFileSync("api/src/migrations.ts", "utf8");
 const app = readFileSync("src/App.tsx", "utf8");
 const workspace = readFileSync("src/components/marketing/CampaignWorkspace.tsx", "utf8");
+const confirmationDialog = readFileSync("src/components/marketing/CampaignConfirmationDialog.tsx", "utf8");
 const publicApi = readFileSync("api/src/marketingPublic.ts", "utf8");
 
 test("public unsubscribe is rate limited and mounted before Clerk", () => {
@@ -20,10 +23,12 @@ test("public unsubscribe is rate limited and mounted before Clerk", () => {
 });
 
 test("bulk sends require server flag, one-time token and exact phrase", () => {
-  assert.match(marketing, /MARKETING_BULK_SEND_ENABLED/);
-  assert.match(marketing, /send_confirmation_token_hash/);
-  assert.match(marketing, /send_confirmation_expires_at > now\(\)/);
-  assert.match(marketing, /INVIA \$\{campaign\.recipient_count\} EMAIL/);
+  assert.match(delivery, /MARKETING_BULK_SEND_ENABLED/);
+  assert.match(delivery, /send_confirmation_token_hash/);
+  assert.match(delivery, /send_confirmation_expires_at > now\(\)/);
+  assert.match(delivery, /parsed\.data\.confirmation_phrase !== expectedPhrase/);
+  assert.match(schedule, /INVIA \$\{recipientCount\} EMAIL/);
+  assert.match(schedule, /PROGRAMMA \$\{recipientCount\} EMAIL/);
   assert.match(marketing, /Only draft campaigns can be prepared/);
   assert.match(migrations, /crm_marketing_campaign_events/);
 });
@@ -39,9 +44,9 @@ test("only eligible consenting contacts are synchronized", () => {
 test("campaign UI includes sandbox preview, test send and double confirmation", () => {
   assert.match(workspace, /sandbox=""/);
   assert.match(workspace, /sendMarketingCampaignTest/);
-  assert.match(workspace, /reviewConfirmed/);
-  assert.match(workspace, /confirmationPhrase !== preparation\.data\.confirmation_phrase/);
-  assert.match(workspace, /bulk_send_enabled/);
+  assert.match(confirmationDialog, /reviewConfirmed/);
+  assert.match(confirmationDialog, /confirmationPhrase !== preparation\.data\.confirmation_phrase/);
+  assert.match(confirmationDialog, /bulk_send_enabled/);
 });
 
 test("campaign UI surfaces metrics and alerts on new activity", () => {
