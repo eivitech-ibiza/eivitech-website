@@ -69,6 +69,7 @@ export type MarketingCampaign = MarketingCampaignInput & {
   id: string;
   resend_broadcast_id?: string | null;
   last_test_at?: string | null;
+  send_started_at?: string | null;
   sent_at?: string | null;
   segment_name?: string | null;
   recipient_count: number;
