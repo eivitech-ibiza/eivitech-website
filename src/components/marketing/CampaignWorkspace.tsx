@@ -823,6 +823,165 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       </div>
     </div>}
 
-    {preparation && !audienceChange && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div><button onClick={() => setPreparation(null)}><X /></button></div><div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4"><div className="text-3xl font-medium">{preparation.data.recipient_count}</div><div className="text-sm text-muted-foreground">{tr("destinatarios elegibles", "destinatari idonei", "eligible recipients", "geschikte ontvangers")}</div></div><label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} /><span>{tr("He revisado asunto, contenido, segmento y destinatarios.", "Ho controllato oggetto, contenuto, segmento e destinatari.", "I reviewed the subject, content, segment and recipients.", "Ik heb onderwerp, inhoud, segment en ontvangers gecontroleerd.")}</span></label><div className="mt-4"><Input label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`} value={confirmationPhrase} onChange={setConfirmationPhrase} /></div>{!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{tr("El envío masivo permanece desactivado en Railway.", "L’invio massivo è ancora disattivato su Railway.", "Bulk sending is still disabled in Railway.", "Bulkverzending is nog uitgeschakeld op Railway.")}</div>}<button onClick={() => void confirmSend()} disabled={saving || !reviewConfirmed || confirmationPhrase !== preparation.data.confirmation_phrase || !preparation.data.bulk_send_enabled} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground disabled:opacity-40"><Send size={16} />{tr("Enviar campaña", "Invia campagna", "Send campaign", "Campagne verzenden")}</button><p className="mt-3 text-center text-xs text-muted-foreground">Token monouso, valido per 10 minuti.</p></div></div>}
+    {preparation && !audienceChange && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-sm bg-card p-6 shadow-2xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tr(
+                "Elige cuándo enviar. La confirmación se realiza una sola vez.",
+                "Scegli quando inviare. La conferma viene richiesta una sola volta.",
+                "Choose when to send. Confirmation is required only once.",
+                "Kies wanneer je wilt verzenden. Bevestiging is slechts één keer nodig.",
+              )}
+            </p>
+          </div>
+          <button type="button" onClick={() => setPreparation(null)} aria-label="Chiudi"><X /></button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setSendMode("now")}
+            className={`rounded-sm border p-4 text-left transition ${sendMode === "now" ? "border-primary bg-primary/5" : "border-border bg-background"}`}
+          >
+            <div className="flex items-center gap-2 font-medium"><Send size={16} />{tr("Enviar ahora", "Invia subito", "Send now", "Nu verzenden")}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tr(
+                "Resend iniciará el envío después de esta confirmación.",
+                "Resend avvierà l'invio dopo questa conferma.",
+                "Resend will start processing the send after this confirmation.",
+                "Resend verwerkt de verzending na deze bevestiging.",
+              )}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSendMode("scheduled")}
+            className={`rounded-sm border p-4 text-left transition ${sendMode === "scheduled" ? "border-primary bg-primary/5" : "border-border bg-background"}`}
+          >
+            <div className="flex items-center gap-2 font-medium"><CalendarClock size={16} />{tr("Programar envío", "Programma invio", "Schedule send", "Verzending plannen")}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tr(
+                "Resend ejecutará el envío automáticamente en la fecha indicada.",
+                "Resend eseguirà automaticamente l'invio alla data indicata.",
+                "Resend will execute the send automatically at the selected time.",
+                "Resend voert de verzending automatisch uit op het gekozen tijdstip.",
+              )}
+            </p>
+          </button>
+        </div>
+
+        {sendMode === "scheduled" && <div className="mt-4 rounded-sm border border-border bg-background p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label={tr("Fecha", "Data", "Date", "Datum")}
+              type="date"
+              required
+              value={scheduleDate}
+              onChange={setScheduleDate}
+            />
+            <Input
+              label={tr("Hora", "Ora", "Time", "Tijd")}
+              type="time"
+              required
+              value={scheduleTime}
+              onChange={setScheduleTime}
+            />
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <CalendarClock size={14} />
+            {tr("Zona horaria", "Fuso orario", "Time zone", "Tijdzone")}: <strong>{MARKETING_TIME_ZONE}</strong>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {tr(
+              "Después de la confirmación, no será necesario mantener abierto el navegador ni el ordenador.",
+              "Dopo la conferma non sarà necessario mantenere aperti il browser o il computer.",
+              "After confirmation, the browser and computer do not need to remain open.",
+              "Na bevestiging hoeven de browser en computer niet open te blijven.",
+            )}
+          </p>
+        </div>}
+
+        <div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4">
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <Info label={tr("Campaña", "Campagna", "Campaign", "Campagne")} value={preparation.campaign.name} />
+            <Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={preparation.campaign.segment_name || "—"} />
+            <Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(preparation.data.recipient_count)} />
+            <Info
+              label={tr("Envío", "Invio", "Send", "Verzending")}
+              value={sendMode === "scheduled"
+                ? (scheduleDate && scheduleTime
+                    ? `${scheduleDate} · ${scheduleTime} · ${MARKETING_TIME_ZONE}`
+                    : tr("Fecha y hora pendientes", "Data e ora da selezionare", "Date and time not selected", "Datum en tijd nog niet gekozen"))
+                : tr("Inmediato", "Subito", "Immediately", "Direct")}
+            />
+          </div>
+        </div>
+
+        <label className="mt-5 flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={reviewConfirmed}
+            onChange={(event) => setReviewConfirmed(event.target.checked)}
+          />
+          <span>
+            {tr(
+              "He revisado asunto, contenido, segmento, destinatarios y modalidad de envío.",
+              "Ho controllato oggetto, contenuto, segmento, destinatari e modalità di invio.",
+              "I reviewed the subject, content, segment, recipients, and send mode.",
+              "Ik heb onderwerp, inhoud, segment, ontvangers en verzendwijze gecontroleerd.",
+            )}
+          </span>
+        </label>
+
+        <div className="mt-4">
+          <Input
+            label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`}
+            value={confirmationPhrase}
+            onChange={setConfirmationPhrase}
+          />
+        </div>
+
+        {!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {tr(
+            "El envío masivo permanece desactivado en Railway.",
+            "L’invio massivo è ancora disattivato su Railway.",
+            "Bulk sending is still disabled in Railway.",
+            "Bulkverzending is nog uitgeschakeld in Railway.",
+          )}
+        </div>}
+
+        <button
+          type="button"
+          onClick={() => void confirmSend()}
+          disabled={
+            saving
+            || !reviewConfirmed
+            || confirmationPhrase !== preparation.data.confirmation_phrase
+            || !preparation.data.bulk_send_enabled
+            || (sendMode === "scheduled" && (!scheduleDate || !scheduleTime))
+          }
+          className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm px-4 py-3 text-sm font-medium disabled:opacity-40 ${sendMode === "scheduled" ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}
+        >
+          {sendMode === "scheduled" ? <CalendarClock size={16} /> : <Send size={16} />}
+          {sendMode === "scheduled"
+            ? tr("Confirmar programación", "Conferma programmazione", "Confirm schedule", "Planning bevestigen")
+            : tr("Confirmar envío inmediato", "Conferma invio immediato", "Confirm immediate send", "Directe verzending bevestigen")}
+        </button>
+
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {tr(
+            "Token monouso valido 10 minutos. En una programación, el token solo autoriza esta confirmación inicial.",
+            "Token monouso valido 10 minuti. In caso di programmazione, il token autorizza solo questa conferma iniziale.",
+            "One-time token valid for 10 minutes. For a scheduled send, it only authorizes this initial confirmation.",
+            "Eenmalige token, 10 minuten geldig. Bij planning autoriseert het token alleen deze eerste bevestiging.",
+          )}
+        </p>
+      </div>
+    </div>}
   </div>;
 }
