@@ -271,6 +271,31 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
       const campaignId = campaign.rows[0]?.id;
       const recipient = event.data?.to?.[0]?.toLowerCase() || null;
       if (campaignId) {
+        if (eventType === "email.sent") {
+          const started = await query<{ id: string }>(
+            `UPDATE crm_marketing_campaigns
+             SET status = 'sent',
+                 sent_at = COALESCE(sent_at, $2::timestamptz),
+                 updated_at = now()
+             WHERE id = $1
+               AND status IN ('scheduled', 'sending')
+             RETURNING id`,
+            [campaignId, eventAt],
+          );
+
+          if (started.rows.length > 0) {
+            await query(
+              `INSERT INTO crm_marketing_campaign_events (
+                 campaign_id, event_type, resend_email_id, payload
+               ) VALUES ($1, 'send_started', $2, $3::jsonb)`,
+              [campaignId, resendEmailId, JSON.stringify({
+                broadcastId,
+                firstEmailSentAt: eventAt,
+              })],
+            );
+          }
+        }
+
         const recipientEvent = await query<{ id: string }>(
           `INSERT INTO crm_marketing_campaign_recipient_events (
              campaign_id, resend_email_id, recipient, event_type, occurred_at, payload
