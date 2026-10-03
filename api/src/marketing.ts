@@ -394,8 +394,8 @@ function tokenHash(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function loadCampaign(campaignId: string) {
-  const result = await query<MarketingCampaignRow>(
+async function loadCampaign(campaignId: string, client: DbClient = pool) {
+  const result = await client.query<MarketingCampaignRow>(
     `SELECT * FROM crm_marketing_campaigns WHERE id = $1`,
     [campaignId],
   );
@@ -405,11 +405,12 @@ async function loadCampaign(campaignId: string) {
 
 async function recordCampaignEvent(
   campaignId: string,
-  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced",
+  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced" | "scheduled" | "cancelled" | "provider_reconciled",
   createdBy: string | null,
   details: { recipient?: string | null; resendEmailId?: string | null; payload?: Record<string, unknown> } = {},
+  client: DbClient = pool,
 ) {
-  await query(
+  await client.query(
     `INSERT INTO crm_marketing_campaign_events (
        campaign_id, event_type, recipient, resend_email_id, payload, created_by
      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
@@ -424,7 +425,7 @@ async function recordCampaignEvent(
   );
 }
 
-async function allocateResendSegmentPool(campaignId: string) {
+async function allocateResendSegmentPool(campaignId: string, client: DbClient = pool) {
   const remoteSegments = await listResendSegments();
   const availableSegmentIds = remoteSegments.map((segment) => segment.id).filter(Boolean);
   if (availableSegmentIds.length === 0) {
@@ -434,7 +435,7 @@ async function allocateResendSegmentPool(campaignId: string) {
     );
   }
 
-  const currentPool = await query<{ resend_segment_id: string | null }>(
+  const currentPool = await client.query<{ resend_segment_id: string | null }>(
     `SELECT payload->>'resendSegmentId' AS resend_segment_id
      FROM crm_marketing_campaign_events
      WHERE campaign_id = $1 AND event_type = 'prepared'
@@ -443,7 +444,7 @@ async function allocateResendSegmentPool(campaignId: string) {
     [campaignId],
   );
 
-  const reservedPools = await query<{ resend_segment_id: string | null }>(
+  const reservedPools = await client.query<{ resend_segment_id: string | null }>(
     `SELECT DISTINCT latest.payload->>'resendSegmentId' AS resend_segment_id
      FROM crm_marketing_campaigns c
      JOIN LATERAL (
@@ -455,8 +456,8 @@ async function allocateResendSegmentPool(campaignId: string) {
      ) latest ON true
      WHERE c.id <> $1
        AND (
-         c.status = 'sending'
-         OR (c.status = 'draft' AND c.send_confirmation_expires_at > now())
+         c.status IN ('sending', 'scheduled')
+          OR (c.status = 'draft' AND c.send_confirmation_expires_at > now())
        )`,
     [campaignId],
   );
@@ -476,28 +477,28 @@ async function allocateResendSegmentPool(campaignId: string) {
   if (!selected) {
     throw new MarketingOperationError(
       409,
-      "All Resend transport segments are reserved by campaigns awaiting send confirmation. Send, edit, or wait for one confirmation to expire, then prepare again.",
+      "All Resend transport segments are reserved by campaigns that are scheduled, sending, or awaiting send confirmation. Cancel, finish, edit, or wait for a confirmation to expire, then prepare again.",
     );
   }
 
   return selected;
 }
 
-async function syncSegmentToResend(segmentId: string, campaignId: string) {
+async function syncSegmentToResend(segmentId: string, campaignId: string, client: DbClient = pool) {
   const capabilities = marketingCapabilities();
   if (!capabilities.resendSyncConfigured) {
     throw new MarketingOperationError(503, "RESEND_MARKETING_API_KEY is required for contact and campaign sync");
   }
 
-  const segmentResult = await query<{ id: string }>(
+  const segmentResult = await client.query<{ id: string }>(
     `SELECT id FROM crm_marketing_segments WHERE id = $1`,
     [segmentId],
   );
   if (segmentResult.rows.length === 0) throw new MarketingOperationError(404, "Segment not found");
 
-  const resendSegmentId = await allocateResendSegmentPool(campaignId);
+  const resendSegmentId = await allocateResendSegmentPool(campaignId, client);
 
-  const contacts = await query<{
+  const contacts = await client.query<{
     id: string;
     email: string;
     first_name: string | null;
@@ -529,7 +530,7 @@ async function syncSegmentToResend(segmentId: string, campaignId: string) {
     const batch = contacts.rows.slice(index, index + 5);
     const results = await Promise.all(batch.map(async (contact) => {
       const resendContactId = await upsertResendContact(contact, resendSegmentId);
-      await query(
+      await client.query(
         `UPDATE crm_marketing_contacts SET resend_contact_id = $1, updated_at = now() WHERE id = $2`,
         [resendContactId, contact.id],
       );
