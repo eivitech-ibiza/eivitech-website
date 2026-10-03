@@ -139,7 +139,7 @@ Do not call PostgreSQL or Resend directly from GitHub Pages. The frontend must c
 
 ## Email marketing safe-send workflow
 
-The protected CRM workspace supports draft editing/deletion, sandboxed HTML preview, test sends, Resend segment/contact sync and a two-step campaign preparation flow.
+The protected CRM workspace supports draft editing/deletion, sandboxed HTML preview, test sends, Resend segment/contact sync, immediate sends, and one-time scheduled sends through Resend Broadcasts.
 
 Required only for Resend contact, segment and broadcast management:
 
@@ -149,14 +149,33 @@ Required only for Resend contact, segment and broadcast management:
 - `MARKETING_MAX_RECIPIENTS` — server-side recipient ceiling, default 100;
 - `MARKETING_BULK_SEND_ENABLED=false` — must remain false until production verification is complete.
 
-A real campaign can be sent only when all of the following are true:
+A real campaign can be submitted only when all of the following are true:
 
 1. the campaign is still a draft and has a segment;
 2. every recipient is subscribed, has documented consent and is neither unsubscribed nor suppressed;
-3. the segment and contacts have been synchronized with Resend;
+3. the prepared CRM audience still matches the active Resend transport segment;
 4. the operator prepares the campaign and receives a one-time 10-minute token;
 5. the operator checks the review checkbox and types the exact recipient-count phrase;
 6. `MARKETING_BULK_SEND_ENABLED` is explicitly set to `true` on Railway.
+
+At final confirmation the operator chooses either immediate sending or a date/time in `Europe/Madrid`. Scheduled local time is validated server-side, daylight-saving gaps and overlaps are rejected, the instant is stored as UTC in PostgreSQL, and Resend receives the ISO-8601 UTC timestamp. Scheduling is limited to 30 days ahead.
+
+The 10-minute confirmation token authorizes only the initial submission. After Resend accepts a schedule, future execution is owned by Resend and does not require an open browser, an active Clerk session, a GitHub cron, or a new Railway worker.
+
+Resend transport segments are treated as reusable pools. Preparation is serialized with a PostgreSQL advisory transaction lock, and pools stay reserved while a campaign is awaiting confirmation, scheduled, or sending. This prevents another preparation from replacing the recipients of a scheduled broadcast.
+
+Provider acceptance is not reported as delivery. An immediate request remains `sending` after Resend accepts it; a scheduled request becomes `scheduled` only after provider acceptance; the first signed `email.sent` webhook marks actual dispatch as started (`sent`); delivery, bounce, complaint, unsubscribe and engagement metrics remain recipient-event based.
+
+If a send/schedule response is uncertain, the API retrieves the Broadcast before allowing another attempt. Unknown provider state keeps the campaign blocked from resubmission until `POST /api/marketing/campaigns/:id/reconcile` resolves it. Send requests use Resend idempotency keys scoped to the Broadcast and requested schedule.
+
+A scheduled campaign can be cancelled with `POST /api/marketing/campaigns/:id/cancel` only while Resend still reports it as `scheduled`. The CRM changes to `cancelled` only after provider-confirmed cancellation (or reconciliation showing the scheduled Broadcast has reverted to provider draft). Once Resend reports `queued` or later, the safe pre-send cancellation is rejected.
+
+Marketing campaign execution endpoints:
+
+- `POST /api/marketing/campaigns/:id/prepare`
+- `POST /api/marketing/campaigns/:id/send`
+- `POST /api/marketing/campaigns/:id/reconcile`
+- `POST /api/marketing/campaigns/:id/cancel`
 
 Public unsubscribe API:
 
