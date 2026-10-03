@@ -14,7 +14,7 @@ type CampaignAudienceContext = {
 export type CampaignAudienceSafetyResult =
   | {
       ok: true;
-      skipped?: "not_prepared";
+      skipped?: "not_prepared" | "already_accepted";
       preparedCount?: number;
       currentEligibleCount?: number;
       remoteActiveCount?: number;
@@ -59,6 +59,13 @@ export async function verifyCampaignAudienceBeforeSend(campaignId: string): Prom
     return {
       ok: true,
       skipped: "not_prepared",
+    };
+  }
+
+  if (campaign.status !== "draft") {
+    return {
+      ok: true,
+      skipped: "already_accepted",
     };
   }
 

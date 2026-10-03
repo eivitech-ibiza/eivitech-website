@@ -5,6 +5,7 @@ const CRM_ENDPOINT = "https://ibiza-project-accelerator-production.up.railway.ap
 export type MarketingLanguage = "es" | "it" | "en" | "nl";
 export type MarketingContactStatus = "pending" | "subscribed" | "unsubscribed" | "suppressed";
 export type MarketingCampaignStatus = "draft" | "scheduled" | "sending" | "sent" | "paused" | "cancelled" | "failed";
+export type MarketingDeliveryMode = "now" | "scheduled";
 export type MarketingCampaignMetric = "delivered" | "opened" | "clicked" | "bounced" | "unsubscribed";
 
 export type MarketingContactInput = {
@@ -69,6 +70,7 @@ export type MarketingCampaign = MarketingCampaignInput & {
   id: string;
   resend_broadcast_id?: string | null;
   last_test_at?: string | null;
+  sent_at?: string | null;
   segment_name?: string | null;
   recipient_count: number;
   delivered_count: number;
@@ -237,6 +239,12 @@ export type MarketingCapabilities = {
   freeContactLimit: number;
 };
 
+export type MarketingDeliveryOptions = {
+  delivery_mode: MarketingDeliveryMode;
+  scheduled_local?: string;
+  timezone: "Europe/Madrid";
+};
+
 export type MarketingCampaignPreparation = {
   ok: true;
   broadcast_id: string;
@@ -245,6 +253,10 @@ export type MarketingCampaignPreparation = {
   confirmation_phrase: string;
   confirmation_expires_at: string;
   bulk_send_enabled: boolean;
+  delivery_mode: MarketingDeliveryMode;
+  scheduled_at: string | null;
+  scheduled_local: string | null;
+  timezone: "Europe/Madrid";
 };
 
 export function fetchMarketingCapabilities(token: string) {
@@ -263,10 +275,41 @@ export function syncMarketingSegment(token: string, segmentId: string) {
   return marketingRequest<{ resendSegmentId: string; eligible: number; synced: number; removed: number }>(`/segments/${segmentId}/sync-resend`, { method: "POST", token, body: {} });
 }
 
-export function prepareMarketingCampaign(token: string, campaignId: string) {
-  return marketingRequest<MarketingCampaignPreparation>(`/campaigns/${campaignId}/prepare`, { method: "POST", token, body: {} });
+export function prepareMarketingCampaign(
+  token: string,
+  campaignId: string,
+  options: MarketingDeliveryOptions = { delivery_mode: "now", timezone: "Europe/Madrid" },
+) {
+  return marketingRequest<MarketingCampaignPreparation>(`/campaigns/${campaignId}/prepare`, {
+    method: "POST",
+    token,
+    body: options,
+  });
 }
 
 export function sendMarketingCampaign(token: string, campaignId: string, payload: { confirmation_token: string; confirmation_phrase: string }) {
-  return marketingRequest<{ ok: boolean; status: string; broadcast_id: string }>(`/campaigns/${campaignId}/send`, { method: "POST", token, body: payload });
+  return marketingRequest<{
+    ok: boolean;
+    status: MarketingCampaignStatus;
+    broadcast_id: string;
+    scheduled_at?: string | null;
+    provider_status?: string | null;
+    idempotent?: boolean;
+    reconciled?: boolean;
+    code?: string;
+    message?: string;
+  }>(`/campaigns/${campaignId}/send`, { method: "POST", token, body: payload });
+}
+
+export function cancelMarketingCampaign(token: string, campaignId: string) {
+  return marketingRequest<{
+    ok: boolean;
+    status: MarketingCampaignStatus;
+    broadcast_id: string;
+    provider_status?: string | null;
+    idempotent?: boolean;
+    reconciled?: boolean;
+    code?: string;
+    message?: string;
+  }>(`/campaigns/${campaignId}/cancel`, { method: "POST", token, body: {} });
 }

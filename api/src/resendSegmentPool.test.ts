@@ -49,4 +49,6 @@ test("campaign preparation never creates a new Resend segment", () => {
   assert.doesNotMatch(marketingSource, /\bcreateResendSegment\b/);
   assert.match(marketingSource, /\blistResendSegments\b/);
   assert.match(marketingSource, /\bselectResendSegmentPool\b/);
+  assert.match(marketingSource, /pg_advisory_xact_lock/);
+  assert.match(marketingSource, /FOR UPDATE/);
 });
