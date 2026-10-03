@@ -377,6 +377,7 @@ type MarketingCampaignRow = {
   resend_broadcast_id: string | null;
   recipient_count: number;
   scheduled_at: Date | string | null;
+  send_started_at: Date | string | null;
   sent_at: Date | string | null;
   send_confirmation_token_hash: string | null;
   send_confirmation_expires_at: Date | string | null;
