@@ -296,6 +296,8 @@ export function sendMarketingCampaign(token: string, campaignId: string, payload
     provider_status?: string | null;
     idempotent?: boolean;
     reconciled?: boolean;
+    code?: string;
+    message?: string;
   }>(`/campaigns/${campaignId}/send`, { method: "POST", token, body: payload });
 }
 

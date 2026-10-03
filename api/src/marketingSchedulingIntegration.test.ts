@@ -6,7 +6,7 @@ test("scheduled campaigns reserve their Resend audience pool until completion or
   const marketing = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
   const delivery = readFileSync(new URL("./marketingCampaignDelivery.ts", import.meta.url), "utf8");
   assert.match(marketing, /c\.status IN \('scheduled', 'sending', 'paused'\)/);
-  assert.match(delivery, /sendResendBroadcast\(broadcastId, isoString\(campaign\.scheduled_at\)\)/);
+  assert.match(delivery, /sendResendBroadcast\([\s\S]*?broadcastId,[\s\S]*?isoString\(campaign\.scheduled_at\),[\s\S]*?confirmationAttemptId/);
   assert.match(delivery, /campaigns\/:id\/cancel/);
 });
 
@@ -22,8 +22,9 @@ test("accepted Broadcast operations are not reported as delivered messages", () 
 
 test("campaign-list reconciliation is delayed to avoid racing a provider acceptance request", () => {
   const source = readFileSync(new URL("./campaignMetrics.ts", import.meta.url), "utf8");
+  assert.match(source, /status IN \('scheduled', 'sending', 'paused'\)/);
   assert.match(source, /updated_at <= now\(\) - interval '30 seconds'/);
-  assert.match(source, /scheduled_at <= now\(\) \+ interval '5 minutes'/);
+  assert.doesNotMatch(source, /scheduled_at <= now\(\) \+ interval '5 minutes'/);
 });
 
 test("delivery audit events use the existing created_by database column", () => {

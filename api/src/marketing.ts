@@ -123,6 +123,8 @@ const campaignPrepareSchema = z.object({
   timezone: z.literal(MARKETING_TIME_ZONE).optional(),
 });
 
+const RESEND_POOL_ADVISORY_LOCK = "eivitech:marketing:resend-segment-pool";
+
 type ContactEventType = "created" | "updated" | "subscribed" | "unsubscribed" | "suppressed" | "restored" | "imported";
 type DbClient = Pool | PoolClient;
 type ExistingContact = {
@@ -388,8 +390,9 @@ async function recordCampaignEvent(
   eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced",
   createdBy: string | null,
   details: { recipient?: string | null; resendEmailId?: string | null; payload?: Record<string, unknown> } = {},
+  client: DbClient = pool,
 ) {
-  await query(
+  await client.query(
     `INSERT INTO crm_marketing_campaign_events (
        campaign_id, event_type, recipient, resend_email_id, payload, created_by
      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
@@ -990,6 +993,7 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
        send_confirmation_expires_at = NULL,
        updated_at = now()
      WHERE id = $14
+       AND status = 'draft'
      RETURNING *`,
     [
       data.name ?? existing.name,
@@ -1008,6 +1012,9 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
       req.params.id,
     ]
   );
+  if (result.rows.length === 0) {
+    return res.status(409).json({ error: "Campaign changed while it was being edited; refresh and try again" });
+  }
   return res.json({ campaign: result.rows[0] });
 }));
 
@@ -1059,11 +1066,6 @@ marketingRouter.post("/campaigns/:id/prepare", asyncRoute(async (req, res) => {
     return res.status(400).json({ error: "Invalid campaign delivery options", details: parsed.error.flatten() });
   }
 
-  const campaign = await loadCampaign(req.params.id);
-  if (campaign.status !== "draft") return res.status(409).json({ error: "Only draft campaigns can be prepared" });
-  if (!campaign.segment_id) return res.status(400).json({ error: "Select a segment before preparing the campaign" });
-  if (!campaign.subject.trim() || !campaign.html.trim()) return res.status(400).json({ error: "Subject and HTML are required" });
-
   const deliveryMode = parsed.data.delivery_mode;
   let scheduledAt: string | null = null;
   if (deliveryMode === "scheduled") {
@@ -1076,49 +1078,96 @@ marketingRouter.post("/campaigns/:id/prepare", asyncRoute(async (req, res) => {
     scheduledAt = validateScheduledInstant(localMadridDateTimeToUtc(parsed.data.scheduled_local));
   }
 
-  const sync = await syncSegmentToResend(campaign.segment_id, campaign.id);
-  if (sync.eligible === 0) return res.status(409).json({ error: "The selected segment has no eligible subscribed contacts" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext($1)::bigint)",
+      [RESEND_POOL_ADVISORY_LOCK],
+    );
 
-  const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
-  const confirmationToken = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const confirmationPhrase = confirmationPhraseForDelivery(deliveryMode, sync.eligible);
+    const campaignResult = await client.query<MarketingCampaignRow>(
+      `SELECT *
+       FROM crm_marketing_campaigns
+       WHERE id = $1
+       FOR UPDATE`,
+      [req.params.id],
+    );
+    if (campaignResult.rows.length === 0) {
+      throw new MarketingOperationError(404, "Campaign not found");
+    }
 
-  await query(
-    `UPDATE crm_marketing_campaigns
-     SET resend_broadcast_id = $1,
-         recipient_count = $2,
-         scheduled_at = $3::timestamptz,
-         send_confirmation_token_hash = $4,
-         send_confirmation_expires_at = $5::timestamptz,
-         updated_at = now()
-     WHERE id = $6`,
-    [broadcastId, sync.eligible, scheduledAt, tokenHash(confirmationToken), expiresAt, campaign.id],
-  );
-  await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
-    payload: {
-      broadcastId,
-      recipientCount: sync.eligible,
-      resendSegmentId: sync.resendSegmentId,
-      deliveryMode,
-      scheduledAt,
+    const campaign = campaignResult.rows[0];
+    if (campaign.status !== "draft") {
+      throw new MarketingOperationError(409, "Only draft campaigns can be prepared");
+    }
+    if (!campaign.segment_id) {
+      throw new MarketingOperationError(400, "Select a segment before preparing the campaign");
+    }
+    if (!campaign.subject.trim() || !campaign.html.trim()) {
+      throw new MarketingOperationError(400, "Subject and HTML are required");
+    }
+
+    const sync = await syncSegmentToResend(campaign.segment_id, campaign.id);
+    if (sync.eligible === 0) {
+      throw new MarketingOperationError(409, "The selected segment has no eligible subscribed contacts");
+    }
+
+    const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
+    const confirmationToken = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const confirmationPhrase = confirmationPhraseForDelivery(deliveryMode, sync.eligible);
+
+    const prepared = await client.query(
+      `UPDATE crm_marketing_campaigns
+       SET resend_broadcast_id = $1,
+           recipient_count = $2,
+           scheduled_at = $3::timestamptz,
+           send_confirmation_token_hash = $4,
+           send_confirmation_expires_at = $5::timestamptz,
+           updated_at = now()
+       WHERE id = $6
+         AND status = 'draft'
+       RETURNING id`,
+      [broadcastId, sync.eligible, scheduledAt, tokenHash(confirmationToken), expiresAt, campaign.id],
+    );
+    if (prepared.rows.length === 0) {
+      throw new MarketingOperationError(409, "Campaign changed while it was being prepared; refresh and try again");
+    }
+
+    await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
+      payload: {
+        broadcastId,
+        recipientCount: sync.eligible,
+        resendSegmentId: sync.resendSegmentId,
+        deliveryMode,
+        scheduledAt,
+        timezone: MARKETING_TIME_ZONE,
+      },
+    }, client);
+
+    await client.query("COMMIT");
+    return res.json({
+      ok: true,
+      broadcast_id: broadcastId,
+      recipient_count: sync.eligible,
+      confirmation_token: confirmationToken,
+      confirmation_phrase: confirmationPhrase,
+      confirmation_expires_at: expiresAt,
+      bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
+      delivery_mode: deliveryMode,
+      scheduled_at: scheduledAt,
+      scheduled_local: deliveryMode === "scheduled" ? parsed.data.scheduled_local : null,
       timezone: MARKETING_TIME_ZONE,
-    },
-  });
-
-  return res.json({
-    ok: true,
-    broadcast_id: broadcastId,
-    recipient_count: sync.eligible,
-    confirmation_token: confirmationToken,
-    confirmation_phrase: confirmationPhrase,
-    confirmation_expires_at: expiresAt,
-    bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
-    delivery_mode: deliveryMode,
-    scheduled_at: scheduledAt,
-    scheduled_local: deliveryMode === "scheduled" ? parsed.data.scheduled_local : null,
-    timezone: MARKETING_TIME_ZONE,
-  });
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch((rollbackError) => {
+      console.error("[marketing] unable to roll back campaign preparation", rollbackError);
+    });
+    throw error;
+  } finally {
+    client.release();
+  }
 }));
 
 marketingRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

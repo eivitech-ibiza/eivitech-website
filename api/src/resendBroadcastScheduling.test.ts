@@ -27,7 +27,7 @@ test("Resend scheduling, retrieval and cancellation use Broadcast endpoints with
   };
   t.after(() => { globalThis.fetch = originalFetch; });
 
-  await sendResendBroadcast("broadcast-1", "2026-10-10T08:30:00.000Z");
+  await sendResendBroadcast("broadcast-1", "2026-10-10T08:30:00.000Z", "attempt-abc");
   await getResendBroadcast("broadcast-1");
   await cancelResendBroadcast("broadcast-1");
 
@@ -35,7 +35,7 @@ test("Resend scheduling, retrieval and cancellation use Broadcast endpoints with
   assert.deepEqual(JSON.parse(String(calls[0].init?.body)), {
     scheduled_at: "2026-10-10T08:30:00.000Z",
   });
-  assert.equal(calls[0].init?.headers && (calls[0].init.headers as Record<string, string>)["Idempotency-Key"], "eivitech-broadcast-send-broadcast-1");
+  assert.equal(calls[0].init?.headers && (calls[0].init.headers as Record<string, string>)["Idempotency-Key"], "eivitech-broadcast-send-broadcast-1-attempt-abc");
   assert.equal(calls[1].url, "https://api.resend.com/broadcasts/broadcast-1");
   assert.equal(calls[2].url, "https://api.resend.com/broadcasts/broadcast-1/cancel");
 });

@@ -494,11 +494,15 @@ export function getResendBroadcast(broadcastId: string) {
   );
 }
 
-export async function sendResendBroadcast(broadcastId: string, scheduledAt?: string | null) {
+export async function sendResendBroadcast(
+  broadcastId: string,
+  scheduledAt: string | null | undefined,
+  confirmationAttemptId: string,
+) {
   return resendRequest<{ id: string }>(`/broadcasts/${encodeURIComponent(broadcastId)}/send`, {
     method: "POST",
     apiKey: adminKeyOrThrow(),
-    idempotencyKey: `eivitech-broadcast-send-${broadcastId}`,
+    idempotencyKey: `eivitech-broadcast-send-${broadcastId}-${confirmationAttemptId}`,
     body: buildResendBroadcastSendPayload(scheduledAt),
   });
 }

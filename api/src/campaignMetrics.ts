@@ -49,10 +49,8 @@ export async function reconcileActiveMarketingCampaigns() {
     `SELECT id, status, scheduled_at, resend_broadcast_id
      FROM crm_marketing_campaigns
      WHERE resend_broadcast_id IS NOT NULL
-       AND (
-         (status = 'scheduled' AND scheduled_at <= now() + interval '5 minutes')
-         OR (status IN ('sending', 'paused') AND updated_at <= now() - interval '30 seconds')
-       )
+       AND status IN ('scheduled', 'sending', 'paused')
+       AND updated_at <= now() - interval '30 seconds'
      ORDER BY updated_at ASC
      LIMIT 30`,
   );

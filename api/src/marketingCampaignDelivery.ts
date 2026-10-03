@@ -142,6 +142,125 @@ async function reconcileCampaignAfterOperation(campaign: MarketingCampaignRow) {
   return { provider, status };
 }
 
+
+type ExistingSendResolution = {
+  accepted: boolean;
+  campaign: MarketingCampaignRow;
+  providerStatus: string | null;
+};
+
+async function hasAcceptedSendEvent(campaignId: string) {
+  const result = await query<{ accepted: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM crm_marketing_campaign_events
+       WHERE campaign_id = $1
+         AND event_type = 'send_started'
+     ) AS accepted`,
+    [campaignId],
+  );
+  return Boolean(result.rows[0]?.accepted);
+}
+
+async function ensureAcceptedSendEvent(
+  campaign: MarketingCampaignRow,
+  actorId: string | null,
+  providerStatus: string | null,
+) {
+  await query(
+    `INSERT INTO crm_marketing_campaign_events (campaign_id, event_type, created_by, payload)
+     SELECT $1, 'send_started', $2, $3::jsonb
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM crm_marketing_campaign_events
+       WHERE campaign_id = $1
+         AND event_type = 'send_started'
+     )`,
+    [
+      campaign.id,
+      actorId,
+      JSON.stringify({
+        broadcastId: campaign.resend_broadcast_id,
+        deliveryMode: deliveryModeForCampaign(campaign),
+        scheduledAt: isoString(campaign.scheduled_at),
+        providerStatus,
+        reconciledExistingRequest: true,
+      }),
+    ],
+  );
+}
+
+async function resolveExistingSend(
+  campaign: MarketingCampaignRow,
+  actorId: string | null,
+): Promise<ExistingSendResolution> {
+  try {
+    const reconciled = await reconcileCampaignAfterOperation(campaign);
+    const latest = await loadCampaign(campaign.id);
+    const accepted = Boolean(
+      reconciled?.status
+      && ["scheduled", "sending", "sent"].includes(reconciled.status),
+    );
+    if (accepted) {
+      await ensureAcceptedSendEvent(latest, actorId, reconciled?.provider.status || null);
+    }
+    return {
+      accepted,
+      campaign: latest,
+      providerStatus: reconciled?.provider.status || null,
+    };
+  } catch (error) {
+    console.warn("[marketing] unable to reconcile an existing Broadcast send", error);
+  }
+
+  const latest = await loadCampaign(campaign.id);
+  const accepted = latest.status === "scheduled"
+    || latest.status === "sent"
+    || (latest.status === "sending" && await hasAcceptedSendEvent(latest.id));
+  if (accepted) {
+    await ensureAcceptedSendEvent(latest, actorId, null);
+  }
+  return { accepted, campaign: latest, providerStatus: null };
+}
+
+async function respondForExistingSend(
+  req: Request,
+  res: Response,
+  campaign: MarketingCampaignRow,
+) {
+  const resolution = await resolveExistingSend(campaign, req.crmUser?.id || null);
+  const latest = resolution.campaign;
+  if (!resolution.accepted) {
+    if (latest.status === "sending") {
+      return res.status(202).json({
+        ok: false,
+        status: latest.status,
+        code: "SEND_ACCEPTANCE_PENDING",
+        message: "La richiesta di invio è già in corso ma Resend non ne ha ancora confermato l'accettazione. Non ripetere l'operazione.",
+        broadcast_id: latest.resend_broadcast_id,
+        scheduled_at: isoString(latest.scheduled_at),
+        provider_status: resolution.providerStatus,
+        idempotent: true,
+      });
+    }
+    return res.status(409).json({
+      error: `Resend non conferma un invio attivo per la campagna in stato ${latest.status}. Aggiorna l'elenco prima di riprovare.`,
+      code: "SEND_NOT_ACCEPTED",
+      status: latest.status,
+      provider_status: resolution.providerStatus,
+    });
+  }
+
+  return res.status(latest.status === "sent" ? 200 : 202).json({
+    ok: true,
+    status: latest.status,
+    broadcast_id: latest.resend_broadcast_id,
+    scheduled_at: isoString(latest.scheduled_at),
+    provider_status: resolution.providerStatus,
+    idempotent: true,
+  });
+}
+
 marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (req, res) => {
   const capabilities = marketingCapabilities();
   if (!capabilities.bulkSendEnabled) {
@@ -153,27 +272,7 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
 
   let campaign = await loadCampaign(req.params.id);
   if (["scheduled", "sending", "sent"].includes(campaign.status)) {
-    try {
-      const reconciled = await reconcileCampaignAfterOperation(campaign);
-      campaign = await loadCampaign(campaign.id);
-      return res.status(campaign.status === "sent" ? 200 : 202).json({
-        ok: true,
-        status: campaign.status,
-        broadcast_id: campaign.resend_broadcast_id,
-        scheduled_at: isoString(campaign.scheduled_at),
-        provider_status: reconciled?.provider.status || null,
-        idempotent: true,
-      });
-    } catch {
-      return res.status(202).json({
-        ok: true,
-        status: campaign.status,
-        broadcast_id: campaign.resend_broadcast_id,
-        scheduled_at: isoString(campaign.scheduled_at),
-        provider_status: null,
-        idempotent: true,
-      });
-    }
+    return respondForExistingSend(req, res, campaign);
   }
   if (campaign.status !== "draft") {
     return res.status(409).json({ error: `Campaign cannot be sent from status ${campaign.status}` });
@@ -189,6 +288,7 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
     validateScheduledInstant(new Date(campaign.scheduled_at).toISOString());
   }
 
+  const confirmationAttemptId = tokenHash(parsed.data.confirmation_token.toLowerCase());
   const consumed = await query<MarketingCampaignRow>(
     `UPDATE crm_marketing_campaigns
      SET send_confirmation_token_hash = NULL,
@@ -200,18 +300,12 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
        AND send_confirmation_token_hash = $2
        AND send_confirmation_expires_at > now()
      RETURNING id, status, recipient_count, scheduled_at, sent_at, resend_broadcast_id`,
-    [campaign.id, tokenHash(parsed.data.confirmation_token.toLowerCase())],
+    [campaign.id, confirmationAttemptId],
   );
   if (consumed.rows.length === 0) {
     const latest = await loadCampaign(campaign.id);
     if (["scheduled", "sending", "sent"].includes(latest.status)) {
-      return res.status(latest.status === "sent" ? 200 : 202).json({
-        ok: true,
-        status: latest.status,
-        broadcast_id: latest.resend_broadcast_id,
-        scheduled_at: isoString(latest.scheduled_at),
-        idempotent: true,
-      });
+      return respondForExistingSend(req, res, latest);
     }
     return res.status(409).json({ error: "The send confirmation expired or was already used; prepare the campaign again" });
   }
@@ -222,7 +316,11 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
   }
 
   try {
-    const accepted = await sendResendBroadcast(broadcastId, isoString(campaign.scheduled_at));
+    const accepted = await sendResendBroadcast(
+      broadcastId,
+      isoString(campaign.scheduled_at),
+      confirmationAttemptId,
+    );
     let providerStatus: string | null = null;
     let localStatus = deliveryMode === "scheduled" ? "scheduled" : "sending";
 
@@ -299,7 +397,12 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
         });
       }
 
-      if (provider.status.toLowerCase() === "draft") {
+      if (
+        provider.status.toLowerCase() === "draft"
+        && error instanceof ResendMarketingError
+        && error.status >= 400
+        && error.status < 500
+      ) {
         await query(
           `UPDATE crm_marketing_campaigns
            SET status = 'draft', updated_at = now()
@@ -345,24 +448,38 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
       idempotent: true,
     });
   }
-  if (!["scheduled", "sending"].includes(campaign.status)) {
+  if (campaign.status !== "scheduled") {
     return res.status(409).json({ error: `Campaign cannot be cancelled from status ${campaign.status}` });
   }
 
   const claimed = await query<MarketingCampaignRow>(
     `UPDATE crm_marketing_campaigns
      SET status = 'paused', updated_at = now()
-     WHERE id = $1 AND status IN ('scheduled', 'sending')
+     WHERE id = $1 AND status = 'scheduled'
      RETURNING id, status, recipient_count, scheduled_at, sent_at, resend_broadcast_id`,
     [campaign.id],
   );
   if (claimed.rows.length === 0) {
     campaign = await loadCampaign(campaign.id);
-    return res.status(campaign.status === "cancelled" ? 200 : 202).json({
-      ok: true,
-      status: campaign.status,
-      broadcast_id: campaign.resend_broadcast_id,
-      idempotent: true,
+    if (campaign.status === "cancelled") {
+      return res.json({
+        ok: true,
+        status: campaign.status,
+        broadcast_id: campaign.resend_broadcast_id,
+        idempotent: true,
+      });
+    }
+    if (campaign.status === "paused") {
+      return res.status(202).json({
+        ok: true,
+        status: campaign.status,
+        broadcast_id: campaign.resend_broadcast_id,
+        idempotent: true,
+      });
+    }
+    return res.status(409).json({
+      error: `Campaign cannot be cancelled from status ${campaign.status}`,
+      code: "CANCEL_TOO_LATE",
     });
   }
   campaign = claimed.rows[0];
