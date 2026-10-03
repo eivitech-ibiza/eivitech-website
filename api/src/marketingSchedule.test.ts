@@ -57,13 +57,11 @@ test("rejects past schedules", () => {
   );
 });
 
-test("rejects schedules beyond 30 days", () => {
-  assert.throws(
-    () => resolveMadridLocalDateTime(
-      "2026-11-15T12:00",
-      new Date("2026-10-03T10:00:00.000Z"),
-    ),
-    (error) => error instanceof MarketingScheduleError
-      && error.code === "SCHEDULE_TOO_FAR",
+test("does not impose a transactional-email horizon on Broadcast scheduling", () => {
+  const result = resolveMadridLocalDateTime(
+    "2027-02-03T12:00",
+    new Date("2026-10-03T10:00:00.000Z"),
   );
+
+  assert.equal(result.localDateTime, "2027-02-03T12:00");
 });
