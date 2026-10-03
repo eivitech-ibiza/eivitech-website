@@ -1531,6 +1531,13 @@ marketingRouter.use((error: unknown, _req: Request, res: Response, _next: NextFu
   if (code === "23503") {
     return res.status(400).json({ error: "A referenced marketing record does not exist" });
   }
+  if (error instanceof MarketingScheduleError) {
+    return res.status(400).json({
+      error: error.message,
+      code: error.code,
+      time_zone: MARKETING_TIME_ZONE,
+    });
+  }
   if (error instanceof MarketingOperationError) {
     return res.status(error.status).json({ error: error.message });
   }
