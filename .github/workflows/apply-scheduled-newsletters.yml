@@ -5,7 +5,7 @@ on:
     branches:
       - feat/scheduled-newsletters
     paths:
-      - scripts/apply-scheduled-newsletters.py.gz.b64
+      - scripts/apply-scheduled-newsletters.py.gz.b64.part*
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode scripts/apply-scheduled-newsletters.py.gz.b64 | gzip --decompress > scripts/apply-scheduled-newsletters.py
+          cat scripts/apply-scheduled-newsletters.py.gz.b64.part* | base64 --decode | gzip --decompress > scripts/apply-scheduled-newsletters.py
           python scripts/apply-scheduled-newsletters.py
           git diff --check
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f scripts/apply-scheduled-newsletters.py
-          git rm scripts/apply-scheduled-newsletters.py.gz.b64
+          git rm scripts/apply-scheduled-newsletters.py.gz.b64 scripts/apply-scheduled-newsletters.py.gz.b64.part*
           git rm .github/workflows/apply-scheduled-newsletters.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
