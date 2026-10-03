@@ -122,7 +122,11 @@ async function persistAcceptedBroadcastState(
          END,
          updated_at = now()
      WHERE id = $4
-       AND (status <> 'paused' OR $1 IN ('sent', 'cancelled'))
+       AND (
+         status IN ('draft', 'scheduled', 'sending')
+         OR (status = 'paused' AND $1 IN ('sent', 'cancelled'))
+         OR (status = 'cancelled' AND $1 = 'sent')
+       )
      RETURNING status`,
     [mapped.localStatus, providerScheduledAt || null, providerSentAt || null, campaign.id],
   );
@@ -363,14 +367,20 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
       scheduledAt: isoString(campaign.scheduled_at),
       providerStatus,
     });
-    const cancellationPending = localStatus === "paused";
+    const cancellationState = localStatus === "paused" || localStatus === "cancelled";
     return res.status(localStatus === "sent" ? 200 : 202).json({
-      ok: !cancellationPending,
+      ok: !cancellationState,
       status: localStatus,
-      code: cancellationPending ? "CANCEL_ACCEPTANCE_PENDING" : undefined,
-      message: cancellationPending
-        ? "L'invio è stato accettato, ma è già in corso una richiesta di annullamento."
-        : undefined,
+      code: localStatus === "cancelled"
+        ? "SEND_CANCELLED_DURING_ACCEPTANCE"
+        : cancellationState
+          ? "CANCEL_ACCEPTANCE_PENDING"
+          : undefined,
+      message: localStatus === "cancelled"
+        ? "Resend ha confermato l'annullamento mentre la richiesta di invio era ancora in corso."
+        : cancellationState
+          ? "L'invio è stato accettato, ma è già in corso una richiesta di annullamento."
+          : undefined,
       broadcast_id: broadcastId,
       scheduled_at: isoString(campaign.scheduled_at),
       provider_status: providerStatus,
@@ -399,14 +409,20 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
           providerStatus: provider.status,
           recoveredAfterError: true,
         });
-        const cancellationPending = recoveredStatus === "paused";
+        const cancellationState = recoveredStatus === "paused" || recoveredStatus === "cancelled";
         return res.status(recoveredStatus === "sent" ? 200 : 202).json({
-          ok: !cancellationPending,
+          ok: !cancellationState,
           status: recoveredStatus,
-          code: cancellationPending ? "CANCEL_ACCEPTANCE_PENDING" : undefined,
-          message: cancellationPending
-            ? "L'invio è stato accettato, ma è già in corso una richiesta di annullamento."
-            : undefined,
+          code: recoveredStatus === "cancelled"
+            ? "SEND_CANCELLED_DURING_ACCEPTANCE"
+            : cancellationState
+              ? "CANCEL_ACCEPTANCE_PENDING"
+              : undefined,
+          message: recoveredStatus === "cancelled"
+            ? "Resend ha confermato l'annullamento mentre la richiesta di invio era ancora in corso."
+            : cancellationState
+              ? "L'invio è stato accettato, ma è già in corso una richiesta di annullamento."
+              : undefined,
           broadcast_id: broadcastId,
           scheduled_at: provider.scheduled_at || isoString(campaign.scheduled_at),
           provider_status: provider.status,

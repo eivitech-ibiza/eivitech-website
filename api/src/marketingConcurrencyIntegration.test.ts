@@ -33,11 +33,13 @@ test("provider-confirmed queued scheduled campaigns remain cancellable", () => {
   assert.match(source, /CANCEL_ACCEPTANCE_PENDING/);
 });
 
-test("cancellation claims cannot be overwritten by a queued-state reconciliation", () => {
+test("cancellation claims and terminal states cannot be overwritten by stale queued reconciliation", () => {
   const delivery = readFileSync(new URL("./marketingCampaignDelivery.ts", import.meta.url), "utf8");
   const metrics = readFileSync(new URL("./campaignMetrics.ts", import.meta.url), "utf8");
-  assert.match(delivery, /status <> 'paused'/);
-  assert.match(delivery, /\$1 IN \('sent', 'cancelled'\)/);
+  assert.match(delivery, /status IN \('draft', 'scheduled', 'sending'\)/);
+  assert.match(delivery, /status = 'paused' AND \$1 IN \('sent', 'cancelled'\)/);
+  assert.match(delivery, /status = 'cancelled' AND \$1 = 'sent'/);
+  assert.match(delivery, /SEND_CANCELLED_DURING_ACCEPTANCE/);
   assert.match(metrics, /campaign\.status === "paused"/);
   assert.match(metrics, /AND status = \$5/);
 });

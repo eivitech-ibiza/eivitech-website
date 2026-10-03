@@ -473,7 +473,14 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
         confirmation_phrase: confirmationPhrase,
       });
       setPreparation(null);
-      if (!result.ok && result.status === "paused") {
+      if (!result.ok && result.status === "cancelled") {
+        setNotice(tr(
+          "Resend confirmó la cancelación antes de completar el envío.",
+          "Resend ha confermato l’annullamento prima del completamento dell’invio.",
+          "Resend confirmed cancellation before the send completed.",
+          "Resend heeft de annulering bevestigd voordat de verzending was voltooid.",
+        ));
+      } else if (!result.ok && result.status === "paused") {
         setNotice(tr(
           "El envío fue aceptado, pero la cancelación ya está en verificación.",
           "L’invio è stato accettato, ma l’annullamento è già in verifica.",
