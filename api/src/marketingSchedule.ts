@@ -1,5 +1,4 @@
 export const MARKETING_TIME_ZONE = "Europe/Madrid";
-export const MARKETING_MAX_SCHEDULE_AHEAD_MS = 30 * 24 * 60 * 60 * 1000;
 export const MARKETING_MIN_SCHEDULE_LEAD_MS = 60 * 1000;
 
 export type MarketingScheduleErrorCode =
@@ -7,8 +6,7 @@ export type MarketingScheduleErrorCode =
   | "NONEXISTENT_LOCAL_TIME"
   | "AMBIGUOUS_LOCAL_TIME"
   | "PAST_SCHEDULE"
-  | "SCHEDULE_TOO_SOON"
-  | "SCHEDULE_TOO_FAR";
+  | "SCHEDULE_TOO_SOON";
 
 export class MarketingScheduleError extends Error {
   code: MarketingScheduleErrorCode;
@@ -155,13 +153,6 @@ export function resolveMadridLocalDateTime(
     throw new MarketingScheduleError(
       "SCHEDULE_TOO_SOON",
       "Schedule the campaign at least one minute in the future.",
-    );
-  }
-
-  if (delay > MARKETING_MAX_SCHEDULE_AHEAD_MS) {
-    throw new MarketingScheduleError(
-      "SCHEDULE_TOO_FAR",
-      "Resend Broadcasts can be scheduled up to 30 days in advance.",
     );
   }
 
