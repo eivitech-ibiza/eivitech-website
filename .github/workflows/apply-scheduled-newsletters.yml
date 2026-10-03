@@ -5,7 +5,7 @@ on:
     branches:
       - feat/scheduled-newsletters
     paths:
-      - scripts/apply-scheduled-newsletters.py.gz.b64.part*
+      - scripts/apply-scheduled-newsletters.trigger
 
 permissions:
   contents: write
@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f scripts/apply-scheduled-newsletters.py
-          git rm scripts/apply-scheduled-newsletters.py.gz.b64 scripts/apply-scheduled-newsletters.py.gz.b64.part*
+          git rm scripts/apply-scheduled-newsletters.py.gz.b64 scripts/apply-scheduled-newsletters.py.gz.b64.part* scripts/apply-scheduled-newsletters.trigger
           git rm .github/workflows/apply-scheduled-newsletters.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
