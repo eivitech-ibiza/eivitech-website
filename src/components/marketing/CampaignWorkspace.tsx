@@ -104,7 +104,7 @@ function campaignStatusLabel(status?: MarketingCampaign["status"]) {
     case "sending":
       return tr("Aceptada / en cola", "Accettata / in coda", "Accepted / queued", "Geaccepteerd / in wachtrij");
     case "sent":
-      return tr("Envío iniciado", "Invio avviato", "Send started", "Verzending gestart");
+      return tr("Enviada", "Inviata", "Sent", "Verzonden");
     case "cancelled":
       return tr("Cancelada", "Annullata", "Cancelled", "Geannuleerd");
     case "failed":
@@ -633,7 +633,9 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
             <div className="mt-1 text-sm text-muted-foreground">{campaign.subject}</div>
           </div>
           <span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">
-            {campaignStatusLabel(campaign.status)}
+            {campaign.status === "sending" && campaign.send_started_at
+              ? tr("Envío iniciado", "Invio avviato", "Send started", "Verzending gestart")
+              : campaignStatusLabel(campaign.status)}
           </span>
         </div>
 
