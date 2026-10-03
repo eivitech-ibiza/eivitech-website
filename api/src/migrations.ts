@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS crm_marketing_campaigns (
   editor_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   html text NOT NULL DEFAULT '',
   scheduled_at timestamptz,
+  send_started_at timestamptz,
   sent_at timestamptz,
   resend_broadcast_id text UNIQUE,
   recipient_count integer NOT NULL DEFAULT 0,
@@ -484,6 +485,8 @@ ALTER TABLE crm_marketing_campaigns
   ADD COLUMN IF NOT EXISTS send_confirmation_expires_at timestamptz;
 ALTER TABLE crm_marketing_campaigns
   ADD COLUMN IF NOT EXISTS last_test_at timestamptz;
+ALTER TABLE crm_marketing_campaigns
+  ADD COLUMN IF NOT EXISTS send_started_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS crm_marketing_campaign_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
