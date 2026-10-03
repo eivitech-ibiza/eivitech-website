@@ -627,12 +627,96 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       {activityNotice && <div role="status" className="flex items-start justify-between gap-4 rounded-sm border border-secondary/40 bg-secondary/10 p-4 text-sm"><div className="flex items-start gap-3"><Bell size={17} className="mt-0.5 text-primary" /><div><div className="font-medium">Nuova attività email</div><div className="mt-1 text-muted-foreground">{activityNotice}</div></div></div><button type="button" onClick={() => setActivityNotice(null)} aria-label="Chiudi notifica"><X size={16} /></button></div>}
 
       {campaigns.map((campaign) => <div key={campaign.id} className="rounded-sm border border-border bg-card p-5 shadow-soft">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{campaign.name}</div><div className="mt-1 text-sm text-muted-foreground">{campaign.subject}</div></div><span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">{campaign.status}</span></div>
-        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4"><Info label={tr("Idioma", "Lingua", "Language", "Taal")} value={(campaign.language || "it").toUpperCase()} /><Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaign.segment_name || "—"} /><Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(campaign.recipient_count || 0)} /><Info label={tr("Creada", "Creata", "Created", "Aangemaakt")} value={formatDate(campaign.created_at)} /></div>
-        {campaign.status !== "draft" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><CampaignMetricCard campaignId={campaign.id} metric="delivered" label="Consegnate" value={campaign.delivered_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="opened" label="Aperte" value={campaign.opened_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="clicked" label="Clic" value={campaign.clicked_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="bounced" label="Rimbalzi" value={campaign.bounced_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="unsubscribed" label="Disiscritti" value={campaign.unsubscribed_count || 0} /></div>}
-        {(campaign.opened_count || 0) > 0 && <div className="mt-4 flex items-center gap-2 rounded-sm border border-secondary/40 bg-secondary/10 p-3 text-sm"><Eye size={16} className="text-primary" /><span><strong>{campaign.opened_count}</strong> destinatario{campaign.opened_count === 1 ? "" : "i"} ha aperto la campagna.</span></div>}
-        {campaign.status !== "draft" && <p className="mt-3 text-xs text-muted-foreground">Le aperture sono indicative: alcuni programmi di posta bloccano le immagini di tracciamento o le caricano automaticamente per proteggere la privacy.</p>}
-        {campaign.status === "draft" ? <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}</button><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><MailCheck size={14} />Test</button><button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}</button><button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive"><Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}</button></div> : <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button>{campaign.status === "sent" && <><button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</button><button type="button" onClick={() => void remove(campaign)} disabled={saving} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40"><Trash2 size={14} />{tr("Eliminar campaña", "Elimina campagna", "Delete campaign", "Campagne verwijderen")}</button></>}</div>}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="font-medium">{campaign.name}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{campaign.subject}</div>
+          </div>
+          <span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">
+            {campaignStatusLabel(campaign.status)}
+          </span>
+        </div>
+
+        <div className={`mt-4 grid gap-3 text-sm ${campaign.scheduled_at ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
+          <Info label={tr("Idioma", "Lingua", "Language", "Taal")} value={(campaign.language || "it").toUpperCase()} />
+          <Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaign.segment_name || "—"} />
+          <Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(campaign.recipient_count || 0)} />
+          <Info label={tr("Creada", "Creata", "Created", "Aangemaakt")} value={formatDate(campaign.created_at)} />
+          {campaign.scheduled_at && <Info
+            label={tr("Programada", "Programmata", "Scheduled", "Gepland")}
+            value={`${formatMadridDate(campaign.scheduled_at)} · ${MARKETING_TIME_ZONE}`}
+          />}
+        </div>
+
+        {(campaign.status === "sending" || campaign.status === "sent") && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <CampaignMetricCard campaignId={campaign.id} metric="delivered" label="Consegnate" value={campaign.delivered_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="opened" label="Aperte" value={campaign.opened_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="clicked" label="Clic" value={campaign.clicked_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="bounced" label="Rimbalzi" value={campaign.bounced_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="unsubscribed" label="Disiscritti" value={campaign.unsubscribed_count || 0} />
+        </div>}
+
+        {(campaign.opened_count || 0) > 0 && <div className="mt-4 flex items-center gap-2 rounded-sm border border-secondary/40 bg-secondary/10 p-3 text-sm">
+          <Eye size={16} className="text-primary" />
+          <span><strong>{campaign.opened_count}</strong> destinatario{campaign.opened_count === 1 ? "" : "i"} ha aperto la campagna.</span>
+        </div>}
+
+        {(campaign.status === "sending" || campaign.status === "sent") && <p className="mt-3 text-xs text-muted-foreground">
+          Le aperture sono indicative: alcuni programmi di posta bloccano le immagini di tracciamento o le caricano automaticamente per proteggere la privacy.
+        </p>}
+
+        {campaign.status === "draft" ? (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs">
+              <Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}
+            </button>
+            <button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs">
+              <Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}
+            </button>
+            <button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40">
+              <MailCheck size={14} />Test
+            </button>
+            <button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40">
+              <ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}
+            </button>
+            <button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive">
+              <Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs">
+              <Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}
+            </button>
+
+            {(campaign.status === "scheduled" || campaign.status === "sending") && <button
+              type="button"
+              onClick={() => void reconcileCampaign(campaign)}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"
+            >
+              <Repeat2 size={14} />{tr("Actualizar estado", "Aggiorna stato", "Refresh status", "Status vernieuwen")}
+            </button>}
+
+            {campaign.status === "scheduled" && <button
+              type="button"
+              onClick={() => void cancelScheduled(campaign)}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40"
+            >
+              <Ban size={14} />{tr("Cancelar programación", "Annulla programmazione", "Cancel schedule", "Planning annuleren")}
+            </button>}
+
+            {campaign.status === "sent" && <>
+              <button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40">
+                <Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}
+              </button>
+              <button type="button" onClick={() => void remove(campaign)} disabled={saving} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40">
+                <Trash2 size={14} />{tr("Eliminar campaña", "Elimina campagna", "Delete campaign", "Campagne verwijderen")}
+              </button>
+            </>}
+          </div>
+        )}
       </div>)}
       {campaigns.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Aún no hay campañas.", "Non ci sono ancora campagne.", "No campaigns yet.", "Nog geen campagnes.")}</div>}
     </div>
