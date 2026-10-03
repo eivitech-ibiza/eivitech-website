@@ -46,6 +46,17 @@ jobs:
           path.write_text(source.replace(needle, replacement), encoding="utf-8")
           PY
           python scripts/harden-scheduled-newsletters.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/email-marketing-safe-send.test.mjs")
+          source = path.read_text(encoding="utf-8")
+          old = r'''  assert.equal((patchRoute.match(/\bstatus\s*=/g) || []).length, 1);'''
+          new = r'''  assert.equal((patchRoute.match(/\bstatus\s*=\s*\$8/g) || []).length, 1);'''
+          count = source.count(old)
+          if count != 1:
+              raise RuntimeError(f"Expected one draft status guard, found {count}")
+          path.write_text(source.replace(old, new), encoding="utf-8")
+          PY
           git diff --check
 
       - name: Prepare candidate commit
@@ -64,6 +75,7 @@ jobs:
             api/src/resendBroadcastScheduling.test.ts \
             api/src/resendMarketing.ts \
             api/src/resendSegmentPool.test.ts \
+            scripts/email-marketing-safe-send.test.mjs \
             scripts/marketing-scheduling.test.mjs \
             src/components/marketing/CampaignWorkspace.tsx \
             src/lib/marketing.ts
