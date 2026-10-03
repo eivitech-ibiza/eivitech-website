@@ -274,11 +274,12 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
         if (eventType === "email.sent") {
           const started = await query<{ id: string }>(
             `UPDATE crm_marketing_campaigns
-             SET status = 'sent',
-                 sent_at = COALESCE(sent_at, $2::timestamptz),
+             SET status = 'sending',
+                 send_started_at = COALESCE(send_started_at, $2::timestamptz),
                  updated_at = now()
              WHERE id = $1
                AND status IN ('scheduled', 'sending')
+               AND send_started_at IS NULL
              RETURNING id`,
             [campaignId, eventAt],
           );
