@@ -36,6 +36,7 @@ jobs:
           set -euo pipefail
           cat scripts/apply-scheduled-newsletters.py.gz.b64.part* | base64 --decode | gzip --decompress > scripts/apply-scheduled-newsletters.py
           python scripts/apply-scheduled-newsletters.py
+          python scripts/finalize-scheduled-newsletters.py
           git diff --check
 
       - name: Prepare implementation commit locally
@@ -43,17 +44,26 @@ jobs:
         run: |
           set -euo pipefail
           rm -f scripts/apply-scheduled-newsletters.py
-          git rm scripts/apply-scheduled-newsletters.py.gz.b64 scripts/apply-scheduled-newsletters.py.gz.b64.part* scripts/apply-scheduled-newsletters.trigger
+          git rm \
+            scripts/apply-scheduled-newsletters.py.gz.b64 \
+            scripts/apply-scheduled-newsletters.py.gz.b64.part* \
+            scripts/apply-scheduled-newsletters.trigger \
+            scripts/finalize-scheduled-newsletters.py
           git rm .github/workflows/apply-scheduled-newsletters.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             api/src/resendMarketing.ts \
             api/src/marketing.ts \
+            api/src/marketingCampaignDelivery.ts \
+            api/src/marketingSchedule.ts \
+            api/src/marketingSchedule.test.ts \
             api/src/campaignSendSafety.ts \
             api/src/server.ts \
             api/src/marketingSchedulingIntegration.test.ts \
             api/README.md \
+            scripts/email-marketing-foundation.test.mjs \
+            scripts/email-marketing-safe-send.test.mjs \
             src/lib/marketing.ts \
             src/components/marketing/CampaignWorkspace.tsx
           git commit -m "feat(marketing): schedule and cancel newsletters"
