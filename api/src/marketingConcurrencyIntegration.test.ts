@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 // These source-level integration guards protect provider and database race
-// invariants that must hold without calling live Resend endpoints in CI.
+// invariants. Automated CI never calls live Resend send or cancel endpoints.
 
 test("campaign preparation serializes Resend pool allocation and locks the campaign row", () => {
   const source = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
