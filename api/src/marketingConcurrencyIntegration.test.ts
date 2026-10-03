@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+// These source-level integration guards protect provider and database race
+// invariants that must hold without calling live Resend endpoints in CI.
+
 test("campaign preparation serializes Resend pool allocation and locks the campaign row", () => {
   const source = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
   assert.match(source, /pg_advisory_xact_lock/);
