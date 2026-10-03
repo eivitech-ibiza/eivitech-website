@@ -1075,42 +1075,68 @@ marketingRouter.delete("/campaigns/:id", asyncRoute(async (req, res) => {
 }));
 
 marketingRouter.post("/campaigns/:id/prepare", asyncRoute(async (req, res) => {
-  const campaign = await loadCampaign(req.params.id);
-  if (campaign.status !== "draft") return res.status(409).json({ error: "Only draft campaigns can be prepared" });
-  if (!campaign.segment_id) return res.status(400).json({ error: "Select a segment before preparing the campaign" });
-  if (!campaign.subject.trim() || !campaign.html.trim()) return res.status(400).json({ error: "Subject and HTML are required" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      ["eivitech:resend-marketing-pool"],
+    );
 
-  const sync = await syncSegmentToResend(campaign.segment_id, campaign.id);
-  if (sync.eligible === 0) return res.status(409).json({ error: "The selected segment has no eligible subscribed contacts" });
+    const campaign = await loadCampaign(req.params.id, client);
+    if (campaign.status !== "draft") {
+      throw new MarketingOperationError(409, "Only draft campaigns can be prepared");
+    }
+    if (!campaign.segment_id) {
+      throw new MarketingOperationError(400, "Select a segment before preparing the campaign");
+    }
+    if (!campaign.subject.trim() || !campaign.html.trim()) {
+      throw new MarketingOperationError(400, "Subject and HTML are required");
+    }
 
-  const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
-  const confirmationToken = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const confirmationPhrase = `INVIA ${sync.eligible} EMAIL`;
+    const sync = await syncSegmentToResend(campaign.segment_id, campaign.id, client);
+    if (sync.eligible === 0) {
+      throw new MarketingOperationError(409, "The selected segment has no eligible subscribed contacts");
+    }
 
-  await query(
-    `UPDATE crm_marketing_campaigns
-     SET resend_broadcast_id = $1,
-         recipient_count = $2,
-         send_confirmation_token_hash = $3,
-         send_confirmation_expires_at = $4::timestamptz,
-         updated_at = now()
-     WHERE id = $5`,
-    [broadcastId, sync.eligible, tokenHash(confirmationToken), expiresAt, campaign.id],
-  );
-  await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
-    payload: { broadcastId, recipientCount: sync.eligible, resendSegmentId: sync.resendSegmentId },
-  });
+    const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
+    const confirmationToken = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const confirmationPhrase = `INVIA ${sync.eligible} EMAIL`;
 
-  return res.json({
-    ok: true,
-    broadcast_id: broadcastId,
-    recipient_count: sync.eligible,
-    confirmation_token: confirmationToken,
-    confirmation_phrase: confirmationPhrase,
-    confirmation_expires_at: expiresAt,
-    bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
-  });
+    await client.query(
+      `UPDATE crm_marketing_campaigns
+       SET resend_broadcast_id = $1,
+           recipient_count = $2,
+           send_confirmation_token_hash = $3,
+           send_confirmation_expires_at = $4::timestamptz,
+           scheduled_at = NULL,
+           updated_at = now()
+       WHERE id = $5`,
+      [broadcastId, sync.eligible, tokenHash(confirmationToken), expiresAt, campaign.id],
+    );
+    await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
+      payload: { broadcastId, recipientCount: sync.eligible, resendSegmentId: sync.resendSegmentId },
+    }, client);
+
+    await client.query("COMMIT");
+
+    return res.json({
+      ok: true,
+      broadcast_id: broadcastId,
+      recipient_count: sync.eligible,
+      confirmation_token: confirmationToken,
+      confirmation_phrase: confirmationPhrase,
+      confirmation_expires_at: expiresAt,
+      bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
+      scheduling_time_zone: MARKETING_TIME_ZONE,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }));
 
 marketingRouter.post("/campaigns/:id/send", asyncRoute(async (req, res) => {
