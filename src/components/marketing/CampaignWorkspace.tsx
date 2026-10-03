@@ -637,12 +637,12 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
           </span>
         </div>
 
-        <div className={`mt-4 grid gap-3 text-sm ${campaign.scheduled_at ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
+        <div className={`mt-4 grid gap-3 text-sm ${campaign.status !== "draft" && campaign.scheduled_at ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
           <Info label={tr("Idioma", "Lingua", "Language", "Taal")} value={(campaign.language || "it").toUpperCase()} />
           <Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaign.segment_name || "—"} />
           <Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(campaign.recipient_count || 0)} />
           <Info label={tr("Creada", "Creata", "Created", "Aangemaakt")} value={formatDate(campaign.created_at)} />
-          {campaign.scheduled_at && <Info
+          {campaign.status !== "draft" && campaign.scheduled_at && <Info
             label={tr("Programada", "Programmata", "Scheduled", "Gepland")}
             value={`${formatMadridDate(campaign.scheduled_at)} · ${MARKETING_TIME_ZONE}`}
           />}
