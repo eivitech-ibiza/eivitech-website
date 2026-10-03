@@ -1,4 +1,76 @@
 import { query } from "./db.js";
+import { mapResendBroadcastState, type MarketingDeliveryMode } from "./marketingSchedule.js";
+import { getResendBroadcast } from "./resendMarketing.js";
+
+type ActiveCampaignForReconciliation = {
+  id: string;
+  status: "scheduled" | "sending" | "paused";
+  scheduled_at: Date | string | null;
+  resend_broadcast_id: string;
+};
+
+async function reconcileCampaign(campaign: ActiveCampaignForReconciliation) {
+  const provider = await getResendBroadcast(campaign.resend_broadcast_id);
+  const providerStatus = String(provider.status || "").toLowerCase();
+  const mode: MarketingDeliveryMode = campaign.scheduled_at ? "scheduled" : "now";
+  const mapped = mapResendBroadcastState(providerStatus, mode);
+  let localStatus = mapped.localStatus;
+
+  if (providerStatus === "draft") {
+    localStatus = campaign.status === "paused" || campaign.status === "scheduled"
+      ? "cancelled"
+      : "draft";
+  } else if (!mapped.accepted) {
+    return;
+  }
+
+  await query(
+    `UPDATE crm_marketing_campaigns
+     SET status = $1,
+         scheduled_at = COALESCE($2::timestamptz, scheduled_at),
+         sent_at = CASE
+           WHEN $1 = 'sent' THEN COALESCE($3::timestamptz, sent_at, now())
+           ELSE sent_at
+         END,
+         updated_at = now()
+     WHERE id = $4
+       AND status IN ('scheduled', 'sending', 'paused')`,
+    [
+      localStatus,
+      provider.scheduled_at || null,
+      provider.sent_at || null,
+      campaign.id,
+    ],
+  );
+}
+
+export async function reconcileActiveMarketingCampaigns() {
+  const active = await query<ActiveCampaignForReconciliation>(
+    `SELECT id, status, scheduled_at, resend_broadcast_id
+     FROM crm_marketing_campaigns
+     WHERE resend_broadcast_id IS NOT NULL
+       AND (
+         (status = 'scheduled' AND scheduled_at <= now() + interval '5 minutes')
+         OR (status IN ('sending', 'paused') AND updated_at <= now() - interval '30 seconds')
+       )
+     ORDER BY updated_at ASC
+     LIMIT 30`,
+  );
+
+  for (let index = 0; index < active.rows.length; index += 5) {
+    const batch = active.rows.slice(index, index + 5);
+    const results = await Promise.allSettled(batch.map(reconcileCampaign));
+    results.forEach((result, resultIndex) => {
+      if (result.status === "rejected") {
+        console.warn(
+          "[marketing] unable to reconcile Broadcast state",
+          batch[resultIndex]?.id,
+          result.reason,
+        );
+      }
+    });
+  }
+}
 
 export function derivedCampaignMetricsSql() {
   return `
@@ -64,5 +136,6 @@ export function derivedCampaignMetricsSql() {
 }
 
 export async function listCampaignsWithDerivedUnsubscribes() {
+  await reconcileActiveMarketingCampaigns();
   return query(derivedCampaignMetricsSql());
 }
