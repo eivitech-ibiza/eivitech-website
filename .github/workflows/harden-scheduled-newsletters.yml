@@ -34,6 +34,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/harden-scheduled-newsletters.py")
+          source = path.read_text(encoding="utf-8")
+          needle = "    '''  assert.match(marketingSource, /\\blistResendSegments\\b/);"
+          replacement = "    r'''  assert.match(marketingSource, /\\blistResendSegments\\b/);"
+          count = source.count(needle)
+          if count != 2:
+              raise RuntimeError(f"Expected two Resend pool regex strings, found {count}")
+          path.write_text(source.replace(needle, replacement), encoding="utf-8")
+          PY
           python scripts/harden-scheduled-newsletters.py
           git diff --check
 
