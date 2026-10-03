@@ -158,7 +158,7 @@ A real campaign can be submitted only when all of the following are true:
 5. the operator checks the review checkbox and types the exact recipient-count phrase;
 6. `MARKETING_BULK_SEND_ENABLED` is explicitly set to `true` on Railway.
 
-At final confirmation the operator chooses either immediate sending or a date/time in `Europe/Madrid`. Scheduled local time is validated server-side, daylight-saving gaps and overlaps are rejected, the instant is stored as UTC in PostgreSQL, and Resend receives the ISO-8601 UTC timestamp. Scheduling is limited to 30 days ahead.
+At final confirmation the operator chooses either immediate sending or a date/time in `Europe/Madrid`. Scheduled local time is validated server-side, daylight-saving gaps and overlaps are rejected, the instant is stored as UTC in PostgreSQL, and Resend receives the ISO-8601 UTC timestamp. The application does not copy transactional-email scheduling limits onto Broadcasts; any Broadcast-specific provider limit is surfaced from Resend.
 
 The 10-minute confirmation token authorizes only the initial submission. After Resend accepts a schedule, future execution is owned by Resend and does not require an open browser, an active Clerk session, a GitHub cron, or a new Railway worker.
 
