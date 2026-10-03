@@ -1034,7 +1034,7 @@ marketingRouter.post("/campaigns", asyncRoute(async (req, res) => {
       cleanText(data.topic),
       JSON.stringify(data.editor_json || {}),
       data.html || "",
-      data.scheduled_at || null,
+       null,
       req.crmUser?.id || null,
     ]
   );
@@ -1088,7 +1088,7 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
       data.topic === undefined ? existing.topic : cleanText(data.topic),
       JSON.stringify(data.editor_json ?? existing.editor_json ?? {}),
       data.html ?? existing.html,
-      data.scheduled_at === undefined ? isoString(existing.scheduled_at) : data.scheduled_at,
+       null,
       req.params.id,
     ]
   );
