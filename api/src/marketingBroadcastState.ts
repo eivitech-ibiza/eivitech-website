@@ -25,7 +25,9 @@ export function localStatusFromResendBroadcast(
     case "failed":
       return "failed";
     case "draft":
-      return currentStatus === "scheduled" ? "cancelled" : "draft";
+      return currentStatus === "scheduled" || currentStatus === "cancelled"
+        ? "cancelled"
+        : "draft";
     default:
       return null;
   }
