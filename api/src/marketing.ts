@@ -18,6 +18,8 @@ import {
   sendResendBroadcast,
   upsertResendContact,
 } from "./resendMarketing.js";
+import { verifyCampaignAudienceBeforeSend } from "./campaignSendSafety.js";
+import { localStatusFromResendBroadcast } from "./marketingBroadcastState.js";
 import { selectResendSegmentPool } from "./resendSegmentPool.js";
 import {
   MARKETING_TIME_ZONE,
@@ -405,7 +407,7 @@ async function loadCampaign(campaignId: string, client: DbClient = pool) {
 
 async function recordCampaignEvent(
   campaignId: string,
-  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced" | "scheduled" | "cancelled" | "provider_reconciled",
+  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced" | "provider_accepted" | "provider_uncertain" | "scheduled" | "cancelled" | "provider_reconciled",
   createdBy: string | null,
   details: { recipient?: string | null; resendEmailId?: string | null; payload?: Record<string, unknown> } = {},
   client: DbClient = pool,
@@ -423,6 +425,67 @@ async function recordCampaignEvent(
       createdBy,
     ],
   );
+}
+
+async function reconcileCampaignWithResend(
+  campaign: MarketingCampaignRow,
+  createdBy: string | null,
+  client: DbClient = pool,
+) {
+  if (!campaign.resend_broadcast_id) {
+    throw new MarketingOperationError(409, "This campaign has no Resend broadcast to reconcile");
+  }
+
+  const remote = await getResendBroadcast(campaign.resend_broadcast_id);
+  const localStatus = localStatusFromResendBroadcast(remote.status, campaign.status);
+  if (!localStatus) {
+    return { recognized: false as const, remote, localStatus: null };
+  }
+
+  const remoteScheduledAt =
+    remote.scheduled_at && !Number.isNaN(Date.parse(remote.scheduled_at))
+      ? remote.scheduled_at
+      : null;
+  const remoteSentAt =
+    remote.sent_at && !Number.isNaN(Date.parse(remote.sent_at))
+      ? remote.sent_at
+      : null;
+
+  await client.query(
+    `UPDATE crm_marketing_campaigns
+     SET status = $2,
+         scheduled_at = CASE
+           WHEN $2 = 'scheduled' THEN COALESCE($3::timestamptz, scheduled_at)
+           WHEN $2 = 'draft' THEN NULL
+           ELSE scheduled_at
+         END,
+         sent_at = CASE
+           WHEN $2 = 'sent' THEN COALESCE($4::timestamptz, sent_at, now())
+           ELSE sent_at
+         END,
+         send_confirmation_token_hash = CASE
+           WHEN $2 IN ('scheduled', 'sending', 'sent', 'cancelled', 'failed') THEN NULL
+           ELSE send_confirmation_token_hash
+         END,
+         send_confirmation_expires_at = CASE
+           WHEN $2 IN ('scheduled', 'sending', 'sent', 'cancelled', 'failed') THEN NULL
+           ELSE send_confirmation_expires_at
+         END,
+         updated_at = now()
+     WHERE id = $1`,
+    [campaign.id, localStatus, remoteScheduledAt, remoteSentAt],
+  );
+
+  await recordCampaignEvent(campaign.id, "provider_reconciled", createdBy, {
+    payload: {
+      providerStatus: remote.status || null,
+      localStatus,
+      scheduledAt: remoteScheduledAt,
+      sentAt: remoteSentAt,
+    },
+  }, client);
+
+  return { recognized: true as const, remote, localStatus };
 }
 
 async function allocateResendSegmentPool(campaignId: string, client: DbClient = pool) {
