@@ -69,6 +69,8 @@ export type MarketingCampaign = MarketingCampaignInput & {
   id: string;
   resend_broadcast_id?: string | null;
   last_test_at?: string | null;
+  send_started_at?: string | null;
+  sent_at?: string | null;
   segment_name?: string | null;
   recipient_count: number;
   delivered_count: number;
@@ -245,6 +247,7 @@ export type MarketingCampaignPreparation = {
   confirmation_phrase: string;
   confirmation_expires_at: string;
   bulk_send_enabled: boolean;
+  scheduling_time_zone?: "Europe/Madrid";
 };
 
 export function fetchMarketingCapabilities(token: string) {
@@ -267,6 +270,48 @@ export function prepareMarketingCampaign(token: string, campaignId: string) {
   return marketingRequest<MarketingCampaignPreparation>(`/campaigns/${campaignId}/prepare`, { method: "POST", token, body: {} });
 }
 
-export function sendMarketingCampaign(token: string, campaignId: string, payload: { confirmation_token: string; confirmation_phrase: string }) {
-  return marketingRequest<{ ok: boolean; status: string; broadcast_id: string }>(`/campaigns/${campaignId}/send`, { method: "POST", token, body: payload });
+export type MarketingCampaignSendRequest = {
+  confirmation_token: string;
+  confirmation_phrase: string;
+  send_mode: "now" | "scheduled";
+  scheduled_local?: string;
+  scheduled_time_zone?: "Europe/Madrid";
+};
+
+export type MarketingCampaignSendResult = {
+  ok: true;
+  status: MarketingCampaignStatus;
+  broadcast_id: string;
+  scheduled_at?: string | null;
+  time_zone?: "Europe/Madrid" | null;
+  reconciled?: boolean;
+};
+
+export function sendMarketingCampaign(token: string, campaignId: string, payload: MarketingCampaignSendRequest) {
+  return marketingRequest<MarketingCampaignSendResult>(`/campaigns/${campaignId}/send`, {
+    method: "POST",
+    token,
+    body: payload,
+  });
+}
+
+export function reconcileMarketingCampaign(token: string, campaignId: string) {
+  return marketingRequest<{
+    ok: true;
+    status: MarketingCampaignStatus;
+    provider_status?: string | null;
+    scheduled_at?: string | null;
+    sent_at?: string | null;
+  }>(`/campaigns/${campaignId}/reconcile`, {
+    method: "POST",
+    token,
+    body: {},
+  });
+}
+
+export function cancelScheduledMarketingCampaign(token: string, campaignId: string) {
+  return marketingRequest<{ ok: true; status: "cancelled"; broadcast_id: string }>(
+    `/campaigns/${campaignId}/cancel`,
+    { method: "POST", token, body: {} },
+  );
 }

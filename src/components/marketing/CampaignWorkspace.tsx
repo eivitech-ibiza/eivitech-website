@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import {
+  Ban,
   Bell,
+  CalendarClock,
   Eye,
   MailCheck,
   Pencil,
@@ -12,10 +14,12 @@ import {
   X,
 } from "lucide-react";
 import {
+  cancelScheduledMarketingCampaign,
   createMarketingCampaign,
   deleteMarketingCampaign,
   fetchMarketingCapabilities,
   prepareMarketingCampaign,
+  reconcileMarketingCampaign,
   sendMarketingCampaign,
   sendMarketingCampaignTest,
   updateMarketingCampaign,
@@ -70,12 +74,46 @@ type CampaignMetrics = Pick<
 >;
 
 type ResendMode = "same" | "different";
+type SendMode = "now" | "scheduled";
+const MARKETING_TIME_ZONE = "Europe/Madrid";
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function formatMadridDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("it-IT", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: MARKETING_TIME_ZONE,
+  }).format(date);
+}
+
+function campaignStatusLabel(status?: MarketingCampaign["status"]) {
+  switch (status) {
+    case "draft":
+      return tr("Borrador", "Bozza", "Draft", "Concept");
+    case "scheduled":
+      return tr("Programada", "Programmata", "Scheduled", "Gepland");
+    case "sending":
+      return tr("Aceptada / en cola", "Accettata / in coda", "Accepted / queued", "Geaccepteerd / in wachtrij");
+    case "sent":
+      return tr("Enviada", "Inviata", "Sent", "Verzonden");
+    case "cancelled":
+      return tr("Cancelada", "Annullata", "Cancelled", "Geannuleerd");
+    case "failed":
+      return tr("Error", "Errore", "Failed", "Mislukt");
+    case "paused":
+      return tr("En pausa", "In pausa", "Paused", "Gepauzeerd");
+    default:
+      return status || "—";
+  }
 }
 
 function Input({ label, value, onChange, type = "text", required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean }) {
@@ -121,6 +159,9 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
   const [audienceChange, setAudienceChange] = useState<AudienceChangedAfterPrepareDetails | null>(null);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [sendMode, setSendMode] = useState<SendMode>("now");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
   const [resendCampaign, setResendCampaign] = useState<MarketingCampaign | null>(null);
   const [resendMode, setResendMode] = useState<ResendMode>("same");
   const [resendSegmentId, setResendSegmentId] = useState("");
@@ -136,6 +177,12 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
     const token = await getToken();
     if (!token) throw new Error("Missing Clerk token");
     return token;
+  }
+
+  function resetSendChoice() {
+    setSendMode("now");
+    setScheduleDate("");
+    setScheduleTime("");
   }
 
   useEffect(() => {
@@ -284,6 +331,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setAudienceChange(null);
       setConfirmationPhrase("");
       setReviewConfirmed(false);
+      resetSendChoice();
       setNotice(tr(
         "Se ha creado una nueva campaña para el reenvío. La campaña original y sus métricas permanecen intactas.",
         "È stata creata una nuova campagna per il reinvio. La campagna originale e le sue metriche restano intatte.",
@@ -375,6 +423,7 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setAudienceChange(null);
       setConfirmationPhrase("");
       setReviewConfirmed(false);
+      resetSendChoice();
       setNotice(tr("Campaña preparada. Todavía no se ha enviado nada.", "Campagna preparata. Non è stata ancora inviata alcuna email.", "Campaign prepared. Nothing has been sent yet.", "Campagne voorbereid. Er is nog niets verzonden."));
       await onChanged();
     } catch (err) { setError(err instanceof Error ? err.message : "Preparation failed"); }
@@ -408,6 +457,8 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       setConfirmationPhrase("");
       setReviewConfirmed(false);
 
+      resetSendChoice();
+
       setNotice(
         tr(
           "Audiencia sincronizada y preparación actualizada. Revisa el nuevo número de destinatarios.",
@@ -432,14 +483,54 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
 
   async function confirmSend() {
     if (!preparation) return;
-    setSaving(true); setError(null);
+    if (sendMode === "scheduled" && (!scheduleDate || !scheduleTime)) {
+      setError(tr(
+        "Selecciona fecha y hora para la programación.",
+        "Seleziona data e ora per la programmazione.",
+        "Select a date and time for the scheduled send.",
+        "Selecteer een datum en tijd voor de geplande verzending.",
+      ));
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
     try {
-      await sendMarketingCampaign(await tokenOrThrow(), preparation.campaign.id, {
+      const result = await sendMarketingCampaign(await tokenOrThrow(), preparation.campaign.id, {
         confirmation_token: preparation.data.confirmation_token,
         confirmation_phrase: confirmationPhrase,
+        send_mode: sendMode,
+        ...(sendMode === "scheduled"
+          ? {
+              scheduled_local: `${scheduleDate}T${scheduleTime}`,
+              scheduled_time_zone: MARKETING_TIME_ZONE,
+            }
+          : {}),
       });
+
       setPreparation(null);
-      setNotice(tr("Envío iniciado.", "Invio avviato.", "Send started.", "Verzending gestart."));
+      setConfirmationPhrase("");
+      setReviewConfirmed(false);
+      resetSendChoice();
+
+      if (result.status === "scheduled") {
+        setNotice(
+          `${tr(
+            "Programación aceptada por Resend para",
+            "Programmazione accettata da Resend per",
+            "Schedule accepted by Resend for",
+            "Planning geaccepteerd door Resend voor",
+          )} ${formatMadridDate(result.scheduled_at)} (${MARKETING_TIME_ZONE}).`,
+        );
+      } else {
+        setNotice(tr(
+          "Envío aceptado por Resend. El estado cambiará a «Envío iniciado» cuando comience la expedición real.",
+          "Invio accettato da Resend. Lo stato passerà a «Invio avviato» quando inizierà la spedizione effettiva.",
+          "Send accepted by Resend. The status will change to “Send started” when actual dispatch begins.",
+          "Verzending geaccepteerd door Resend. De status verandert naar ‘Verzending gestart’ zodra de echte verzending begint.",
+        ));
+      }
+
       await onChanged();
     } catch (err) {
       const changed = getAudienceChangedAfterPrepareDetails(err);
@@ -452,8 +543,59 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       } else {
         setError(err instanceof Error ? err.message : "Send failed");
       }
+    } finally {
+      setSaving(false);
     }
-    finally { setSaving(false); }
+  }
+
+  async function cancelScheduled(campaign: MarketingCampaign) {
+    const when = formatMadridDate(campaign.scheduled_at);
+    if (!window.confirm(tr(
+      `¿Cancelar el envío programado para ${when} (${MARKETING_TIME_ZONE})?`,
+      `Annullare l'invio programmato per ${when} (${MARKETING_TIME_ZONE})?`,
+      `Cancel the send scheduled for ${when} (${MARKETING_TIME_ZONE})?`,
+      `De verzending gepland voor ${when} (${MARKETING_TIME_ZONE}) annuleren?`,
+    ))) return;
+
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await cancelScheduledMarketingCampaign(await tokenOrThrow(), campaign.id);
+      setNotice(tr(
+        "Programación cancelada y confirmada por Resend.",
+        "Programmazione annullata e confermata da Resend.",
+        "Schedule cancelled and confirmed by Resend.",
+        "Planning geannuleerd en bevestigd door Resend.",
+      ));
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Scheduled cancellation failed");
+      await onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reconcileCampaign(campaign: MarketingCampaign) {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await reconcileMarketingCampaign(await tokenOrThrow(), campaign.id);
+      setNotice(
+        `${tr(
+          "Estado sincronizado con Resend:",
+          "Stato sincronizzato con Resend:",
+          "Status synchronized with Resend:",
+          "Status gesynchroniseerd met Resend:",
+        )} ${campaignStatusLabel(result.status)}.`,
+      );
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Status reconciliation failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return <div className="mt-6 grid gap-6 xl:grid-cols-[480px_1fr]">
@@ -485,12 +627,98 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       {activityNotice && <div role="status" className="flex items-start justify-between gap-4 rounded-sm border border-secondary/40 bg-secondary/10 p-4 text-sm"><div className="flex items-start gap-3"><Bell size={17} className="mt-0.5 text-primary" /><div><div className="font-medium">Nuova attività email</div><div className="mt-1 text-muted-foreground">{activityNotice}</div></div></div><button type="button" onClick={() => setActivityNotice(null)} aria-label="Chiudi notifica"><X size={16} /></button></div>}
 
       {campaigns.map((campaign) => <div key={campaign.id} className="rounded-sm border border-border bg-card p-5 shadow-soft">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{campaign.name}</div><div className="mt-1 text-sm text-muted-foreground">{campaign.subject}</div></div><span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">{campaign.status}</span></div>
-        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4"><Info label={tr("Idioma", "Lingua", "Language", "Taal")} value={(campaign.language || "it").toUpperCase()} /><Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaign.segment_name || "—"} /><Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(campaign.recipient_count || 0)} /><Info label={tr("Creada", "Creata", "Created", "Aangemaakt")} value={formatDate(campaign.created_at)} /></div>
-        {campaign.status !== "draft" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><CampaignMetricCard campaignId={campaign.id} metric="delivered" label="Consegnate" value={campaign.delivered_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="opened" label="Aperte" value={campaign.opened_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="clicked" label="Clic" value={campaign.clicked_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="bounced" label="Rimbalzi" value={campaign.bounced_count || 0} /><CampaignMetricCard campaignId={campaign.id} metric="unsubscribed" label="Disiscritti" value={campaign.unsubscribed_count || 0} /></div>}
-        {(campaign.opened_count || 0) > 0 && <div className="mt-4 flex items-center gap-2 rounded-sm border border-secondary/40 bg-secondary/10 p-3 text-sm"><Eye size={16} className="text-primary" /><span><strong>{campaign.opened_count}</strong> destinatario{campaign.opened_count === 1 ? "" : "i"} ha aperto la campagna.</span></div>}
-        {campaign.status !== "draft" && <p className="mt-3 text-xs text-muted-foreground">Le aperture sono indicative: alcuni programmi di posta bloccano le immagini di tracciamento o le caricano automaticamente per proteggere la privacy.</p>}
-        {campaign.status === "draft" ? <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}</button><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button><button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"><MailCheck size={14} />Test</button><button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}</button><button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive"><Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}</button></div> : <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs"><Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}</button>{campaign.status === "sent" && <><button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40"><Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}</button><button type="button" onClick={() => void remove(campaign)} disabled={saving} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40"><Trash2 size={14} />{tr("Eliminar campaña", "Elimina campagna", "Delete campaign", "Campagne verwijderen")}</button></>}</div>}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="font-medium">{campaign.name}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{campaign.subject}</div>
+          </div>
+          <span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">
+            {campaign.status === "sending" && campaign.send_started_at
+              ? tr("Envío iniciado", "Invio avviato", "Send started", "Verzending gestart")
+              : campaignStatusLabel(campaign.status)}
+          </span>
+        </div>
+
+        <div className={`mt-4 grid gap-3 text-sm ${campaign.status !== "draft" && campaign.scheduled_at ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
+          <Info label={tr("Idioma", "Lingua", "Language", "Taal")} value={(campaign.language || "it").toUpperCase()} />
+          <Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={campaign.segment_name || "—"} />
+          <Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(campaign.recipient_count || 0)} />
+          <Info label={tr("Creada", "Creata", "Created", "Aangemaakt")} value={formatDate(campaign.created_at)} />
+          {campaign.status !== "draft" && campaign.scheduled_at && <Info
+            label={tr("Programada", "Programmata", "Scheduled", "Gepland")}
+            value={`${formatMadridDate(campaign.scheduled_at)} · ${MARKETING_TIME_ZONE}`}
+          />}
+        </div>
+
+        {(campaign.status === "sending" || campaign.status === "sent") && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <CampaignMetricCard campaignId={campaign.id} metric="delivered" label="Consegnate" value={campaign.delivered_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="opened" label="Aperte" value={campaign.opened_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="clicked" label="Clic" value={campaign.clicked_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="bounced" label="Rimbalzi" value={campaign.bounced_count || 0} />
+          <CampaignMetricCard campaignId={campaign.id} metric="unsubscribed" label="Disiscritti" value={campaign.unsubscribed_count || 0} />
+        </div>}
+
+        {(campaign.opened_count || 0) > 0 && <div className="mt-4 flex items-center gap-2 rounded-sm border border-secondary/40 bg-secondary/10 p-3 text-sm">
+          <Eye size={16} className="text-primary" />
+          <span><strong>{campaign.opened_count}</strong> destinatario{campaign.opened_count === 1 ? "" : "i"} ha aperto la campagna.</span>
+        </div>}
+
+        {(campaign.status === "sending" || campaign.status === "sent") && <p className="mt-3 text-xs text-muted-foreground">
+          Le aperture sono indicative: alcuni programmi di posta bloccano le immagini di tracciamento o le caricano automaticamente per proteggere la privacy.
+        </p>}
+
+        {campaign.status === "draft" ? (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" onClick={() => startEdit(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs">
+              <Pencil size={14} />{tr("Editar", "Modifica", "Edit", "Bewerken")}
+            </button>
+            <button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs">
+              <Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}
+            </button>
+            <button type="button" onClick={() => setTestCampaign(campaign)} disabled={!capabilities?.testSendConfigured} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40">
+              <MailCheck size={14} />Test
+            </button>
+            <button type="button" onClick={() => void prepare(campaign)} disabled={saving || !campaign.segment_id || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40">
+              <ShieldCheck size={14} />{tr("Preparar envío", "Prepara invio", "Prepare send", "Verzending voorbereiden")}
+            </button>
+            <button type="button" onClick={() => void remove(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive">
+              <Trash2 size={14} />{tr("Eliminar", "Elimina", "Delete", "Verwijderen")}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setPreview(campaign)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs">
+              <Eye size={14} />{tr("Vista previa", "Anteprima", "Preview", "Voorbeeld")}
+            </button>
+
+            {(campaign.status === "scheduled" || campaign.status === "sending") && <button
+              type="button"
+              onClick={() => void reconcileCampaign(campaign)}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-40"
+            >
+              <Repeat2 size={14} />{tr("Actualizar estado", "Aggiorna stato", "Refresh status", "Status vernieuwen")}
+            </button>}
+
+            {campaign.status === "scheduled" && <button
+              type="button"
+              onClick={() => void cancelScheduled(campaign)}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40"
+            >
+              <Ban size={14} />{tr("Cancelar programación", "Annulla programmazione", "Cancel schedule", "Planning annuleren")}
+            </button>}
+
+            {campaign.status === "sent" && <>
+              <button type="button" onClick={() => openResend(campaign)} disabled={saving || !capabilities?.resendSyncConfigured} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs text-primary-foreground disabled:opacity-40">
+                <Repeat2 size={14} />{tr("Enviar de nuevo", "Invia di nuovo", "Send again", "Opnieuw verzenden")}
+              </button>
+              <button type="button" onClick={() => void remove(campaign)} disabled={saving} className="inline-flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive disabled:opacity-40">
+                <Trash2 size={14} />{tr("Eliminar campaña", "Elimina campagna", "Delete campaign", "Campagne verwijderen")}
+              </button>
+            </>}
+          </div>
+        )}
       </div>)}
       {campaigns.length === 0 && <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">{tr("Aún no hay campañas.", "Non ci sono ancora campagne.", "No campaigns yet.", "Nog geen campagnes.")}</div>}
     </div>
@@ -597,6 +825,165 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
       </div>
     </div>}
 
-    {preparation && !audienceChange && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-xl rounded-sm bg-card p-6 shadow-2xl"><div className="flex items-center justify-between"><div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div><button onClick={() => setPreparation(null)}><X /></button></div><div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4"><div className="text-3xl font-medium">{preparation.data.recipient_count}</div><div className="text-sm text-muted-foreground">{tr("destinatarios elegibles", "destinatari idonei", "eligible recipients", "geschikte ontvangers")}</div></div><label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} /><span>{tr("He revisado asunto, contenido, segmento y destinatarios.", "Ho controllato oggetto, contenuto, segmento e destinatari.", "I reviewed the subject, content, segment and recipients.", "Ik heb onderwerp, inhoud, segment en ontvangers gecontroleerd.")}</span></label><div className="mt-4"><Input label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`} value={confirmationPhrase} onChange={setConfirmationPhrase} /></div>{!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{tr("El envío masivo permanece desactivado en Railway.", "L’invio massivo è ancora disattivato su Railway.", "Bulk sending is still disabled in Railway.", "Bulkverzending is nog uitgeschakeld op Railway.")}</div>}<button onClick={() => void confirmSend()} disabled={saving || !reviewConfirmed || confirmationPhrase !== preparation.data.confirmation_phrase || !preparation.data.bulk_send_enabled} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground disabled:opacity-40"><Send size={16} />{tr("Enviar campaña", "Invia campagna", "Send campaign", "Campagne verzenden")}</button><p className="mt-3 text-center text-xs text-muted-foreground">Token monouso, valido per 10 minuti.</p></div></div>}
+    {preparation && !audienceChange && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-sm bg-card p-6 shadow-2xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium">{tr("Confirmación final", "Conferma finale", "Final confirmation", "Definitieve bevestiging")}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tr(
+                "Elige cuándo enviar. La confirmación se realiza una sola vez.",
+                "Scegli quando inviare. La conferma viene richiesta una sola volta.",
+                "Choose when to send. Confirmation is required only once.",
+                "Kies wanneer je wilt verzenden. Bevestiging is slechts één keer nodig.",
+              )}
+            </p>
+          </div>
+          <button type="button" onClick={() => setPreparation(null)} aria-label="Chiudi"><X /></button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setSendMode("now")}
+            className={`rounded-sm border p-4 text-left transition ${sendMode === "now" ? "border-primary bg-primary/5" : "border-border bg-background"}`}
+          >
+            <div className="flex items-center gap-2 font-medium"><Send size={16} />{tr("Enviar ahora", "Invia subito", "Send now", "Nu verzenden")}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tr(
+                "Resend iniciará el envío después de esta confirmación.",
+                "Resend avvierà l'invio dopo questa conferma.",
+                "Resend will start processing the send after this confirmation.",
+                "Resend verwerkt de verzending na deze bevestiging.",
+              )}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSendMode("scheduled")}
+            className={`rounded-sm border p-4 text-left transition ${sendMode === "scheduled" ? "border-primary bg-primary/5" : "border-border bg-background"}`}
+          >
+            <div className="flex items-center gap-2 font-medium"><CalendarClock size={16} />{tr("Programar envío", "Programma invio", "Schedule send", "Verzending plannen")}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tr(
+                "Resend ejecutará el envío automáticamente en la fecha indicada.",
+                "Resend eseguirà automaticamente l'invio alla data indicata.",
+                "Resend will execute the send automatically at the selected time.",
+                "Resend voert de verzending automatisch uit op het gekozen tijdstip.",
+              )}
+            </p>
+          </button>
+        </div>
+
+        {sendMode === "scheduled" && <div className="mt-4 rounded-sm border border-border bg-background p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label={tr("Fecha", "Data", "Date", "Datum")}
+              type="date"
+              required
+              value={scheduleDate}
+              onChange={setScheduleDate}
+            />
+            <Input
+              label={tr("Hora", "Ora", "Time", "Tijd")}
+              type="time"
+              required
+              value={scheduleTime}
+              onChange={setScheduleTime}
+            />
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <CalendarClock size={14} />
+            {tr("Zona horaria", "Fuso orario", "Time zone", "Tijdzone")}: <strong>{MARKETING_TIME_ZONE}</strong>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {tr(
+              "Después de la confirmación, no será necesario mantener abierto el navegador ni el ordenador.",
+              "Dopo la conferma non sarà necessario mantenere aperti il browser o il computer.",
+              "After confirmation, the browser and computer do not need to remain open.",
+              "Na bevestiging hoeven de browser en computer niet open te blijven.",
+            )}
+          </p>
+        </div>}
+
+        <div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4">
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <Info label={tr("Campaña", "Campagna", "Campaign", "Campagne")} value={preparation.campaign.name} />
+            <Info label={tr("Segmento", "Segmento", "Segment", "Segment")} value={preparation.campaign.segment_name || "—"} />
+            <Info label={tr("Destinatarios", "Destinatari", "Recipients", "Ontvangers")} value={String(preparation.data.recipient_count)} />
+            <Info
+              label={tr("Envío", "Invio", "Send", "Verzending")}
+              value={sendMode === "scheduled"
+                ? (scheduleDate && scheduleTime
+                    ? `${scheduleDate} · ${scheduleTime} · ${MARKETING_TIME_ZONE}`
+                    : tr("Fecha y hora pendientes", "Data e ora da selezionare", "Date and time not selected", "Datum en tijd nog niet gekozen"))
+                : tr("Inmediato", "Subito", "Immediately", "Direct")}
+            />
+          </div>
+        </div>
+
+        <label className="mt-5 flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={reviewConfirmed}
+            onChange={(event) => setReviewConfirmed(event.target.checked)}
+          />
+          <span>
+            {tr(
+              "He revisado asunto, contenido, segmento, destinatarios y modalidad de envío.",
+              "Ho controllato oggetto, contenuto, segmento, destinatari e modalità di invio.",
+              "I reviewed the subject, content, segment, recipients, and send mode.",
+              "Ik heb onderwerp, inhoud, segment, ontvangers en verzendwijze gecontroleerd.",
+            )}
+          </span>
+        </label>
+
+        <div className="mt-4">
+          <Input
+            label={`${tr("Escribe", "Scrivi", "Type", "Typ")}: ${preparation.data.confirmation_phrase}`}
+            value={confirmationPhrase}
+            onChange={setConfirmationPhrase}
+          />
+        </div>
+
+        {!preparation.data.bulk_send_enabled && <div className="mt-4 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {tr(
+            "El envío masivo permanece desactivado en Railway.",
+            "L’invio massivo è ancora disattivato su Railway.",
+            "Bulk sending is still disabled in Railway.",
+            "Bulkverzending is nog uitgeschakeld in Railway.",
+          )}
+        </div>}
+
+        <button
+          type="button"
+          onClick={() => void confirmSend()}
+          disabled={
+            saving
+            || !reviewConfirmed
+            || confirmationPhrase !== preparation.data.confirmation_phrase
+            || !preparation.data.bulk_send_enabled
+            || (sendMode === "scheduled" && (!scheduleDate || !scheduleTime))
+          }
+          className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm px-4 py-3 text-sm font-medium disabled:opacity-40 ${sendMode === "scheduled" ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}
+        >
+          {sendMode === "scheduled" ? <CalendarClock size={16} /> : <Send size={16} />}
+          {sendMode === "scheduled"
+            ? tr("Confirmar programación", "Conferma programmazione", "Confirm schedule", "Planning bevestigen")
+            : tr("Confirmar envío inmediato", "Conferma invio immediato", "Confirm immediate send", "Directe verzending bevestigen")}
+        </button>
+
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {tr(
+            "Token monouso valido 10 minutos. En una programación, el token solo autoriza esta confirmación inicial.",
+            "Token monouso valido 10 minuti. In caso di programmazione, il token autorizza solo questa conferma iniziale.",
+            "One-time token valid for 10 minutes. For a scheduled send, it only authorizes this initial confirmation.",
+            "Eenmalige token, 10 minuten geldig. Bij planning autoriseert het token alleen deze eerste bevestiging.",
+          )}
+        </p>
+      </div>
+    </div>}
   </div>;
 }

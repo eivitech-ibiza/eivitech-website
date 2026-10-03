@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS crm_marketing_campaigns (
   editor_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   html text NOT NULL DEFAULT '',
   scheduled_at timestamptz,
+  send_started_at timestamptz,
   sent_at timestamptz,
   resend_broadcast_id text UNIQUE,
   recipient_count integer NOT NULL DEFAULT 0,
@@ -484,11 +485,16 @@ ALTER TABLE crm_marketing_campaigns
   ADD COLUMN IF NOT EXISTS send_confirmation_expires_at timestamptz;
 ALTER TABLE crm_marketing_campaigns
   ADD COLUMN IF NOT EXISTS last_test_at timestamptz;
+ALTER TABLE crm_marketing_campaigns
+  ADD COLUMN IF NOT EXISTS send_started_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS crm_marketing_campaign_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_id uuid NOT NULL REFERENCES crm_marketing_campaigns(id) ON DELETE CASCADE,
-  event_type text NOT NULL CHECK (event_type IN ('test_sent', 'prepared', 'send_started', 'send_failed', 'resend_synced')),
+  event_type text NOT NULL CHECK (event_type IN (
+    'test_sent', 'prepared', 'send_started', 'send_failed', 'resend_synced',
+    'provider_accepted', 'provider_uncertain', 'scheduled', 'cancelled', 'provider_reconciled'
+  )),
   recipient text,
   resend_email_id text,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -498,6 +504,19 @@ CREATE TABLE IF NOT EXISTS crm_marketing_campaign_events (
 
 CREATE INDEX IF NOT EXISTS idx_crm_marketing_campaign_events_campaign
   ON crm_marketing_campaign_events(campaign_id, created_at DESC);
+
+ALTER TABLE crm_marketing_campaign_events
+  DROP CONSTRAINT IF EXISTS crm_marketing_campaign_events_event_type_check;
+ALTER TABLE crm_marketing_campaign_events
+  ADD CONSTRAINT crm_marketing_campaign_events_event_type_check
+  CHECK (event_type IN (
+    'test_sent', 'prepared', 'send_started', 'send_failed', 'resend_synced',
+    'provider_accepted', 'provider_uncertain', 'scheduled', 'cancelled', 'provider_reconciled'
+  ));
+
+CREATE INDEX IF NOT EXISTS idx_crm_marketing_campaigns_scheduled_at
+  ON crm_marketing_campaigns(scheduled_at)
+  WHERE status = 'scheduled';
 
 CREATE TABLE IF NOT EXISTS crm_marketing_campaign_recipient_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

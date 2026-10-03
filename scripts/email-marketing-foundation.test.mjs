@@ -81,7 +81,17 @@ test("database dates are normalized before Zod update validation", () => {
   const marketing = read("api/src/marketing.ts");
   assert.match(marketing, /function isoString\(value: unknown\)/);
   assert.match(marketing, /consent_at: requestedConsent \? parsed\.data\.consent_at \?\? isoString\(existing\.consent_at\) : null/);
-  assert.match(marketing, /data\.scheduled_at === undefined \? isoString\(existing\.scheduled_at\)/);
+});
+
+test("draft editor cannot claim a provider-confirmed scheduled timestamp", () => {
+  const marketing = read("api/src/marketing.ts");
+  const createRoute = marketing.match(/marketingRouter\.post\("\/campaigns"[\s\S]*?marketingRouter\.patch\("\/campaigns\/:id"/)?.[0] || "";
+  const updateRoute = marketing.match(/marketingRouter\.patch\("\/campaigns\/:id"[\s\S]*?marketingRouter\.post\("\/segments\/:id\/sync-resend"/)?.[0] || "";
+
+  assert.match(createRoute, /data\.html \|\| "",\s+null,\s+req\.crmUser/);
+  assert.match(updateRoute, /data\.html \?\? existing\.html,\s+null,\s+req\.params\.id/);
+  assert.doesNotMatch(createRoute, /data\.scheduled_at \|\| null/);
+  assert.doesNotMatch(updateRoute, /data\.scheduled_at === undefined/);
 });
 
 

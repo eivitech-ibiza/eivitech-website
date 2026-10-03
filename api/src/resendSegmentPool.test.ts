@@ -50,3 +50,17 @@ test("campaign preparation never creates a new Resend segment", () => {
   assert.match(marketingSource, /\blistResendSegments\b/);
   assert.match(marketingSource, /\bselectResendSegmentPool\b/);
 });
+
+
+test("scheduled campaigns keep their Resend transport pool reserved", () => {
+  const marketingSource = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
+
+  assert.match(marketingSource, /c\.status IN \('sending', 'scheduled'\)/);
+});
+
+test("campaign preparation serializes transport-pool allocation", () => {
+  const marketingSource = readFileSync(new URL("./marketing.ts", import.meta.url), "utf8");
+
+  assert.match(marketingSource, /pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
+  assert.match(marketingSource, /eivitech:resend-marketing-pool/);
+});

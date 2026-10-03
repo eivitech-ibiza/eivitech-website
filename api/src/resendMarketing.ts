@@ -475,13 +475,42 @@ export async function createOrUpdateResendBroadcast(
   return created.id;
 }
 
-export async function sendResendBroadcast(broadcastId: string) {
+export type ResendBroadcastState = {
+  id: string;
+  status?: string;
+  scheduled_at?: string | null;
+  sent_at?: string | null;
+};
+
+export async function getResendBroadcast(broadcastId: string) {
+  return resendRequest<ResendBroadcastState>(
+    `/broadcasts/${encodeURIComponent(broadcastId)}`,
+    { apiKey: adminKeyOrThrow() },
+  );
+}
+
+export async function sendResendBroadcast(
+  broadcastId: string,
+  scheduledAt?: string | null,
+) {
   return resendRequest<{ id: string }>(`/broadcasts/${encodeURIComponent(broadcastId)}/send`, {
     method: "POST",
     apiKey: adminKeyOrThrow(),
-    idempotencyKey: `eivitech-broadcast-send-${broadcastId}`,
-    body: {},
+    idempotencyKey: `eivitech-broadcast-send-${broadcastId}-${scheduledAt || "now"}`,
+    body: scheduledAt ? { scheduled_at: scheduledAt } : {},
   });
+}
+
+export async function cancelResendBroadcast(broadcastId: string) {
+  return resendRequest<{ object?: string; id: string }>(
+    `/broadcasts/${encodeURIComponent(broadcastId)}/cancel`,
+    {
+      method: "POST",
+      apiKey: adminKeyOrThrow(),
+      idempotencyKey: `eivitech-broadcast-cancel-${broadcastId}`,
+      body: {},
+    },
+  );
 }
 
 export async function deleteResendBroadcast(broadcastId: string) {

@@ -6,8 +6,10 @@ import { z } from "zod";
 import { pool, query } from "./db.js";
 import {
   ResendMarketingError,
+  cancelResendBroadcast,
   createOrUpdateResendBroadcast,
   deleteResendBroadcast,
+  getResendBroadcast,
   listResendSegments,
   marketingCapabilities,
   listResendSegmentContacts,
@@ -16,7 +18,14 @@ import {
   sendResendBroadcast,
   upsertResendContact,
 } from "./resendMarketing.js";
+import { verifyCampaignAudienceBeforeSend } from "./campaignSendSafety.js";
+import { localStatusFromResendBroadcast } from "./marketingBroadcastState.js";
 import { selectResendSegmentPool } from "./resendSegmentPool.js";
+import {
+  MARKETING_TIME_ZONE,
+  MarketingScheduleError,
+  resolveMadridLocalDateTime,
+} from "./marketingSchedule.js";
 
 const languageSchema = z.enum(["es", "it", "en", "nl"]);
 const contactStatusSchema = z.enum(["pending", "subscribed", "unsubscribed", "suppressed"]);
@@ -114,6 +123,26 @@ const campaignTestSchema = z.object({
 const campaignSendSchema = z.object({
   confirmation_token: z.string().regex(/^[a-f0-9]{64}$/i),
   confirmation_phrase: z.string().trim().min(1).max(200),
+  send_mode: z.enum(["now", "scheduled"]).default("now"),
+  scheduled_local: z.string().trim().optional(),
+  scheduled_time_zone: z.literal(MARKETING_TIME_ZONE).optional(),
+}).superRefine((value, ctx) => {
+  if (value.send_mode === "scheduled") {
+    if (!value.scheduled_local) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduled_local"],
+        message: "Date and time are required for a scheduled send",
+      });
+    }
+    if (value.scheduled_time_zone !== MARKETING_TIME_ZONE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduled_time_zone"],
+        message: "Scheduled sends must use Europe/Madrid",
+      });
+    }
+  }
 });
 
 type ContactEventType = "created" | "updated" | "subscribed" | "unsubscribed" | "suppressed" | "restored" | "imported";
@@ -347,6 +376,9 @@ type MarketingCampaignRow = {
   html: string;
   resend_broadcast_id: string | null;
   recipient_count: number;
+  scheduled_at: Date | string | null;
+  send_started_at: Date | string | null;
+  sent_at: Date | string | null;
   send_confirmation_token_hash: string | null;
   send_confirmation_expires_at: Date | string | null;
 };
@@ -365,8 +397,8 @@ function tokenHash(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function loadCampaign(campaignId: string) {
-  const result = await query<MarketingCampaignRow>(
+async function loadCampaign(campaignId: string, client: DbClient = pool) {
+  const result = await client.query<MarketingCampaignRow>(
     `SELECT * FROM crm_marketing_campaigns WHERE id = $1`,
     [campaignId],
   );
@@ -376,11 +408,12 @@ async function loadCampaign(campaignId: string) {
 
 async function recordCampaignEvent(
   campaignId: string,
-  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced",
+  eventType: "test_sent" | "prepared" | "send_started" | "send_failed" | "resend_synced" | "provider_accepted" | "provider_uncertain" | "scheduled" | "cancelled" | "provider_reconciled",
   createdBy: string | null,
   details: { recipient?: string | null; resendEmailId?: string | null; payload?: Record<string, unknown> } = {},
+  client: DbClient = pool,
 ) {
-  await query(
+  await client.query(
     `INSERT INTO crm_marketing_campaign_events (
        campaign_id, event_type, recipient, resend_email_id, payload, created_by
      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
@@ -395,7 +428,68 @@ async function recordCampaignEvent(
   );
 }
 
-async function allocateResendSegmentPool(campaignId: string) {
+async function reconcileCampaignWithResend(
+  campaign: MarketingCampaignRow,
+  createdBy: string | null,
+  client: DbClient = pool,
+) {
+  if (!campaign.resend_broadcast_id) {
+    throw new MarketingOperationError(409, "This campaign has no Resend broadcast to reconcile");
+  }
+
+  const remote = await getResendBroadcast(campaign.resend_broadcast_id);
+  const localStatus = localStatusFromResendBroadcast(remote.status, campaign.status);
+  if (!localStatus) {
+    return { recognized: false as const, remote, localStatus: null };
+  }
+
+  const remoteScheduledAt =
+    remote.scheduled_at && !Number.isNaN(Date.parse(remote.scheduled_at))
+      ? remote.scheduled_at
+      : null;
+  const remoteSentAt =
+    remote.sent_at && !Number.isNaN(Date.parse(remote.sent_at))
+      ? remote.sent_at
+      : null;
+
+  await client.query(
+    `UPDATE crm_marketing_campaigns
+     SET status = $2,
+         scheduled_at = CASE
+           WHEN $2 = 'scheduled' THEN COALESCE($3::timestamptz, scheduled_at)
+           WHEN $2 = 'draft' THEN NULL
+           ELSE scheduled_at
+         END,
+         sent_at = CASE
+           WHEN $2 = 'sent' THEN COALESCE($4::timestamptz, sent_at, now())
+           ELSE sent_at
+         END,
+         send_confirmation_token_hash = CASE
+           WHEN $2 IN ('scheduled', 'sending', 'sent', 'cancelled', 'failed') THEN NULL
+           ELSE send_confirmation_token_hash
+         END,
+         send_confirmation_expires_at = CASE
+           WHEN $2 IN ('scheduled', 'sending', 'sent', 'cancelled', 'failed') THEN NULL
+           ELSE send_confirmation_expires_at
+         END,
+         updated_at = now()
+     WHERE id = $1`,
+    [campaign.id, localStatus, remoteScheduledAt, remoteSentAt],
+  );
+
+  await recordCampaignEvent(campaign.id, "provider_reconciled", createdBy, {
+    payload: {
+      providerStatus: remote.status || null,
+      localStatus,
+      scheduledAt: remoteScheduledAt,
+      sentAt: remoteSentAt,
+    },
+  }, client);
+
+  return { recognized: true as const, remote, localStatus };
+}
+
+async function allocateResendSegmentPool(campaignId: string, client: DbClient = pool) {
   const remoteSegments = await listResendSegments();
   const availableSegmentIds = remoteSegments.map((segment) => segment.id).filter(Boolean);
   if (availableSegmentIds.length === 0) {
@@ -405,7 +499,7 @@ async function allocateResendSegmentPool(campaignId: string) {
     );
   }
 
-  const currentPool = await query<{ resend_segment_id: string | null }>(
+  const currentPool = await client.query<{ resend_segment_id: string | null }>(
     `SELECT payload->>'resendSegmentId' AS resend_segment_id
      FROM crm_marketing_campaign_events
      WHERE campaign_id = $1 AND event_type = 'prepared'
@@ -414,7 +508,7 @@ async function allocateResendSegmentPool(campaignId: string) {
     [campaignId],
   );
 
-  const reservedPools = await query<{ resend_segment_id: string | null }>(
+  const reservedPools = await client.query<{ resend_segment_id: string | null }>(
     `SELECT DISTINCT latest.payload->>'resendSegmentId' AS resend_segment_id
      FROM crm_marketing_campaigns c
      JOIN LATERAL (
@@ -426,8 +520,8 @@ async function allocateResendSegmentPool(campaignId: string) {
      ) latest ON true
      WHERE c.id <> $1
        AND (
-         c.status = 'sending'
-         OR (c.status = 'draft' AND c.send_confirmation_expires_at > now())
+         c.status IN ('sending', 'scheduled')
+          OR (c.status = 'draft' AND c.send_confirmation_expires_at > now())
        )`,
     [campaignId],
   );
@@ -447,28 +541,28 @@ async function allocateResendSegmentPool(campaignId: string) {
   if (!selected) {
     throw new MarketingOperationError(
       409,
-      "All Resend transport segments are reserved by campaigns awaiting send confirmation. Send, edit, or wait for one confirmation to expire, then prepare again.",
+      "All Resend transport segments are reserved by campaigns that are scheduled, sending, or awaiting send confirmation. Cancel, finish, edit, or wait for a confirmation to expire, then prepare again.",
     );
   }
 
   return selected;
 }
 
-async function syncSegmentToResend(segmentId: string, campaignId: string) {
+async function syncSegmentToResend(segmentId: string, campaignId: string, client: DbClient = pool) {
   const capabilities = marketingCapabilities();
   if (!capabilities.resendSyncConfigured) {
     throw new MarketingOperationError(503, "RESEND_MARKETING_API_KEY is required for contact and campaign sync");
   }
 
-  const segmentResult = await query<{ id: string }>(
+  const segmentResult = await client.query<{ id: string }>(
     `SELECT id FROM crm_marketing_segments WHERE id = $1`,
     [segmentId],
   );
   if (segmentResult.rows.length === 0) throw new MarketingOperationError(404, "Segment not found");
 
-  const resendSegmentId = await allocateResendSegmentPool(campaignId);
+  const resendSegmentId = await allocateResendSegmentPool(campaignId, client);
 
-  const contacts = await query<{
+  const contacts = await client.query<{
     id: string;
     email: string;
     first_name: string | null;
@@ -500,7 +594,7 @@ async function syncSegmentToResend(segmentId: string, campaignId: string) {
     const batch = contacts.rows.slice(index, index + 5);
     const results = await Promise.all(batch.map(async (contact) => {
       const resendContactId = await upsertResendContact(contact, resendSegmentId);
-      await query(
+      await client.query(
         `UPDATE crm_marketing_contacts SET resend_contact_id = $1, updated_at = now() WHERE id = $2`,
         [resendContactId, contact.id],
       );
@@ -941,7 +1035,7 @@ marketingRouter.post("/campaigns", asyncRoute(async (req, res) => {
       cleanText(data.topic),
       JSON.stringify(data.editor_json || {}),
       data.html || "",
-      data.scheduled_at || null,
+       null,
       req.crmUser?.id || null,
     ]
   );
@@ -995,7 +1089,7 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
       data.topic === undefined ? existing.topic : cleanText(data.topic),
       JSON.stringify(data.editor_json ?? existing.editor_json ?? {}),
       data.html ?? existing.html,
-      data.scheduled_at === undefined ? isoString(existing.scheduled_at) : data.scheduled_at,
+       null,
       req.params.id,
     ]
   );
@@ -1045,42 +1139,68 @@ marketingRouter.delete("/campaigns/:id", asyncRoute(async (req, res) => {
 }));
 
 marketingRouter.post("/campaigns/:id/prepare", asyncRoute(async (req, res) => {
-  const campaign = await loadCampaign(req.params.id);
-  if (campaign.status !== "draft") return res.status(409).json({ error: "Only draft campaigns can be prepared" });
-  if (!campaign.segment_id) return res.status(400).json({ error: "Select a segment before preparing the campaign" });
-  if (!campaign.subject.trim() || !campaign.html.trim()) return res.status(400).json({ error: "Subject and HTML are required" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      ["eivitech:resend-marketing-pool"],
+    );
 
-  const sync = await syncSegmentToResend(campaign.segment_id, campaign.id);
-  if (sync.eligible === 0) return res.status(409).json({ error: "The selected segment has no eligible subscribed contacts" });
+    const campaign = await loadCampaign(req.params.id, client);
+    if (campaign.status !== "draft") {
+      throw new MarketingOperationError(409, "Only draft campaigns can be prepared");
+    }
+    if (!campaign.segment_id) {
+      throw new MarketingOperationError(400, "Select a segment before preparing the campaign");
+    }
+    if (!campaign.subject.trim() || !campaign.html.trim()) {
+      throw new MarketingOperationError(400, "Subject and HTML are required");
+    }
 
-  const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
-  const confirmationToken = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const confirmationPhrase = `INVIA ${sync.eligible} EMAIL`;
+    const sync = await syncSegmentToResend(campaign.segment_id, campaign.id, client);
+    if (sync.eligible === 0) {
+      throw new MarketingOperationError(409, "The selected segment has no eligible subscribed contacts");
+    }
 
-  await query(
-    `UPDATE crm_marketing_campaigns
-     SET resend_broadcast_id = $1,
-         recipient_count = $2,
-         send_confirmation_token_hash = $3,
-         send_confirmation_expires_at = $4::timestamptz,
-         updated_at = now()
-     WHERE id = $5`,
-    [broadcastId, sync.eligible, tokenHash(confirmationToken), expiresAt, campaign.id],
-  );
-  await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
-    payload: { broadcastId, recipientCount: sync.eligible, resendSegmentId: sync.resendSegmentId },
-  });
+    const broadcastId = await createOrUpdateResendBroadcast(campaign, sync.resendSegmentId);
+    const confirmationToken = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const confirmationPhrase = `INVIA ${sync.eligible} EMAIL`;
 
-  return res.json({
-    ok: true,
-    broadcast_id: broadcastId,
-    recipient_count: sync.eligible,
-    confirmation_token: confirmationToken,
-    confirmation_phrase: confirmationPhrase,
-    confirmation_expires_at: expiresAt,
-    bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
-  });
+    await client.query(
+      `UPDATE crm_marketing_campaigns
+       SET resend_broadcast_id = $1,
+           recipient_count = $2,
+           send_confirmation_token_hash = $3,
+           send_confirmation_expires_at = $4::timestamptz,
+           scheduled_at = NULL,
+           updated_at = now()
+       WHERE id = $5`,
+      [broadcastId, sync.eligible, tokenHash(confirmationToken), expiresAt, campaign.id],
+    );
+    await recordCampaignEvent(campaign.id, "prepared", req.crmUser?.id || null, {
+      payload: { broadcastId, recipientCount: sync.eligible, resendSegmentId: sync.resendSegmentId },
+    }, client);
+
+    await client.query("COMMIT");
+
+    return res.json({
+      ok: true,
+      broadcast_id: broadcastId,
+      recipient_count: sync.eligible,
+      confirmation_token: confirmationToken,
+      confirmation_phrase: confirmationPhrase,
+      confirmation_expires_at: expiresAt,
+      bulk_send_enabled: marketingCapabilities().bulkSendEnabled,
+      scheduling_time_zone: MARKETING_TIME_ZONE,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }));
 
 marketingRouter.post("/campaigns/:id/send", asyncRoute(async (req, res) => {
@@ -1090,20 +1210,38 @@ marketingRouter.post("/campaigns/:id/send", asyncRoute(async (req, res) => {
   }
 
   const parsed = campaignSendSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid send confirmation", details: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid send confirmation", details: parsed.error.flatten() });
+  }
+
+  const schedule = parsed.data.send_mode === "scheduled"
+    ? resolveMadridLocalDateTime(parsed.data.scheduled_local!)
+    : null;
 
   const campaign = await loadCampaign(req.params.id);
   const expectedPhrase = `INVIA ${campaign.recipient_count} EMAIL`;
   if (parsed.data.confirmation_phrase !== expectedPhrase) {
     return res.status(400).json({ error: "The confirmation phrase does not match" });
   }
-  if (!campaign.resend_broadcast_id) return res.status(409).json({ error: "Prepare the campaign before sending" });
+  if (!campaign.resend_broadcast_id) {
+    return res.status(409).json({ error: "Prepare the campaign before sending" });
+  }
 
-  const consumed = await query<MarketingCampaignRow>(
+  const audience = await verifyCampaignAudienceBeforeSend(campaign.id);
+  if (!audience.ok) {
+    return res.status(409).json({
+      error: "The campaign audience changed after preparation. Refresh the audience before continuing.",
+      code: "AUDIENCE_CHANGED_AFTER_PREPARE",
+      reason: audience.reason,
+      prepared_count: audience.preparedCount,
+      current_eligible_count: audience.currentEligibleCount,
+      resend_active_count: audience.remoteActiveCount,
+    });
+  }
+
+  const claimed = await query<MarketingCampaignRow>(
     `UPDATE crm_marketing_campaigns
-     SET send_confirmation_token_hash = NULL,
-         send_confirmation_expires_at = NULL,
-         status = 'sending',
+     SET status = 'sending',
          updated_at = now()
      WHERE id = $1
        AND status = 'draft'
@@ -1112,26 +1250,274 @@ marketingRouter.post("/campaigns/:id/send", asyncRoute(async (req, res) => {
      RETURNING *`,
     [campaign.id, tokenHash(parsed.data.confirmation_token.toLowerCase())],
   );
-  if (consumed.rows.length === 0) {
-    return res.status(409).json({ error: "The send confirmation expired or was already used; prepare the campaign again" });
+  if (claimed.rows.length === 0) {
+    return res.status(409).json({
+      error: "The send confirmation expired, was already used, or another request is already processing this campaign. Refresh the campaign state before trying again.",
+    });
   }
 
+  const claimedCampaign = claimed.rows[0];
   try {
-    const sent = await sendResendBroadcast(campaign.resend_broadcast_id);
+    const accepted = await sendResendBroadcast(campaign.resend_broadcast_id, schedule?.utcIso || null);
+    const acceptedStatus = schedule ? "scheduled" : "sending";
+
     await query(
-      `UPDATE crm_marketing_campaigns SET status = 'sent', sent_at = now(), updated_at = now() WHERE id = $1`,
+      `UPDATE crm_marketing_campaigns
+       SET status = $2,
+           scheduled_at = $3::timestamptz,
+           send_confirmation_token_hash = NULL,
+           send_confirmation_expires_at = NULL,
+           updated_at = now()
+       WHERE id = $1`,
+      [campaign.id, acceptedStatus, schedule?.utcIso || null],
+    );
+
+    await recordCampaignEvent(
+      campaign.id,
+      schedule ? "scheduled" : "provider_accepted",
+      req.crmUser?.id || null,
+      {
+        payload: {
+          broadcastId: campaign.resend_broadcast_id,
+          resendResponseId: accepted.id,
+          sendMode: parsed.data.send_mode,
+          scheduledAt: schedule?.utcIso || null,
+          scheduledLocal: schedule?.localDateTime || null,
+          timeZone: schedule?.timeZone || null,
+        },
+      },
+    );
+
+    return res.json({
+      ok: true,
+      status: acceptedStatus,
+      broadcast_id: campaign.resend_broadcast_id,
+      scheduled_at: schedule?.utcIso || null,
+      time_zone: schedule?.timeZone || null,
+      reconciled: false,
+    });
+  } catch (error) {
+    let reconciled:
+      | Awaited<ReturnType<typeof reconcileCampaignWithResend>>
+      | null = null;
+
+    try {
+      reconciled = await reconcileCampaignWithResend(
+        claimedCampaign,
+        req.crmUser?.id || null,
+      );
+    } catch (reconcileError) {
+      await recordCampaignEvent(campaign.id, "provider_uncertain", req.crmUser?.id || null, {
+        payload: {
+          operation: parsed.data.send_mode === "scheduled" ? "schedule" : "send",
+          message: error instanceof Error ? error.message : "Unknown Resend send error",
+          reconciliationMessage:
+            reconcileError instanceof Error ? reconcileError.message : "Unknown reconciliation error",
+        },
+      }).catch(() => undefined);
+
+      throw new MarketingOperationError(
+        502,
+        "Resend did not return a certain result and its current state could not be reconciled. The campaign is blocked from another send attempt until its provider state is refreshed.",
+      );
+    }
+
+    if (reconciled.recognized) {
+      if (reconciled.localStatus === "draft") {
+        await recordCampaignEvent(campaign.id, "send_failed", req.crmUser?.id || null, {
+          payload: {
+            operation: parsed.data.send_mode === "scheduled" ? "schedule" : "send",
+            message: error instanceof Error ? error.message : "Unknown Resend send error",
+            providerStatus: reconciled.remote.status || null,
+          },
+        });
+        throw error;
+      }
+
+      if (["scheduled", "sending", "sent"].includes(reconciled.localStatus)) {
+        return res.json({
+          ok: true,
+          status: reconciled.localStatus,
+          broadcast_id: campaign.resend_broadcast_id,
+          scheduled_at: reconciled.remote.scheduled_at || schedule?.utcIso || null,
+          time_zone: schedule?.timeZone || null,
+          reconciled: true,
+        });
+      }
+
+      throw new MarketingOperationError(
+        409,
+        `Resend reports the broadcast as ${reconciled.remote.status || reconciled.localStatus}; it was not submitted again.`,
+      );
+    }
+
+    await recordCampaignEvent(campaign.id, "provider_uncertain", req.crmUser?.id || null, {
+      payload: {
+        operation: parsed.data.send_mode === "scheduled" ? "schedule" : "send",
+        message: error instanceof Error ? error.message : "Unknown Resend send error",
+        providerStatus: reconciled.remote.status || null,
+      },
+    }).catch(() => undefined);
+
+    throw new MarketingOperationError(
+      502,
+      `Resend returned an unrecognized broadcast state (${reconciled.remote.status || "unknown"}). The campaign is blocked from another send attempt until its provider state is refreshed.`,
+    );
+  }
+}));
+
+marketingRouter.post("/campaigns/:id/reconcile", asyncRoute(async (req, res) => {
+  const campaign = await loadCampaign(req.params.id);
+  if (!campaign.resend_broadcast_id) {
+    return res.status(409).json({ error: "This campaign has no Resend broadcast to reconcile" });
+  }
+
+  const reconciled = await reconcileCampaignWithResend(
+    campaign,
+    req.crmUser?.id || null,
+  );
+  if (!reconciled.recognized) {
+    return res.status(502).json({
+      error: `Resend returned an unrecognized broadcast state: ${reconciled.remote.status || "unknown"}`,
+    });
+  }
+
+  return res.json({
+    ok: true,
+    status: reconciled.localStatus,
+    provider_status: reconciled.remote.status || null,
+    scheduled_at: reconciled.remote.scheduled_at || null,
+    sent_at: reconciled.remote.sent_at || null,
+  });
+}));
+
+marketingRouter.post("/campaigns/:id/cancel", asyncRoute(async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const locked = await client.query<MarketingCampaignRow>(
+      `SELECT *
+       FROM crm_marketing_campaigns
+       WHERE id = $1
+       FOR UPDATE`,
+      [req.params.id],
+    );
+    const campaign = locked.rows[0];
+    if (!campaign) {
+      throw new MarketingOperationError(404, "Campaign not found");
+    }
+    if (campaign.status !== "scheduled") {
+      throw new MarketingOperationError(409, "Only a scheduled campaign can be cancelled before sending starts");
+    }
+    if (!campaign.resend_broadcast_id) {
+      throw new MarketingOperationError(409, "This scheduled campaign has no Resend broadcast");
+    }
+
+    let remote = await getResendBroadcast(campaign.resend_broadcast_id);
+    const providerStatus = (remote.status || "").toLowerCase();
+
+    if (providerStatus === "draft") {
+      await client.query(
+        `UPDATE crm_marketing_campaigns
+         SET status = 'cancelled',
+             send_confirmation_token_hash = NULL,
+             send_confirmation_expires_at = NULL,
+             updated_at = now()
+         WHERE id = $1`,
+        [campaign.id],
+      );
+      await recordCampaignEvent(campaign.id, "cancelled", req.crmUser?.id || null, {
+        payload: { providerStatus: remote.status || null, alreadyRevertedToDraft: true },
+      }, client);
+      await client.query("COMMIT");
+      return res.json({ ok: true, status: "cancelled", broadcast_id: campaign.resend_broadcast_id });
+    }
+
+    if (providerStatus !== "scheduled") {
+      const reconciled = await reconcileCampaignWithResend(
+        campaign,
+        req.crmUser?.id || null,
+        client,
+      );
+      await client.query("COMMIT");
+
+      if (!reconciled.recognized) {
+        return res.status(502).json({
+          error: `Resend returned an unrecognized broadcast state: ${remote.status || "unknown"}`,
+        });
+      }
+
+      return res.status(409).json({
+        error: "Cancellation is no longer possible before sending starts because Resend no longer reports the broadcast as scheduled.",
+        status: reconciled.localStatus,
+        provider_status: remote.status || null,
+      });
+    }
+
+    try {
+      await cancelResendBroadcast(campaign.resend_broadcast_id);
+    } catch (error) {
+      try {
+        remote = await getResendBroadcast(campaign.resend_broadcast_id);
+      } catch (reconcileError) {
+        await client.query("ROLLBACK");
+        throw new MarketingOperationError(
+          502,
+          "The cancellation result is uncertain. Refresh the campaign state before attempting another action.",
+        );
+      }
+
+      const afterStatus = (remote.status || "").toLowerCase();
+      if (afterStatus !== "draft") {
+        const reconciled = await reconcileCampaignWithResend(
+          campaign,
+          req.crmUser?.id || null,
+          client,
+        );
+        await client.query("COMMIT");
+
+        if (afterStatus === "scheduled") {
+          throw new MarketingOperationError(
+            502,
+            "Resend did not confirm cancellation; the campaign remains scheduled.",
+          );
+        }
+
+        throw new MarketingOperationError(
+          409,
+          "Cancellation is no longer possible before sending starts.",
+        );
+      }
+    }
+
+    await client.query(
+      `UPDATE crm_marketing_campaigns
+       SET status = 'cancelled',
+           send_confirmation_token_hash = NULL,
+           send_confirmation_expires_at = NULL,
+           updated_at = now()
+       WHERE id = $1`,
       [campaign.id],
     );
-    await recordCampaignEvent(campaign.id, "send_started", req.crmUser?.id || null, {
-      payload: { broadcastId: campaign.resend_broadcast_id, resendResponseId: sent.id },
+    await recordCampaignEvent(campaign.id, "cancelled", req.crmUser?.id || null, {
+      payload: {
+        broadcastId: campaign.resend_broadcast_id,
+        scheduledAt: campaign.scheduled_at ? isoString(campaign.scheduled_at) : null,
+      },
+    }, client);
+
+    await client.query("COMMIT");
+    return res.json({
+      ok: true,
+      status: "cancelled",
+      broadcast_id: campaign.resend_broadcast_id,
     });
-    return res.json({ ok: true, status: "sent", broadcast_id: campaign.resend_broadcast_id });
   } catch (error) {
-    await query(`UPDATE crm_marketing_campaigns SET status = 'failed', updated_at = now() WHERE id = $1`, [campaign.id]);
-    await recordCampaignEvent(campaign.id, "send_failed", req.crmUser?.id || null, {
-      payload: { message: error instanceof Error ? error.message : "Unknown send error" },
-    });
+    await client.query("ROLLBACK").catch(() => undefined);
     throw error;
+  } finally {
+    client.release();
   }
 }));
 
@@ -1145,6 +1531,13 @@ marketingRouter.use((error: unknown, _req: Request, res: Response, _next: NextFu
   }
   if (code === "23503") {
     return res.status(400).json({ error: "A referenced marketing record does not exist" });
+  }
+  if (error instanceof MarketingScheduleError) {
+    return res.status(400).json({
+      error: error.message,
+      code: error.code,
+      time_zone: MARKETING_TIME_ZONE,
+    });
   }
   if (error instanceof MarketingOperationError) {
     return res.status(error.status).json({ error: error.message });
