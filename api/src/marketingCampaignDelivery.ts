@@ -334,6 +334,7 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
     );
     let providerStatus: string | null = null;
     let localStatus = deliveryMode === "scheduled" ? "scheduled" : "sending";
+    let providerStatePersisted = false;
 
     try {
       const provider = await getResendBroadcast(broadcastId);
@@ -345,19 +346,32 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/send", asyncRoute(async (re
         provider.scheduled_at,
         provider.sent_at,
       );
-      if (persisted) localStatus = persisted;
+      if (persisted) {
+        localStatus = persisted;
+        providerStatePersisted = true;
+      }
     } catch (reconcileError) {
       console.warn("[marketing] Broadcast accepted but immediate reconciliation failed", reconcileError);
     }
 
-    if (!providerStatus || localStatus === "draft" || localStatus === "failed") {
-      localStatus = deliveryMode === "scheduled" ? "scheduled" : "sending";
-      await query(
+    if (!providerStatePersisted) {
+      const fallbackStatus = deliveryMode === "scheduled" ? "scheduled" : "sending";
+      const fallback = await query<Pick<MarketingCampaignRow, "status">>(
         `UPDATE crm_marketing_campaigns
          SET status = $1, updated_at = now()
-         WHERE id = $2`,
-        [localStatus, campaign.id],
+         WHERE id = $2 AND status = 'sending'
+         RETURNING status`,
+        [fallbackStatus, campaign.id],
       );
+      if (fallback.rows[0]) {
+        localStatus = fallback.rows[0].status;
+      } else {
+        const current = await query<Pick<MarketingCampaignRow, "status">>(
+          `SELECT status FROM crm_marketing_campaigns WHERE id = $1`,
+          [campaign.id],
+        );
+        localStatus = current.rows[0]?.status || fallbackStatus;
+      }
     }
 
     await recordCampaignEvent(campaign.id, "send_started", req.crmUser?.id || null, {
@@ -675,9 +689,11 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
 
     if (provider) {
       const providerStatus = String(provider.status || "").toLowerCase();
-      if (providerStatus === "draft" || providerStatus === "canceled" || providerStatus === "cancelled") {
+      if (providerStatus === "canceled" || providerStatus === "cancelled") {
         await query(
-          `UPDATE crm_marketing_campaigns SET status = 'cancelled', updated_at = now() WHERE id = $1`,
+          `UPDATE crm_marketing_campaigns
+           SET status = 'cancelled', updated_at = now()
+           WHERE id = $1 AND status <> 'sent'`,
           [campaign.id],
         );
         await recordCampaignEvent(campaign.id, "resend_synced", req.crmUser?.id || null, {
@@ -708,17 +724,16 @@ marketingCampaignDeliveryRouter.post("/campaigns/:id/cancel", asyncRoute(async (
         });
       }
       if (
-        (providerStatus === "scheduled" || providerStatus === "queued")
+        (providerStatus === "draft" || providerStatus === "scheduled" || providerStatus === "queued")
         && error instanceof ResendMarketingError
         && error.status >= 400
         && error.status < 500
       ) {
-        const restoredStatus = providerStatus === "scheduled" ? "scheduled" : "sending";
         await query(
           `UPDATE crm_marketing_campaigns
            SET status = $1, updated_at = now()
            WHERE id = $2 AND status = 'paused'`,
-          [restoredStatus, campaign.id],
+          [previousStatus, campaign.id],
         );
         return res.status(409).json({
           error: `Resend non ha accettato l'annullamento: ${readableResendError(error)}`,
