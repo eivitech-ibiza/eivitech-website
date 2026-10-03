@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import {
+  Ban,
   Bell,
+  CalendarClock,
   Eye,
   MailCheck,
   Pencil,
@@ -12,10 +14,12 @@ import {
   X,
 } from "lucide-react";
 import {
+  cancelScheduledMarketingCampaign,
   createMarketingCampaign,
   deleteMarketingCampaign,
   fetchMarketingCapabilities,
   prepareMarketingCampaign,
+  reconcileMarketingCampaign,
   sendMarketingCampaign,
   sendMarketingCampaignTest,
   updateMarketingCampaign,
@@ -70,12 +74,46 @@ type CampaignMetrics = Pick<
 >;
 
 type ResendMode = "same" | "different";
+type SendMode = "now" | "scheduled";
+const MARKETING_TIME_ZONE = "Europe/Madrid";
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function formatMadridDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("it-IT", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: MARKETING_TIME_ZONE,
+  }).format(date);
+}
+
+function campaignStatusLabel(status?: MarketingCampaign["status"]) {
+  switch (status) {
+    case "draft":
+      return tr("Borrador", "Bozza", "Draft", "Concept");
+    case "scheduled":
+      return tr("Programada", "Programmata", "Scheduled", "Gepland");
+    case "sending":
+      return tr("Aceptada / en cola", "Accettata / in coda", "Accepted / queued", "Geaccepteerd / in wachtrij");
+    case "sent":
+      return tr("Envío iniciado", "Invio avviato", "Send started", "Verzending gestart");
+    case "cancelled":
+      return tr("Cancelada", "Annullata", "Cancelled", "Geannuleerd");
+    case "failed":
+      return tr("Error", "Errore", "Failed", "Mislukt");
+    case "paused":
+      return tr("En pausa", "In pausa", "Paused", "Gepauzeerd");
+    default:
+      return status || "—";
+  }
 }
 
 function Input({ label, value, onChange, type = "text", required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean }) {
@@ -121,6 +159,9 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
   const [audienceChange, setAudienceChange] = useState<AudienceChangedAfterPrepareDetails | null>(null);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [sendMode, setSendMode] = useState<SendMode>("now");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
   const [resendCampaign, setResendCampaign] = useState<MarketingCampaign | null>(null);
   const [resendMode, setResendMode] = useState<ResendMode>("same");
   const [resendSegmentId, setResendSegmentId] = useState("");
@@ -136,6 +177,12 @@ export function CampaignWorkspace({ campaigns, segments, onChanged }: { campaign
     const token = await getToken();
     if (!token) throw new Error("Missing Clerk token");
     return token;
+  }
+
+  function resetSendChoice() {
+    setSendMode("now");
+    setScheduleDate("");
+    setScheduleTime("");
   }
 
   useEffect(() => {
