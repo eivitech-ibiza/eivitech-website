@@ -70,8 +70,15 @@ replace_once(
 # requiring the old monolithic marketing router layout.
 replace_once(
     "scripts/email-marketing-foundation.test.mjs",
-    '  const marketing = read("api/src/marketing.ts");\n',
-    '  const marketing = read("api/src/marketing.ts");\n  const delivery = read("api/src/marketingCampaignDelivery.ts");\n',
+    '''test("marketing API is protected and bulk sending is server-gated", () => {
+  const server = read("api/src/server.ts");
+  const marketing = read("api/src/marketing.ts");
+''',
+    '''test("marketing API is protected and bulk sending is server-gated", () => {
+  const server = read("api/src/server.ts");
+  const marketing = read("api/src/marketing.ts");
+  const delivery = read("api/src/marketingCampaignDelivery.ts");
+''',
 )
 replace_once(
     "scripts/email-marketing-foundation.test.mjs",
