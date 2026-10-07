@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mapMetaLeadFields, normalizeMetaLeadValue } from "./meta/leadAds.js";
+import { mapMetaLeadFields, normalizeMetaLeadValue } from "./meta/leadMapping.js";
 
 test("Meta Lead Ads option values normalize to CRM enums", () => {
   assert.equal(normalizeMetaLeadValue("tipoPropiedad", "Local comercial"), "local-comercial");
