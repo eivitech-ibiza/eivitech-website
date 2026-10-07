@@ -39,7 +39,7 @@ test("private routes stay out of the sitemap and redirects target canonical rout
   const canonicalPaths = new Set(indexableRoutes.map((route) => route.path));
   const privatePaths = new Set(noIndexRoutes.map((route) => route.path));
 
-  assert.deepEqual([...privatePaths].sort(), ["/dashboard", "/gracias"]);
+  assert.deepEqual([...privatePaths].sort(), ["/dashboard", "/data-deletion", "/gracias"]);
   for (const path of privatePaths) assert.equal(canonicalPaths.has(path), false);
 
   for (const [from, to] of redirects) {
