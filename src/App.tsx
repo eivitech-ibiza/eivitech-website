@@ -23,6 +23,7 @@ const LandingEN = lazy(() => import("./pages/LandingEN.tsx"));
 const Privacidad = lazy(() => import("./pages/Privacidad.tsx"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy.tsx"));
 const AvisoLegal = lazy(() => import("./pages/AvisoLegal.tsx"));
+const DataDeletion = lazy(() => import("./pages/DataDeletion.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const EmailMarketing = lazy(() => import("./pages/EmailMarketing.tsx"));
 const MetaIntegration = lazy(() => import("./pages/MetaIntegration.tsx"));
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
       { path: "/cookie-policy", element: <CookiePolicy /> },
       { path: "/cookies", element: <Navigate to="/cookie-policy" replace /> },
       { path: "/aviso-legal", element: <AvisoLegal /> },
+      { path: "/data-deletion", element: <DataDeletion /> },
       { path: "/dashboard", element: <Dashboard /> },
       { path: "/dashboard/email-marketing", element: <EmailMarketing /> },
       { path: "/dashboard/meta", element: <MetaIntegration /> },
