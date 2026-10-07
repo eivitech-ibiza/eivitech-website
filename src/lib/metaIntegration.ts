@@ -185,7 +185,11 @@ export async function processMetaLeadInbox(token: string, limit = 20) {
     body: JSON.stringify({ limit }),
   });
   if (!response.ok) throw new Error(await readError(response, "Meta lead processing failed"));
-  return response.json() as Promise<{ ok: boolean; processed: number }>;
+  return response.json() as Promise<{
+    ok: boolean;
+    processed: number;
+    fallback: { forms: number; fetched: number; synced: number };
+  }>;
 }
 
 export async function processMetaOutbox(token: string, limit = 20) {

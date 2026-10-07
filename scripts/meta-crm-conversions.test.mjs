@@ -99,3 +99,18 @@ test("website CAPI source URLs and worker recovery preserve existing queued lead
   assert.match(outbox, /WORKER_EXCEPTION/);
   assert.match(routes, /lastPendingError/);
 });
+
+
+test("manual Lead Ads processing falls back to Graph API polling and reports it in the admin UI", () => {
+  const leadAds = read("api/src/meta/leadAds.ts");
+  const routes = read("api/src/meta/routes.ts");
+  const client = read("src/lib/metaIntegration.ts");
+  const page = read("src/pages/MetaIntegration.tsx");
+
+  assert.match(leadAds, /syncMetaLeadForms/);
+  assert.match(leadAds, /\/leads/);
+  assert.match(leadAds, /ON CONFLICT \(meta_lead_id\) DO UPDATE/);
+  assert.match(routes, /const fallback = await syncMetaLeadForms/);
+  assert.match(client, /fallback: \{ forms: number; fetched: number; synced: number \}/);
+  assert.match(page, /Graph \$\{result\.fallback\.synced\}\/\$\{result\.fallback\.fetched\}/);
+});

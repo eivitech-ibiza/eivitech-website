@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { pool } from "../db.js";
 import { getMetaCrmConfig, META_GRAPH_API_VERSION } from "./crmConfig.js";
 import { verifyMetaWebhookSignature } from "./webhookSignature.js";
+import { mapMetaLeadFields } from "./leadMapping.js";
 
 type LeadgenChange = {
   field?: string;
@@ -160,25 +161,6 @@ function normalizeFieldData(fieldData: GraphLead["field_data"]) {
     }));
 }
 
-export function mapMetaLeadFields(
-  fieldData: Array<{ name: string; values: string[] }>,
-  mapping: Record<string, string>
-) {
-  const defaults: Record<string, string> = {
-    full_name: "nombre",
-    name: "nombre",
-    email: "email",
-    phone_number: "telefono",
-    phone: "telefono",
-  };
-  const mapped: Record<string, string> = {};
-  for (const field of fieldData) {
-    const target = mapping[field.name] || defaults[field.name];
-    const value = field.values[0]?.trim();
-    if (target && value) mapped[target] = value.slice(0, 1500);
-  }
-  return mapped;
-}
 
 function missingOperationalFields(mapped: Record<string, string>) {
   const required = [
@@ -371,6 +353,96 @@ async function processWebhookRow(row: WebhookRow) {
   } finally {
     client.release();
   }
+}
+
+export async function syncMetaLeadForms(limitPerForm = 20) {
+  const config = await getMetaCrmConfig();
+  if (!config.pageId || config.mode === "disabled") {
+    return { forms: 0, fetched: 0, synced: 0 };
+  }
+  if (config.allowedFormIds.length === 0) {
+    return { forms: 0, fetched: 0, synced: 0 };
+  }
+
+  const token = process.env.META_PAGE_ACCESS_TOKEN;
+  if (!token) throw new Error("META_PAGE_ACCESS_TOKEN is required for Lead Ads fallback sync");
+
+  const limit = Math.max(1, Math.min(100, Math.trunc(limitPerForm) || 20));
+  const fields = "id,created_time,form_id,ad_id,adset_id,campaign_id,field_data";
+  let fetched = 0;
+  let synced = 0;
+
+  for (const formId of config.allowedFormIds) {
+    const url = new URL(`https://graph.facebook.com/${META_GRAPH_API_VERSION}/${encodeURIComponent(formId)}/leads`);
+    url.searchParams.set("fields", fields);
+    url.searchParams.set("limit", String(limit));
+
+    let response: globalThis.Response;
+    try {
+      response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      throw new Error(
+        `Meta Lead Ads fallback network error for form ${formId}: ${error instanceof Error ? error.message : "Network error"}`
+      );
+    }
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Meta Lead Ads fallback failed for form ${formId}: HTTP ${response.status} ${body.slice(0, 500)}`);
+    }
+
+    const payload = await response.json() as { data?: GraphLead[] };
+    for (const lead of payload.data || []) {
+      fetched += 1;
+      const leadId = asId(lead.id);
+      const resolvedFormId = asId(lead.form_id) || formId;
+      if (!leadId || resolvedFormId !== formId) continue;
+
+      const fieldData = normalizeFieldData(lead.field_data);
+      const mapping = config.formMappings[resolvedFormId] || {};
+      const mapped = mapMetaLeadFields(fieldData, mapping);
+      const missing = missingOperationalFields(mapped);
+
+      await pool.query(
+        `INSERT INTO crm_meta_lead_inbox (
+           meta_lead_id, page_id, form_id, ad_id, adset_id, campaign_id,
+           meta_created_time, field_data, mapped_data, missing_fields, status
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11)
+         ON CONFLICT (meta_lead_id) DO UPDATE
+         SET page_id = EXCLUDED.page_id,
+             form_id = EXCLUDED.form_id,
+             ad_id = EXCLUDED.ad_id,
+             adset_id = EXCLUDED.adset_id,
+             campaign_id = EXCLUDED.campaign_id,
+             meta_created_time = EXCLUDED.meta_created_time,
+             field_data = EXCLUDED.field_data,
+             mapped_data = EXCLUDED.mapped_data,
+             missing_fields = EXCLUDED.missing_fields,
+             status = CASE WHEN crm_meta_lead_inbox.status = 'promoted' THEN 'promoted' ELSE EXCLUDED.status END,
+             last_error = NULL,
+             updated_at = now()`,
+        [
+          leadId,
+          config.pageId,
+          resolvedFormId,
+          asId(lead.ad_id),
+          asId(lead.adset_id),
+          asId(lead.campaign_id),
+          lead.created_time || null,
+          JSON.stringify(fieldData),
+          JSON.stringify(mapped),
+          JSON.stringify(missing),
+          missing.length === 0 ? "ready" : "to_complete",
+        ]
+      );
+      synced += 1;
+    }
+  }
+
+  return { forms: config.allowedFormIds.length, fetched, synced };
 }
 
 export async function processMetaLeadWebhookBatch(limit = 10) {

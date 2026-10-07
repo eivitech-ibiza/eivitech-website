@@ -203,7 +203,7 @@ function MetaPanel() {
       const token = await getToken();
       if (!token) throw new Error("Missing CRM authentication token");
       const result = await processMetaLeadInbox(token, 20);
-      setMessage(`Webhook Lead Ads elaborati: ${result.processed}`);
+      setMessage(`Lead Ads elaborati: webhook ${result.processed} · Graph ${result.fallback.synced}/${result.fallback.fetched}`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Meta lead processing failed");

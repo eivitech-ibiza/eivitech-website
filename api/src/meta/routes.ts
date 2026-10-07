@@ -12,7 +12,7 @@ import {
   normalizeMetaCrmConfigInput,
 } from "./crmConfig.js";
 import { listMetaLeadInbox, promoteMetaLeadInbox } from "./leadInbox.js";
-import { processMetaLeadWebhookBatch } from "./leadAds.js";
+import { processMetaLeadWebhookBatch, syncMetaLeadForms } from "./leadAds.js";
 import { processMetaOutboxBatch } from "./outbox.js";
 
 export const metaRouter = Router();
@@ -265,8 +265,10 @@ metaRouter.post(
     try {
       const parsed = z.object({ limit: z.number().int().min(1).max(100).optional() }).safeParse(req.body ?? {});
       if (!parsed.success) return res.status(400).json({ error: "Invalid process request" });
-      const processed = await processMetaLeadWebhookBatch(parsed.data.limit ?? 20);
-      return res.json({ ok: true, processed });
+      const limit = parsed.data.limit ?? 20;
+      const processed = await processMetaLeadWebhookBatch(limit);
+      const fallback = await syncMetaLeadForms(limit);
+      return res.json({ ok: true, processed, fallback });
     } catch (error) {
       return next(error);
     }
