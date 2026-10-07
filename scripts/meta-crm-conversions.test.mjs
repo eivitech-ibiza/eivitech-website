@@ -114,3 +114,18 @@ test("manual Lead Ads processing falls back to Graph API polling and reports it 
   assert.match(client, /fallback: \{ forms: number; fetched: number; synced: number \}/);
   assert.match(page, /Graph \$\{result\.fallback\.synced\}\/\$\{result\.fallback\.fetched\}/);
 });
+
+
+test("ready Meta leads can be promoted into the native CRM from the admin UI", () => {
+  const routes = read("api/src/meta/routes.ts");
+  const client = read("src/lib/metaIntegration.ts");
+  const page = read("src/pages/MetaIntegration.tsx");
+  const inbox = read("api/src/meta/leadInbox.ts");
+
+  assert.match(routes, /\/lead-inbox\/:id\/promote/);
+  assert.match(client, /promoteMetaLeadInbox/);
+  assert.match(page, /Promuovi nel CRM/);
+  assert.match(page, /item\.status === "ready"/);
+  assert.match(inbox, /Lead Meta importado al CRM/);
+  assert.match(inbox, /source, utm_source/);
+});
