@@ -276,6 +276,7 @@ export const indexableRoutes = [
 
 export const noIndexRoutes = [
   { path: "/gracias", title: "Gracias | Eivitech Ibiza", description: "Hemos recibido tu solicitud.", },
+  { path: "/data-deletion", title: "Eliminación de datos | Eivitech Ibiza", description: "Instrucciones para solicitar la eliminación de datos personales tratados por Eivitech.", },
   { path: "/dashboard", title: "CRM privado | Eivitech Ibiza", description: "Área privada de Eivitech.", },
 ];
 
