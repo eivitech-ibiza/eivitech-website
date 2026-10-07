@@ -82,6 +82,23 @@ export type MetaLeadInboxItem = {
   updated_at?: string;
 };
 
+export type MetaLeadPromotionPayload = {
+  nombre: string;
+  email: string;
+  telefono: string;
+  tipoCliente: "propietario" | "comprador" | "inversor" | "agencia" | "empresa" | "otro";
+  tipoPropiedad: "villa" | "apartamento" | "casa" | "local-comercial" | "otro";
+  zona?: string | null;
+  intervencion: "reforma-integral" | "bano" | "cocina" | "instalaciones" | "exterior" | "local-comercial" | "otro";
+  tieneFotos: "si" | "no";
+  tieneProyecto: "si" | "no" | "en-proceso";
+  plazo: "urgente" | "1-3-meses" | "3-6-meses" | "sin-fecha";
+  presupuesto?: string | null;
+  mensaje?: string | null;
+  consentPrivacy: true;
+  consentMarketing?: boolean;
+};
+
 async function readError(response: Response, fallback: string) {
   const body = await response.text().catch(() => "");
   if (!body) return fallback;
@@ -176,6 +193,20 @@ export async function fetchMetaLeadInbox(token: string): Promise<{ leads: MetaLe
   });
   if (!response.ok) throw new Error(await readError(response, "Meta lead inbox unavailable"));
   return response.json() as Promise<{ leads: MetaLeadInboxItem[] }>;
+}
+
+export async function promoteMetaLeadInbox(
+  token: string,
+  inboxId: string,
+  payload: MetaLeadPromotionPayload,
+) {
+  const response = await fetch(`${CRM_ENDPOINT}/api/meta/lead-inbox/${encodeURIComponent(inboxId)}/promote`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Meta lead promotion failed"));
+  return response.json() as Promise<{ status: "promoted" | "existing"; leadId: string }>;
 }
 
 export async function processMetaLeadInbox(token: string, limit = 20) {

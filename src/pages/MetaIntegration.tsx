@@ -10,6 +10,7 @@ import {
   fetchPublicMetaConfig,
   processMetaLeadInbox,
   processMetaOutbox,
+  promoteMetaLeadInbox,
   retryFailedMetaEvents,
   updateMetaAdminConfig,
   updateMetaCrmConfig,
@@ -210,6 +211,35 @@ function MetaPanel() {
     } finally { setBusy(false); }
   };
 
+  const promoteReadyLead = async (item: MetaLeadInboxItem) => {
+    const data = item.mapped_data || {};
+    setBusy(true); setError(null); setMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Missing CRM authentication token");
+      const result = await promoteMetaLeadInbox(token, item.id, {
+        nombre: data.nombre,
+        email: data.email,
+        telefono: data.telefono,
+        tipoCliente: data.tipoCliente as "propietario" | "comprador" | "inversor" | "agencia" | "empresa" | "otro",
+        tipoPropiedad: data.tipoPropiedad as "villa" | "apartamento" | "casa" | "local-comercial" | "otro",
+        zona: data.zona || null,
+        intervencion: data.intervencion as "reforma-integral" | "bano" | "cocina" | "instalaciones" | "exterior" | "local-comercial" | "otro",
+        tieneFotos: data.tieneFotos as "si" | "no",
+        tieneProyecto: data.tieneProyecto as "si" | "no" | "en-proceso",
+        plazo: data.plazo as "urgente" | "1-3-meses" | "3-6-meses" | "sin-fecha",
+        presupuesto: data.presupuesto || null,
+        mensaje: data.mensaje || null,
+        consentPrivacy: true,
+        consentMarketing: false,
+      });
+      setMessage(`Lead Meta promosso nel CRM · lead_id ${result.leadId}`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Meta lead promotion failed");
+    } finally { setBusy(false); }
+  };
+
   const processCapi = async () => {
     setBusy(true); setError(null); setMessage(null);
     try {
@@ -357,6 +387,16 @@ function MetaPanel() {
               <div className="mt-2 text-xs text-muted-foreground">Form: {item.form_id || "—"} · Campaign: {item.campaign_id || "—"}</div>
               <div className="mt-2 text-sm">Ricevuto: {Object.entries(item.mapped_data || {}).map(([k, v]) => `${k}: ${v}`).join(" · ") || "nessun campo mappato"}</div>
               <div className="mt-1 text-xs text-amber-700">Campi mancanti: {(item.missing_fields || []).join(", ") || "nessuno"}</div>
+              {item.status === "ready" && (item.missing_fields || []).length === 0 && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void promoteReadyLead(item)}
+                  className="mt-3 rounded-sm bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+                >
+                  Promuovi nel CRM
+                </button>
+              )}
             </div>
           ))}
           {incomplete.length === 0 && <div className="text-sm text-muted-foreground">Nessun lead Meta in attesa di completamento.</div>}
