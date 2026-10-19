@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
-import { deleteCrmLead } from "./leadDeletion.js";
+// The production module creates a Pool at import time. Tests inject a fake
+// connection and must never connect to a live customer database.
+process.env.DATABASE_URL ||= "postgresql://ci_test:ci_test@127.0.0.1:5432/ci_test";
+const { deleteCrmLead } = await import("./leadDeletion.js");
 
 const leadId = "8dbeb2a0-5607-4723-944a-9932af53a5a5";
 const actorId = "f731c6bb-2c26-49c1-aad9-3fed6bbdbeea";
