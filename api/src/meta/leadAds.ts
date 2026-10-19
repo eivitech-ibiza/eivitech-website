@@ -324,7 +324,8 @@ async function processWebhookRow(row: WebhookRow) {
            missing_fields = EXCLUDED.missing_fields,
            status = CASE WHEN crm_meta_lead_inbox.status = 'promoted' THEN 'promoted' ELSE EXCLUDED.status END,
            last_error = NULL,
-           updated_at = now()`,
+           updated_at = now()
+       WHERE crm_meta_lead_inbox.status <> 'deleted'`,
       [
         leadId,
         row.page_id,
@@ -406,7 +407,7 @@ export async function syncMetaLeadForms(limitPerForm = 20) {
       const mapped = mapMetaLeadFields(fieldData, mapping);
       const missing = missingOperationalFields(mapped);
 
-      await pool.query(
+      const upsert = await pool.query(
         `INSERT INTO crm_meta_lead_inbox (
            meta_lead_id, page_id, form_id, ad_id, adset_id, campaign_id,
            meta_created_time, field_data, mapped_data, missing_fields, status
@@ -423,7 +424,8 @@ export async function syncMetaLeadForms(limitPerForm = 20) {
              missing_fields = EXCLUDED.missing_fields,
              status = CASE WHEN crm_meta_lead_inbox.status = 'promoted' THEN 'promoted' ELSE EXCLUDED.status END,
              last_error = NULL,
-             updated_at = now()`,
+             updated_at = now()
+         WHERE crm_meta_lead_inbox.status <> 'deleted'`,
         [
           leadId,
           config.pageId,
@@ -438,7 +440,7 @@ export async function syncMetaLeadForms(limitPerForm = 20) {
           missing.length === 0 ? "ready" : "to_complete",
         ]
       );
-      synced += 1;
+      if ((upsert.rowCount ?? 0) > 0) synced += 1;
     }
   }
 
