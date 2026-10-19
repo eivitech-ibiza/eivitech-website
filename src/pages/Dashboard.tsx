@@ -777,20 +777,21 @@ function DashboardShell() {
       {error && <div role="alert" className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
       {notice && <div role="status" className="mb-6 rounded-sm border border-border bg-card p-4 text-sm text-foreground">{notice}</div>}
 
-      <div className="grid gap-4 md:grid-cols-7">
-        <Metric icon={Users} label={tr("Clientes", "Clienti", "Clients")} value={stats.clients} helper={tr("Solicitudes comerciales", "Richieste commerciali", "Commercial requests")} />
-        <Metric icon={ShieldCheck} label={tr("Cualificados", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("En proceso", "In processo", "In process")} />
-        <Metric icon={AlertTriangle} label={tr("Alta prioridad", "Alta priorità", "High priority")} value={stats.high} helper={tr("Seguir de inmediato", "Da seguire subito", "Follow immediately")} />
-        <Metric icon={CheckCircle2} label={tr("Concluidos", "Conclusi", "Won")} value={stats.won} helper={tr("Tratos cerrados", "Trattative chiuse", "Closed deals")} />
-        <Metric icon={Clock} label={tr("Fallidos", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo registrado", "Con motivo registrato", "With recorded reason")} />
-        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidaturas", "Candidature", "Applications")} />
-        <Metric icon={Wrench} label={tr("Aprobados", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Colaboradores validados", "Collaboratori validati", "Validated partners")} />
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+        <Metric icon={Users} label={tr("Clientes", "Clienti", "Clients")} value={stats.clients} helper={tr("Solicitudes comerciales", "Richieste commerciali", "Commercial requests")} active={activeTab === "clientes" && activeFilter === "all"} onClick={() => applyFilter("clientes", "all")} />
+        <Metric icon={ShieldCheck} label={tr("Cualificados", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("Con cualificación confirmada", "Con qualifica confermata", "Confirmed qualification", "Bevestigde kwalificatie")} active={activeTab === "clientes" && activeFilter === "qualified"} onClick={() => applyFilter("clientes", "qualified")} />
+        <Metric icon={AlertTriangle} label={tr("Alta prioridad", "Alta priorità", "High priority")} value={stats.high} helper={tr("Seguir de inmediato", "Da seguire subito", "Follow immediately")} active={activeTab === "clientes" && activeFilter === "high"} onClick={() => applyFilter("clientes", "high")} />
+        <Metric icon={CheckCircle2} label={tr("Concluidos", "Conclusi", "Won")} value={stats.won} helper={tr("Tratos cerrados", "Trattative chiuse", "Closed deals")} active={activeTab === "clientes" && activeFilter === "won"} onClick={() => applyFilter("clientes", "won")} />
+        <Metric icon={Clock} label={tr("Fallidos", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo registrado", "Con motivo registrato", "With recorded reason")} active={activeTab === "clientes" && activeFilter === "lost"} onClick={() => applyFilter("clientes", "lost")} />
+        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidaturas", "Candidature", "Applications")} active={activeTab === "partners" && activeFilter === "all"} onClick={() => applyFilter("partners", "all")} />
+        <Metric icon={Wrench} label={tr("Aprobados", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Colaboradores validados", "Collaboratori validati", "Validated partners")} active={activeTab === "partners" && activeFilter === "approved"} onClick={() => applyFilter("partners", "approved")} />
       </div>
 
+      <div ref={resultsRef} id="crm-results" className="scroll-mt-8">
       <div className="mt-8 flex flex-wrap gap-2 rounded-sm border border-border bg-card p-2 shadow-soft">
-        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clientes", "Clienti", "Clients")} onClick={() => setActiveTab("clientes")} />
-        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partners profesionales", "Partner professionali", "Professional partners")} onClick={() => setActiveTab("partners")} />
-        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Control operativo", "Controllo operativo", "Operational control")} onClick={() => setActiveTab("control")} />
+        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clientes", "Clienti", "Clients")} onClick={() => chooseTab("clientes")} />
+        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partners profesionales", "Partner professionali", "Professional partners")} onClick={() => chooseTab("partners")} />
+        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Control operativo", "Controllo operativo", "Operational control")} onClick={() => chooseTab("control")} />
         <button onClick={() => void loadLeads()} disabled={loading} className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60">
           <RefreshCw size={15} /> {loading ? tr("Cargando…", "Caricamento…", "Loading…") : tr("Actualizar", "Aggiorna", "Refresh")}
         </button>
@@ -799,7 +800,8 @@ function DashboardShell() {
       {activeTab === "clientes" && (
         <LeadsBoard
           type="client"
-          leads={sortedClients}
+          leads={filteredClients}
+          allLeads={sortedClients}
           actions={CLIENT_ACTIONS}
           funnel={CLIENT_FUNNEL}
           loading={loading}
@@ -807,13 +809,21 @@ function DashboardShell() {
           canDeleteLeads={canDeleteLeads}
           onSubmit={submitWorkflow}
           onDelete={removeLead}
+          getToken={getToken}
+          filter={activeFilter}
+          onClearFilter={() => setActiveFilter("all")}
+          onPipelineFilter={(status) => applyFilter(activeTab === "partners" ? "partners" : "clientes", `stage:${status}`)}
+          onSheet={setSheetLeadId}
+          selectedLeadId={selectedLeadId}
+          onSelectedLeadChange={setSelectedLeadId}
         />
       )}
 
       {activeTab === "partners" && (
         <LeadsBoard
           type="partner"
-          leads={sortedPartners}
+          leads={filteredPartners}
+          allLeads={sortedPartners}
           actions={PARTNER_ACTIONS}
           funnel={PARTNER_FUNNEL}
           loading={loading}
@@ -821,10 +831,20 @@ function DashboardShell() {
           canDeleteLeads={canDeleteLeads}
           onSubmit={submitWorkflow}
           onDelete={removeLead}
+          getToken={getToken}
+          filter={activeFilter}
+          onClearFilter={() => setActiveFilter("all")}
+          onPipelineFilter={(status) => applyFilter(activeTab === "partners" ? "partners" : "clientes", `stage:${status}`)}
+          onSheet={setSheetLeadId}
+          selectedLeadId={selectedLeadId}
+          onSelectedLeadChange={setSelectedLeadId}
         />
       )}
 
       {activeTab === "control" && <ControlPanel />}
+      </div>
+
+      <CrmClientSheetDialog leadId={sheetLeadId} onClose={() => setSheetLeadId(null)} getToken={getToken} />
 
       <div className="mt-8 rounded-sm border border-border bg-card p-6 text-sm text-muted-foreground shadow-soft">
         <div className="font-medium text-foreground">{tr("Usuarios frontend autorizados", "Utenti frontend autorizzati", "Authorized frontend users")}</div>
