@@ -48,7 +48,8 @@ export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete }: Pro
     setError(null);
     try {
       await onDelete();
-      changeOpen(false);
+      setOpen(false);
+      setTypedEmail("");
     } catch (err) {
       setError(err instanceof Error ? err.message : tr(
         "No se ha podido eliminar el contacto. Inténtalo de nuevo.",
