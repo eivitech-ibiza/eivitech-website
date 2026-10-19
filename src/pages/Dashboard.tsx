@@ -17,11 +17,24 @@ import {
   Target,
   Users,
   Wrench,
+  ChevronDown,
+  FileText as ClientFile,
+  History,
+  MoreHorizontal,
+  Printer,
+  Trash2,
+  X,
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { CrmDeleteLeadDialog } from "@/components/CrmDeleteLeadDialog";
+import { CrmClientSheetDialog } from "@/components/CrmClientSheetDialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
-import { deleteCrmLead, fetchCrmLeads, submitCrmWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
+import { deleteCrmLead, fetchCrmLeadDetails, fetchCrmLeads, submitCrmWorkflow, type CrmLeadDetails, type CrmWorkflowPayload } from "@/lib/crm";
+import { filterCrmLeads, isCrmQualified, type CrmViewFilter } from "@/lib/crmDashboardFilters";
+import { formatCrmDate } from "@/lib/crmSheetPrint";
 import { tr } from "@/lib/i18n";
 
 type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
@@ -52,6 +65,7 @@ type ApiLead = {
   utm_source?: string | null;
   next_action?: string | null;
   next_follow_up_at?: string | null;
+  qualification_outcome?: string | null;
 };
 
 type DashboardLead = {
@@ -77,6 +91,7 @@ type DashboardLead = {
   utmSource?: string;
   nextAction?: string;
   nextFollowUpAt?: string;
+  qualificationOutcome?: string | null;
 };
 
 type WorkflowField = {
@@ -439,6 +454,7 @@ function mapLead(lead: ApiLead): DashboardLead {
     utmSource: lead.utm_source ?? undefined,
     nextAction: lead.next_action ?? undefined,
     nextFollowUpAt: lead.next_follow_up_at ?? undefined,
+    qualificationOutcome: lead.qualification_outcome ?? null,
   };
 }
 
@@ -537,6 +553,20 @@ function DashboardShell() {
   const [notice, setNotice] = useState<string | null>(null);
   const [canDeleteLeads, setCanDeleteLeads] = useState(hasAccess);
   const [activeTab, setActiveTab] = useState<DashboardTab>("clientes");
+  const [activeFilter, setActiveFilter] = useState<CrmViewFilter>("all");
+
+  function chooseTab(tab: DashboardTab) {
+    setActiveTab(tab);
+    setActiveFilter("all");
+  }
+
+  function chooseFilter(tab: "clientes" | "partners", filter: CrmViewFilter) {
+    setActiveTab(tab);
+    setActiveFilter(filter);
+    window.requestAnimationFrame(() => {
+      document.getElementById("crm-filtered-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   async function loadLeads() {
     setLoading(true);
@@ -645,13 +675,28 @@ function DashboardShell() {
 
   const stats = useMemo(() => ({
     clients: clientLeads.length,
-    qualified: clientLeads.filter((lead) => lead.status !== "new" && lead.status !== "lost").length,
+    qualified: clientLeads.filter(isCrmQualified).length,
     high: clientLeads.filter((lead) => lead.priority === "alta").length,
     won: clientLeads.filter((lead) => lead.status === "won").length,
     lost: clientLeads.filter((lead) => lead.status === "lost").length,
     partners: partnerLeads.length,
     approvedPartners: partnerLeads.filter((lead) => lead.status === "won").length,
   }), [clientLeads, partnerLeads]);
+
+  const filteredClients = useMemo(() => filterCrmLeads(sortedClients, activeFilter), [sortedClients, activeFilter]);
+  const filteredPartners = useMemo(() => filterCrmLeads(sortedPartners, activeFilter), [sortedPartners, activeFilter]);
+
+  const filterLabel = activeFilter === "qualified"
+    ? tr("Cualificados", "Qualificati", "Qualified", "Gekwalificeerd")
+    : activeFilter === "high"
+      ? tr("Alta prioridad", "Alta priorità", "High priority", "Hoge prioriteit")
+      : activeFilter === "won" || activeFilter === "approved"
+        ? tr("Concluidos", "Conclusi", "Completed", "Afgerond")
+        : activeFilter === "lost"
+          ? tr("Fallidos", "Falliti", "Lost", "Verloren")
+          : activeFilter.startsWith("status:")
+            ? STATUS_LABELS[activeFilter.slice(7) as LeadStatus] || activeFilter
+            : tr("Todos", "Tutti", "All", "Alle");
 
   if (!hasAccess) {
     return (
@@ -710,20 +755,20 @@ function DashboardShell() {
       {error && <div role="alert" className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
       {notice && <div role="status" className="mb-6 rounded-sm border border-border bg-card p-4 text-sm text-foreground">{notice}</div>}
 
-      <div className="grid gap-4 md:grid-cols-7">
-        <Metric icon={Users} label={tr("Clientes", "Clienti", "Clients")} value={stats.clients} helper={tr("Solicitudes comerciales", "Richieste commerciali", "Commercial requests")} />
-        <Metric icon={ShieldCheck} label={tr("Cualificados", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("En proceso", "In processo", "In process")} />
-        <Metric icon={AlertTriangle} label={tr("Alta prioridad", "Alta priorità", "High priority")} value={stats.high} helper={tr("Seguir de inmediato", "Da seguire subito", "Follow immediately")} />
-        <Metric icon={CheckCircle2} label={tr("Concluidos", "Conclusi", "Won")} value={stats.won} helper={tr("Tratos cerrados", "Trattative chiuse", "Closed deals")} />
-        <Metric icon={Clock} label={tr("Fallidos", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo registrado", "Con motivo registrato", "With recorded reason")} />
-        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidaturas", "Candidature", "Applications")} />
-        <Metric icon={Wrench} label={tr("Aprobados", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Colaboradores validados", "Collaboratori validati", "Validated partners")} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <Metric icon={Users} label={tr("Clientes", "Clienti", "Clients")} value={stats.clients} helper={tr("Solicitudes comerciales", "Richieste commerciali", "Commercial requests")} active={activeTab === "clientes" && activeFilter === "all"} onClick={() => chooseFilter("clientes", "all")} />
+        <Metric icon={ShieldCheck} label={tr("Cualificados", "Qualificati", "Qualified")} value={stats.qualified} helper={tr("En proceso", "In processo", "In process")} active={activeTab === "clientes" && activeFilter === "qualified"} onClick={() => chooseFilter("clientes", "qualified")} />
+        <Metric icon={AlertTriangle} label={tr("Alta prioridad", "Alta priorità", "High priority")} value={stats.high} helper={tr("Seguir de inmediato", "Da seguire subito", "Follow immediately")} active={activeTab === "clientes" && activeFilter === "high"} onClick={() => chooseFilter("clientes", "high")} />
+        <Metric icon={CheckCircle2} label={tr("Concluidos", "Conclusi", "Won")} value={stats.won} helper={tr("Tratos cerrados", "Trattative chiuse", "Closed deals")} active={activeTab === "clientes" && activeFilter === "won"} onClick={() => chooseFilter("clientes", "won")} />
+        <Metric icon={Clock} label={tr("Fallidos", "Falliti", "Lost")} value={stats.lost} helper={tr("Con motivo registrado", "Con motivo registrato", "With recorded reason")} active={activeTab === "clientes" && activeFilter === "lost"} onClick={() => chooseFilter("clientes", "lost")} />
+        <Metric icon={Hammer} label="Partner" value={stats.partners} helper={tr("Candidaturas", "Candidature", "Applications")} active={activeTab === "partners" && activeFilter === "all"} onClick={() => chooseFilter("partners", "all")} />
+        <Metric icon={Wrench} label={tr("Aprobados", "Approvati", "Approved")} value={stats.approvedPartners} helper={tr("Colaboradores validados", "Collaboratori validati", "Validated partners")} active={activeTab === "partners" && activeFilter === "approved"} onClick={() => chooseFilter("partners", "approved")} />
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 rounded-sm border border-border bg-card p-2 shadow-soft">
-        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clientes", "Clienti", "Clients")} onClick={() => setActiveTab("clientes")} />
-        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partners profesionales", "Partner professionali", "Professional partners")} onClick={() => setActiveTab("partners")} />
-        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Control operativo", "Controllo operativo", "Operational control")} onClick={() => setActiveTab("control")} />
+        <TabButton active={activeTab === "clientes"} icon={Users} label={tr("Clientes", "Clienti", "Clients")} onClick={() => chooseTab("clientes")} />
+        <TabButton active={activeTab === "partners"} icon={Hammer} label={tr("Partners profesionales", "Partner professionali", "Professional partners")} onClick={() => chooseTab("partners")} />
+        <TabButton active={activeTab === "control"} icon={ClipboardCheck} label={tr("Control operativo", "Controllo operativo", "Operational control")} onClick={() => chooseTab("control")} />
         <button onClick={() => void loadLeads()} disabled={loading} className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60">
           <RefreshCw size={15} /> {loading ? tr("Cargando…", "Caricamento…", "Loading…") : tr("Actualizar", "Aggiorna", "Refresh")}
         </button>
@@ -732,7 +777,11 @@ function DashboardShell() {
       {activeTab === "clientes" && (
         <LeadsBoard
           type="client"
-          leads={sortedClients}
+          leads={filteredClients}
+          allLeads={sortedClients}
+          activeFilter={activeFilter}
+          filterLabel={filterLabel}
+          onFilter={(filter) => chooseFilter("clientes", filter)}
           actions={CLIENT_ACTIONS}
           funnel={CLIENT_FUNNEL}
           loading={loading}
@@ -746,7 +795,11 @@ function DashboardShell() {
       {activeTab === "partners" && (
         <LeadsBoard
           type="partner"
-          leads={sortedPartners}
+          leads={filteredPartners}
+          allLeads={sortedPartners}
+          activeFilter={activeFilter}
+          filterLabel={filterLabel}
+          onFilter={(filter) => chooseFilter("partners", filter)}
           actions={PARTNER_ACTIONS}
           funnel={PARTNER_FUNNEL}
           loading={loading}
@@ -767,9 +820,13 @@ function DashboardShell() {
   );
 }
 
-function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDeleteLeads, onSubmit, onDelete }: {
+function LeadsBoard({ type, leads, allLeads, activeFilter, filterLabel, onFilter, actions, funnel, loading, savingId, canDeleteLeads, onSubmit, onDelete }: {
   type: "client" | "partner";
   leads: DashboardLead[];
+  allLeads: DashboardLead[];
+  activeFilter: CrmViewFilter;
+  filterLabel: string;
+  onFilter: (filter: CrmViewFilter) => void;
   actions: WorkflowAction[];
   funnel: { status: LeadStatus; label: string; job: string }[];
   loading: boolean;
@@ -783,8 +840,18 @@ function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDelete
     : tr("No hay solicitudes cliente todavía.", "Non ci sono ancora richieste cliente.", "There are no client requests yet.");
 
   return (
-    <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.35fr]">
-      <div className="space-y-5">
+    <div id="crm-filtered-list" className="mt-8 grid scroll-mt-8 gap-6 xl:grid-cols-[minmax(0,1fr)_270px]">
+      <div className="min-w-0 space-y-5">
+        {activeFilter !== "all" && (
+          <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-primary/30 bg-primary/5 px-4 py-3">
+            <span className="text-sm font-medium text-primary">
+              {tr("Filtro activo", "Filtro attivo", "Active filter", "Actief filter")}: {filterLabel} · {leads.length}
+            </span>
+            <button type="button" onClick={() => onFilter("all")} className="inline-flex items-center gap-1.5 rounded-sm border border-primary/30 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10">
+              <X size={14} /> {tr("Mostrar todos", "Mostra tutti", "Show all", "Toon alles")}
+            </button>
+          </div>
+        )}
         {type === "client" && (
           <div className="rounded-sm border-2 border-primary bg-primary/10 p-5 text-sm shadow-soft">
             <div className="font-display text-xl text-foreground">{tr("Funnel cliente guidato", "Funnel cliente guidato", "Guided client funnel")}</div>
@@ -801,7 +868,9 @@ function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDelete
         {loading ? (
           <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{tr("Cargando datos desde PostgreSQL…", "Caricamento dati da PostgreSQL…", "Loading data from PostgreSQL…")}</div>
         ) : leads.length === 0 ? (
-          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{emptyText}</div>
+          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">
+            {activeFilter === "all" ? emptyText : tr("No hay contactos con este filtro.", "Nessun contatto corrisponde al filtro selezionato.", "No contacts match this filter.", "Geen contacten voor dit filter.")}
+          </div>
         ) : (
           leads.map((lead) => (
             <LeadCard
@@ -820,15 +889,15 @@ function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDelete
       </div>
 
       <aside className="space-y-4">
-        <PipelineSummary leads={leads} funnel={funnel} />
-        <div className="rounded-sm border border-border bg-card p-5 text-sm shadow-soft">
-          <div className="font-medium text-foreground">{type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}</div>
+        <PipelineSummary leads={allLeads} funnel={funnel} activeFilter={activeFilter} onFilter={onFilter} />
+        <details className="group rounded-sm border border-border bg-card p-5 text-sm shadow-soft">
+          <summary className="cursor-pointer font-medium text-foreground">{type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")} <ChevronDown className="ml-1 inline h-4 w-4 transition group-open:rotate-180" /></summary>
           <p className="mt-2 leading-relaxed text-muted-foreground">
             {type === "partner"
               ? tr("Idoneo come riserva significa: collaboratore secondario, non prima scelta, da usare se il principale non è disponibile.", "Idoneo come riserva significa: collaboratore secondario, non prima scelta, da usare se il principale non è disponibile.", "Suitable as backup means: secondary collaborator, not first choice, used when the main one is not available.")
               : tr("Alta priorità è una flag, non una fase: il cliente resta nello step corretto ma viene evidenziato come urgente/importante.", "Alta priorità è una flag, non una fase: il cliente resta nello step corretto ma viene evidenziato come urgente/importante.", "High priority is a flag, not a stage: the client stays in the correct step but is highlighted as urgent/important.")}
           </p>
-        </div>
+        </details>
       </aside>
     </div>
   );
@@ -1084,7 +1153,7 @@ function FunnelStepper({ current, funnel }: { current: LeadStatus; funnel: { sta
   );
 }
 
-function PipelineSummary({ leads, funnel }: { leads: DashboardLead[]; funnel: { status: LeadStatus; label: string }[] }) {
+function PipelineSummary({ leads, funnel, activeFilter, onFilter }: { leads: DashboardLead[]; funnel: { status: LeadStatus; label: string }[]; activeFilter: CrmViewFilter; onFilter: (filter: CrmViewFilter) => void }) {
   const rows = funnel.map((step) => ({ status: step.status, label: step.label, total: leads.filter((lead) => lead.status === step.status).length }));
 
   return (
@@ -1092,10 +1161,10 @@ function PipelineSummary({ leads, funnel }: { leads: DashboardLead[]; funnel: { 
       <div className="flex items-center gap-2 text-sm font-medium"><Target size={17} className="text-primary" /> Pipeline</div>
       <div className="mt-4 space-y-3">
         {rows.map((row) => (
-          <div key={`${row.status}-${row.label}`} className="flex items-center justify-between gap-3 border-b border-border/70 pb-2 last:border-0 last:pb-0">
-            <span className="text-sm text-muted-foreground">{row.label}</span>
+          <button key={`${row.status}-${row.label}`} type="button" aria-pressed={activeFilter === `status:${row.status}`} onClick={() => onFilter(`status:${row.status}`)} className={`flex w-full items-center justify-between gap-3 border-b border-border/70 pb-2 text-left transition last:border-0 last:pb-0 hover:text-primary ${activeFilter === `status:${row.status}` ? "text-primary" : "text-muted-foreground"}`}>
+            <span className="text-sm">{row.label}</span>
             <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusTone(row.status)}`}>{row.total}</span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -1133,14 +1202,14 @@ function ControlPanel() {
   );
 }
 
-function Metric({ icon: Icon, label, value, helper }: { icon: LucideIcon; label: string; value: number; helper: string }) {
+function Metric({ icon: Icon, label, value, helper, active, onClick }: { icon: LucideIcon; label: string; value: number; helper: string; active: boolean; onClick: () => void }) {
   return (
-    <div className="rounded-sm border border-border bg-card p-5 shadow-soft">
+    <button type="button" onClick={onClick} aria-pressed={active} className={`rounded-sm border p-4 text-left shadow-soft transition hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-5 ${active ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
       <Icon size={20} className="text-primary" />
-      <div className="mt-4 text-3xl font-medium tracking-tight">{value}</div>
+      <div className="mt-3 text-3xl font-medium tracking-tight">{value}</div>
       <div className="mt-1 text-sm font-medium">{label}</div>
       <div className="mt-1 text-xs text-muted-foreground">{helper}</div>
-    </div>
+    </button>
   );
 }
 
