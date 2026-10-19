@@ -213,6 +213,42 @@ export async function fetchCrmLeads(token: string) {
   }>;
 }
 
+export type CrmActivityRecord = {
+  id: string;
+  type: string;
+  title: string;
+  notes: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
+export type CrmLeadOutcomeRecord = {
+  id: string;
+  action_key: string;
+  outcome: string | null;
+  milestone_key: string | null;
+  metadata: Record<string, unknown> | null;
+  occurred_at: string;
+};
+
+export type CrmLeadDetails = {
+  lead: Record<string, unknown>;
+  activities: CrmActivityRecord[];
+  outcomes: CrmLeadOutcomeRecord[];
+};
+
+export async function fetchCrmLeadDetails(token: string, leadId: string): Promise<CrmLeadDetails> {
+  const response = await fetch(`${CRM_ENDPOINT}/api/leads/${encodeURIComponent(leadId)}`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 404 ? "Lead not found" : "Could not load CRM lead history");
+  }
+  return response.json() as Promise<CrmLeadDetails>;
+}
+
 export async function deleteCrmLead(token: string, leadId: string, confirmEmail: string) {
   const response = await fetch(`${CRM_ENDPOINT}/api/leads/${leadId}`, {
     method: "DELETE",
