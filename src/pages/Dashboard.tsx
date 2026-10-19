@@ -1027,33 +1027,60 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
             <span>{formatDate(lead.createdAt)}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
-              <MessageCircle size={14} /> WhatsApp
+        <div className="flex max-w-full flex-wrap items-start justify-end gap-2">
+          <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
+            <MessageCircle size={14} /> WhatsApp
+          </a>
+          {lead.email && (
+            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
+              <Mail size={14} /> Email
             </a>
-            {lead.email && (
-              <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
-                <Mail size={14} /> Email
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={onSheet}
-              className="inline-flex items-center gap-2 rounded-sm border border-primary/35 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/10"
-            >
-              <FileText size={14} />
-              {tr("Ficha PDF", "Scheda PDF", "PDF record", "PDF-dossier")}
-            </button>
-          </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="inline-flex items-center gap-1.5 rounded-sm border border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10">
+                <FileText size={14} />
+                {tr("Ficha de cliente", "Scheda cliente", "Client record", "Klantdossier")}
+                <ChevronDown size={14} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[190px]">
+              <DropdownMenuItem onSelect={onSheet}>
+                <FileText className="mr-2 h-4 w-4" />
+                {tr("Ver ficha", "Visualizza scheda", "View record", "Dossier bekijken")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onSheet}>
+                <Printer className="mr-2 h-4 w-4" />
+                {tr("Imprimir / PDF", "Stampa / Salva PDF", "Print / Save PDF", "Afdrukken / PDF")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canDeleteLeads && lead.email && (
-            <CrmDeleteLeadDialog
-              leadId={lead.id}
-              name={lead.nombre}
-              email={lead.email}
-              busy={saving}
-              onDelete={() => onDelete(lead)}
-            />
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label={tr("Más acciones", "Altre azioni", "More actions", "Meer acties")} className="inline-flex items-center justify-center rounded-sm border border-border p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground">
+                    <MoreHorizontal size={17} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {tr("Eliminar contacto", "Elimina contatto", "Delete contact", "Contact verwijderen")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <CrmDeleteLeadDialog
+                leadId={lead.id}
+                name={lead.nombre}
+                email={lead.email}
+                busy={saving}
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                hideTrigger
+                onDelete={() => onDelete(lead)}
+              />
+            </>
           )}
         </div>
       </div>
