@@ -214,8 +214,24 @@ CREATE TABLE IF NOT EXISTS crm_meta_lead_inbox (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE crm_meta_lead_inbox
+  DROP CONSTRAINT IF EXISTS crm_meta_lead_inbox_status_check;
+ALTER TABLE crm_meta_lead_inbox
+  ADD CONSTRAINT crm_meta_lead_inbox_status_check
+  CHECK (status IN ('to_complete', 'ready', 'promoted', 'error', 'deleted'));
+
 CREATE INDEX IF NOT EXISTS idx_crm_meta_lead_inbox_status
   ON crm_meta_lead_inbox(status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS crm_lead_deletion_audit (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id uuid NOT NULL,
+  deleted_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  meta_leads_blocked integer NOT NULL DEFAULT 0,
+  deleted_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_lead_deletion_audit_date
+  ON crm_lead_deletion_audit(deleted_at DESC);
 
 CREATE TABLE IF NOT EXISTS crm_lead_outcomes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
