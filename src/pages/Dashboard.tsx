@@ -535,7 +535,7 @@ function DashboardShell() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [canDeleteLeads, setCanDeleteLeads] = useState(false);
+  const [canDeleteLeads, setCanDeleteLeads] = useState(hasAccess);
   const [activeTab, setActiveTab] = useState<DashboardTab>("clientes");
 
   async function loadLeads() {
@@ -547,9 +547,12 @@ function DashboardShell() {
       if (!token) throw new Error("Missing Clerk token");
       const data = await fetchCrmLeads(token);
       setLeads(data.leads.map((lead) => mapLead(lead as ApiLead)));
-      setCanDeleteLeads(data.permissions?.canDeleteLeads === true);
+      // The frontend is restricted to the two verified CRM owner accounts.
+      // A stale/missing permission field must not silently hide the control.
+      // The DELETE endpoint remains the final authorization boundary.
+      setCanDeleteLeads(data.permissions?.canDeleteLeads === true || hasClientAdminAccess(email));
     } catch (err) {
-      setCanDeleteLeads(false);
+      setCanDeleteLeads(hasClientAdminAccess(email));
       console.error("[dashboard] failed to load PostgreSQL leads", err);
       setError(tr(
         "No se han podido cargar los datos desde PostgreSQL. Revisa que el email usado en Clerk esté en BOOTSTRAP_ADMIN_EMAILS de Railway.",
@@ -900,15 +903,17 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
             <span>{formatDate(lead.createdAt)}</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
-            <MessageCircle size={14} /> WhatsApp
-          </a>
-          {lead.email && (
-            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
-              <Mail size={14} /> Email
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
+              <MessageCircle size={14} /> WhatsApp
             </a>
-          )}
+            {lead.email && (
+              <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
+                <Mail size={14} /> Email
+              </a>
+            )}
+          </div>
           {canDeleteLeads && lead.email && (
             <CrmDeleteLeadDialog
               leadId={lead.id}

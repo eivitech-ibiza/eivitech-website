@@ -196,6 +196,7 @@ export async function submitPartnerToCrm(payload: CrmPartnerPayload) {
 
 export async function fetchCrmLeads(token: string) {
   const response = await fetch(`${CRM_ENDPOINT}/api/leads`, {
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${token}`,
     },

@@ -13,6 +13,7 @@ import { verifyCampaignAudienceBeforeSend } from "./campaignSendSafety.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { upsertLeadMarketingContact } from "./leadMarketing.js";
+import { canDeleteCrmLead } from "./leadDeletionAccess.js";
 import { deleteCrmLead } from "./leadDeletion.js";
 import { resubscribeResendMarketingContact } from "./resendContactConsent.js";
 import { requireCrmUser, requireRole } from "./auth.js";
@@ -518,9 +519,10 @@ app.get("/api/leads", requireCrmUser, async (req, res) => {
   const result = await query(
     `SELECT * FROM crm_leads ORDER BY created_at DESC LIMIT 200`
   );
+  res.set("Cache-Control", "no-store");
   res.json({
     leads: result.rows,
-    permissions: { canDeleteLeads: req.crmUser?.role === "admin" },
+    permissions: { canDeleteLeads: canDeleteCrmLead(req.crmUser) },
   });
 });
 
@@ -539,7 +541,12 @@ app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
 app.delete(
   "/api/leads/:id",
   requireCrmUser,
-  requireRole(["admin"]),
+  (req, res, next) => {
+    if (!canDeleteCrmLead(req.crmUser)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    return next();
+  },
   async (req, res, next) => {
     const leadId = z.string().uuid().safeParse(req.params.id);
     const confirmation = z.object({
