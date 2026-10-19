@@ -517,7 +517,25 @@ app.post(
 
 app.get("/api/leads", requireCrmUser, async (req, res) => {
   const result = await query(
-    `SELECT * FROM crm_leads ORDER BY created_at DESC LIMIT 200`
+    `SELECT l.*,
+       COALESCE((
+         SELECT array_agg(DISTINCT o.action_key)
+         FROM crm_lead_outcomes o
+         WHERE o.lead_id = l.id
+       ), ARRAY[]::text[]) AS recorded_actions,
+       (
+         SELECT json_build_object(
+           'id', a.id, 'title', a.title, 'notes', a.notes,
+           'created_at', a.created_at, 'type', a.type
+         )
+         FROM crm_activities a
+         WHERE a.lead_id = l.id
+         ORDER BY a.created_at DESC
+         LIMIT 1
+       ) AS last_activity
+     FROM crm_leads l
+     ORDER BY l.created_at DESC
+     LIMIT 200`
   );
   res.set("Cache-Control", "no-store");
   res.json({
@@ -530,12 +548,23 @@ app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
   const lead = await query(`SELECT * FROM crm_leads WHERE id = $1`, [req.params.id]);
   if (lead.rows.length === 0) return res.status(404).json({ error: "Lead not found" });
 
-  const activities = await query(
-    `SELECT * FROM crm_activities WHERE lead_id = $1 ORDER BY created_at DESC`,
-    [req.params.id]
-  );
+  const [activities, outcomes] = await Promise.all([
+    query(
+      `SELECT id, lead_id, created_at, created_by, type, title, notes, due_at, completed_at
+       FROM crm_activities
+       WHERE lead_id = $1 ORDER BY created_at DESC`,
+      [req.params.id]
+    ),
+    query(
+      `SELECT id, lead_id, action_key, outcome, milestone_key, metadata, occurred_at
+       FROM crm_lead_outcomes
+       WHERE lead_id = $1 ORDER BY occurred_at DESC`,
+      [req.params.id]
+    ),
+  ]);
 
-  res.json({ lead: lead.rows[0], activities: activities.rows });
+  res.set("Cache-Control", "no-store");
+  res.json({ lead: lead.rows[0], activities: activities.rows, outcomes: outcomes.rows });
 });
 
 app.delete(

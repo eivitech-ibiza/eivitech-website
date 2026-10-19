@@ -236,6 +236,72 @@ export async function deleteCrmLead(token: string, leadId: string, confirmEmail:
   }>;
 }
 
+export type CrmActivityRecord = {
+  id: string;
+  created_at: string;
+  type: string;
+  title: string;
+  notes: string | null;
+  due_at?: string | null;
+  completed_at?: string | null;
+};
+
+export type CrmOutcomeRecord = {
+  id: string;
+  action_key: string;
+  outcome: string | null;
+  milestone_key: string | null;
+  metadata: Record<string, unknown>;
+  occurred_at: string;
+};
+
+export type CrmDetailedLead = {
+  id: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  status: string;
+  priority: string;
+  score: number;
+  created_at: string;
+  tipo_cliente: string;
+  tipo_propiedad: string;
+  zona?: string | null;
+  intervencion: string;
+  tiene_fotos: string;
+  tiene_proyecto: string;
+  plazo: string;
+  presupuesto?: string | null;
+  mensaje?: string | null;
+  source?: string | null;
+  next_action?: string | null;
+  next_follow_up_at?: string | null;
+  qualification_outcome?: string | null;
+  qualified_at?: string | null;
+  visit_confirmed_at?: string | null;
+  proposal_sent_at?: string | null;
+  deal_closed_at?: string | null;
+  lead_kind?: string | null;
+};
+
+export type CrmLeadDetailsResponse = {
+  lead: CrmDetailedLead;
+  activities: CrmActivityRecord[];
+  outcomes: CrmOutcomeRecord[];
+};
+
+export async function fetchCrmLeadDetails(token: string, leadId: string): Promise<CrmLeadDetailsResponse> {
+  const response = await fetch(`${CRM_ENDPOINT}/api/leads/${encodeURIComponent(leadId)}`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "CRM history fetch failed");
+    throw new Error(message || "CRM history fetch failed");
+  }
+  return response.json() as Promise<CrmLeadDetailsResponse>;
+}
+
 export async function updateCrmLead(token: string, leadId: string, payload: CrmLeadUpdatePayload) {
   const response = await fetch(`${CRM_ENDPOINT}/api/leads/${leadId}`, {
     method: "PATCH",
