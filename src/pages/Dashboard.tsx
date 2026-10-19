@@ -854,39 +854,70 @@ function DashboardShell() {
   );
 }
 
-function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDeleteLeads, onSubmit, onDelete }: {
+function LeadsBoard({
+  type, leads, allLeads, actions, funnel, loading, savingId, canDeleteLeads,
+  filter, onClearFilter, onPipelineFilter, onSubmit, onDelete, getToken,
+  onSheet, selectedLeadId, onSelectedLeadChange,
+}: {
   type: "client" | "partner";
   leads: DashboardLead[];
+  allLeads: DashboardLead[];
   actions: WorkflowAction[];
   funnel: { status: LeadStatus; label: string; job: string }[];
   loading: boolean;
   savingId: string | null;
   canDeleteLeads: boolean;
+  filter: LeadFilter;
+  onClearFilter: () => void;
+  onPipelineFilter: (status: LeadStatus) => void;
   onSubmit: (lead: DashboardLead, action: WorkflowAction, form: WorkflowForm) => Promise<boolean>;
   onDelete: (lead: DashboardLead) => Promise<void>;
+  getToken: () => Promise<string | null>;
+  onSheet: (leadId: string) => void;
+  selectedLeadId: string | null;
+  onSelectedLeadChange: (leadId: string) => void;
 }) {
-  const emptyText = type === "partner"
-    ? tr("No hay candidaturas partner todavía.", "Non ci sono ancora candidature partner.", "There are no partner applications yet.")
-    : tr("No hay solicitudes cliente todavía.", "Non ci sono ancora richieste cliente.", "There are no client requests yet.");
+  const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? leads[0] ?? null;
+  const emptyText = filter !== "all"
+    ? tr("No hay contactos para este filtro.", "Nessun contatto corrisponde a questo filtro.", "No contacts match this filter.", "Geen contacten voor dit filter.")
+    : type === "partner"
+      ? tr("No hay candidaturas partner todavía.", "Non ci sono ancora candidature partner.", "There are no partner applications yet.")
+      : tr("No hay solicitudes cliente todavía.", "Non ci sono ancora richieste cliente.", "There are no client requests yet.");
 
   return (
-    <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.35fr]">
-      <div className="space-y-5">
+    <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(270px,0.32fr)]">
+      <div className="min-w-0 space-y-5">
+        {filter !== "all" && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-primary/35 bg-primary/5 px-4 py-3" role="status">
+            <div className="text-sm">
+              <span className="font-semibold text-foreground">{labelForFilter(filter)}</span>
+              <span className="ml-2 text-muted-foreground">
+                {leads.length} {tr("resultados", "risultati", "results", "resultaten")}
+              </span>
+            </div>
+            <button type="button" onClick={onClearFilter} className="rounded-sm border border-primary/40 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10">
+              {tr("Mostrar todos", "Mostra tutti", "Show all", "Alles tonen")}
+            </button>
+          </div>
+        )}
         {type === "client" && (
-          <div className="rounded-sm border-2 border-primary bg-primary/10 p-5 text-sm shadow-soft">
-            <div className="font-display text-xl text-foreground">{tr("Funnel cliente guidato", "Funnel cliente guidato", "Guided client funnel")}</div>
-            <p className="mt-2 leading-relaxed text-muted-foreground">
+          <div className="rounded-sm border-l-4 border-primary bg-primary/5 px-5 py-4 text-sm">
+            <div className="font-display text-lg text-foreground">{tr("Funnel cliente guidato", "Funnel cliente guidato", "Guided client funnel")}</div>
+            <p className="mt-1 leading-relaxed text-muted-foreground">
               {tr(
-                "Ogni scheda cliente ora mostra: fase attuale, cosa fare ora, azione consigliata, dati da registrare, pulsanti e salvataggio nel CRM.",
-                "Ogni scheda cliente ora mostra: fase attuale, cosa fare ora, azione consigliata, dati da registrare, pulsanti e salvataggio nel CRM.",
-                "Each client card now shows: current stage, what to do now, recommended action, data to record, buttons and CRM save."
+                "Selecciona una acción, guárdala y consulta todo el historial en la ficha del cliente.",
+                "Seleziona un'azione, salvala e ritrova tutte le attività nello storico della scheda.",
+                "Choose an action, save it and find every entry in the customer's activity history.",
+                "Kies een actie, sla deze op en bekijk alles in de geschiedenis van het klantdossier.",
               )}
             </p>
           </div>
         )}
 
         {loading ? (
-          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{tr("Cargando datos desde PostgreSQL…", "Caricamento dati da PostgreSQL…", "Loading data from PostgreSQL…")}</div>
+          <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">
+            {tr("Cargando datos desde PostgreSQL…", "Caricamento dati da PostgreSQL…", "Loading data from PostgreSQL…")}
+          </div>
         ) : leads.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">{emptyText}</div>
         ) : (
@@ -901,20 +932,65 @@ function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDelete
               canDeleteLeads={canDeleteLeads}
               onSubmit={onSubmit}
               onDelete={onDelete}
+              getToken={getToken}
+              onSheet={() => onSheet(lead.id)}
             />
           ))
         )}
       </div>
 
-      <aside className="space-y-4">
-        <PipelineSummary leads={leads} funnel={funnel} />
+      <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
+        <PipelineSummary leads={allLeads} funnel={funnel} activeFilter={filter} onSelect={onPipelineFilter} />
         <div className="rounded-sm border border-border bg-card p-5 text-sm shadow-soft">
-          <div className="font-medium text-foreground">{type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}</div>
+          <div className="font-medium text-foreground">
+            {type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}
+          </div>
           <p className="mt-2 leading-relaxed text-muted-foreground">
             {type === "partner"
               ? tr("Idoneo come riserva significa: collaboratore secondario, non prima scelta, da usare se il principale non è disponibile.", "Idoneo come riserva significa: collaboratore secondario, non prima scelta, da usare se il principale non è disponibile.", "Suitable as backup means: secondary collaborator, not first choice, used when the main one is not available.")
               : tr("Alta priorità è una flag, non una fase: il cliente resta nello step corretto ma viene evidenziato come urgente/importante.", "Alta priorità è una flag, non una fase: il cliente resta nello step corretto ma viene evidenziato come urgente/importante.", "High priority is a flag, not a stage: the client stays in the correct step but is highlighted as urgent/important.")}
           </p>
+        </div>
+
+        <div className="rounded-sm border border-primary/35 bg-primary/5 p-5 shadow-soft">
+          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <FileText size={18} className="text-primary" />
+            {type === "partner"
+              ? tr("Ficha de colaborador", "Scheda partner", "Partner record", "Partnerdossier")
+              : tr("Ficha de cliente", "Scheda cliente", "Client record", "Klantdossier")}
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {tr(
+              "Ficha Eivitech con datos, estados, notas y actividades, lista para imprimir o guardar como PDF.",
+              "Documento Eivitech con dati, stati, note e attività, stampabile o salvabile in PDF.",
+              "Eivitech record with data, statuses, notes and activities, ready to print or save as PDF.",
+              "Eivitech-document met gegevens, status, notities en activiteiten, afdrukbaar als PDF.",
+            )}
+          </p>
+          {selectedLead && (
+            <div className="mt-4">
+              <label htmlFor={`sheet-customer-${type}`} className="text-xs font-medium text-foreground">
+                {tr("Selecciona contacto", "Seleziona contatto", "Select contact", "Selecteer contact")}
+              </label>
+              <select
+                id={`sheet-customer-${type}`}
+                className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2.5 text-sm"
+                value={selectedLead.id}
+                onChange={(event) => onSelectedLeadChange(event.target.value)}
+              >
+                {leads.map((item) => <option key={item.id} value={item.id}>{item.nombre} · {item.email || item.id.slice(0, 8)}</option>)}
+              </select>
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={!selectedLead}
+            onClick={() => { if (selectedLead) onSheet(selectedLead.id); }}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+          >
+            <FileText size={16} />
+            {tr("Crear / Imprimir ficha PDF", "Crea / Stampa scheda PDF", "Create / Print PDF record", "Dossier maken / PDF afdrukken")}
+          </button>
         </div>
       </aside>
     </div>
