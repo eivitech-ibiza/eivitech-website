@@ -139,3 +139,59 @@
     z-index: 5;
   }
 }
+
+/* The client record is printed as a clean A4 document via the browser's
+   built-in Print / Save as PDF action. No PDF service or data export URL. */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  html, body { background: #fff !important; }
+  body * { visibility: hidden !important; }
+
+  [data-client-sheet-dialog],
+  [data-client-sheet-dialog] *,
+  #eivitech-print-sheet,
+  #eivitech-print-sheet * {
+    visibility: visible !important;
+  }
+
+  [data-client-sheet-dialog] {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  [data-client-sheet-dialog] > button,
+  .eivitech-print-hide {
+    display: none !important;
+  }
+
+  #eivitech-print-sheet {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #2b2926 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .eivitech-print-section { break-inside: avoid; page-break-inside: avoid; }
+  #eivitech-print-sheet h2,
+  #eivitech-print-sheet h3 { break-after: avoid; }
+}
