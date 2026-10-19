@@ -526,16 +526,32 @@ app.get("/api/leads", requireCrmUser, async (req, res) => {
   });
 });
 
-app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
-  const lead = await query(`SELECT * FROM crm_leads WHERE id = $1`, [req.params.id]);
-  if (lead.rows.length === 0) return res.status(404).json({ error: "Lead not found" });
+app.get("/api/leads/:id", requireCrmUser, async (req, res, next) => {
+  const id = z.string().uuid().safeParse(req.params.id);
+  if (!id.success) return res.status(400).json({ error: "Invalid lead ID" });
 
-  const activities = await query(
-    `SELECT * FROM crm_activities WHERE lead_id = $1 ORDER BY created_at DESC`,
-    [req.params.id]
-  );
+  try {
+    const lead = await query(`SELECT * FROM crm_leads WHERE id = $1`, [id.data]);
+    if (lead.rows.length === 0) return res.status(404).json({ error: "Lead not found" });
 
-  res.json({ lead: lead.rows[0], activities: activities.rows });
+    const [activities, outcomes] = await Promise.all([
+      query(
+        `SELECT id, lead_id, type, title, notes, due_at, completed_at, created_at
+         FROM crm_activities WHERE lead_id = $1 ORDER BY created_at DESC, id DESC`,
+        [id.data]
+      ),
+      query(
+        `SELECT id, lead_id, action_key, outcome, milestone_key, metadata, occurred_at
+         FROM crm_lead_outcomes WHERE lead_id = $1 ORDER BY occurred_at DESC, id DESC`,
+        [id.data]
+      ),
+    ]);
+
+    res.set("Cache-Control", "private, no-store");
+    res.json({ lead: lead.rows[0], activities: activities.rows, outcomes: outcomes.rows });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.delete(
