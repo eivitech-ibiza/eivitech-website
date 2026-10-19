@@ -13,6 +13,7 @@ import { verifyCampaignAudienceBeforeSend } from "./campaignSendSafety.js";
 import { runMigrations } from "./migrations.js";
 import { initialStatusForLead, nextActionForLead, priorityFromScore, scoreLead } from "./leadScoring.js";
 import { upsertLeadMarketingContact } from "./leadMarketing.js";
+import { deleteCrmLead } from "./leadDeletion.js";
 import { resubscribeResendMarketingContact } from "./resendContactConsent.js";
 import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
@@ -513,11 +514,14 @@ app.post(
   handleLeadWorkflow
 );
 
-app.get("/api/leads", requireCrmUser, async (_req, res) => {
+app.get("/api/leads", requireCrmUser, async (req, res) => {
   const result = await query(
     `SELECT * FROM crm_leads ORDER BY created_at DESC LIMIT 200`
   );
-  res.json({ leads: result.rows });
+  res.json({
+    leads: result.rows,
+    permissions: { canDeleteLeads: req.crmUser?.role === "admin" },
+  });
 });
 
 app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
@@ -531,6 +535,37 @@ app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
 
   res.json({ lead: lead.rows[0], activities: activities.rows });
 });
+
+app.delete(
+  "/api/leads/:id",
+  requireCrmUser,
+  requireRole(["admin"]),
+  async (req, res, next) => {
+    const leadId = z.string().uuid().safeParse(req.params.id);
+    const confirmation = z.object({
+      confirmEmail: z.string().trim().email().max(120),
+    }).strict().safeParse(req.body);
+    if (!leadId.success || !confirmation.success) {
+      return res.status(400).json({ error: "Invalid lead ID or confirmation email" });
+    }
+
+    try {
+      const result = await deleteCrmLead(leadId.data, confirmation.data.confirmEmail, req.crmUser!.id);
+      if (result.status === "not_found") {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      if (result.status === "email_mismatch") {
+        return res.status(409).json({ error: "Confirmation email does not match the selected lead" });
+      }
+      if (result.status === "outbox_busy") {
+        return res.status(409).json({ error: "A Meta event is being processed. Please retry shortly." });
+      }
+      return res.json({ ok: true, deleted: true, ...result });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 app.patch("/api/leads/:id", requireCrmUser, async (req, res) => {
   const parsed = updateLeadSchema.safeParse(req.body);
