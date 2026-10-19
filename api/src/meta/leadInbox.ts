@@ -28,6 +28,7 @@ type InboxRow = {
   adset_id: string | null;
   campaign_id: string | null;
   promoted_lead_id: string | null;
+  status: string;
 };
 
 function scoringInput(input: MetaLeadPromotionInput) {
@@ -60,14 +61,14 @@ export async function promoteMetaLeadInbox(
   try {
     await client.query("BEGIN");
     const inboxResult = await client.query<InboxRow>(
-      `SELECT id, meta_lead_id, page_id, form_id, ad_id, adset_id, campaign_id, promoted_lead_id
+      `SELECT id, meta_lead_id, page_id, form_id, ad_id, adset_id, campaign_id, promoted_lead_id, status
        FROM crm_meta_lead_inbox
        WHERE id = $1
        FOR UPDATE`,
       [inboxId]
     );
     const inbox = inboxResult.rows[0];
-    if (!inbox) {
+    if (!inbox || inbox.status === "deleted") {
       await client.query("ROLLBACK");
       return { status: "not_found" as const };
     }
@@ -174,6 +175,7 @@ export async function listMetaLeadInbox(limit = 100) {
             meta_created_time, mapped_data, missing_fields, status, promoted_lead_id,
             last_error, created_at, updated_at
      FROM crm_meta_lead_inbox
+     WHERE status <> 'deleted'
      ORDER BY created_at DESC
      LIMIT $1`,
     [Math.max(1, Math.min(200, limit))]

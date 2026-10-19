@@ -206,7 +206,33 @@ export async function fetchCrmLeads(token: string) {
     throw new Error(message || "CRM fetch failed");
   }
 
-  return response.json() as Promise<{ leads: unknown[] }>;
+  return response.json() as Promise<{
+    leads: unknown[];
+    permissions?: { canDeleteLeads?: boolean };
+  }>;
+}
+
+export async function deleteCrmLead(token: string, leadId: string, confirmEmail: string) {
+  const response = await fetch(`${CRM_ENDPOINT}/api/leads/${leadId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ confirmEmail }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(payload?.error || "CRM lead deletion failed");
+  }
+
+  return response.json() as Promise<{
+    ok: true;
+    deleted: true;
+    metaLeadsBlocked: number;
+    marketingRetained: true;
+  }>;
 }
 
 export async function updateCrmLead(token: string, leadId: string, payload: CrmLeadUpdatePayload) {

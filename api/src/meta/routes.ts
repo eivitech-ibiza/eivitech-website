@@ -326,6 +326,7 @@ metaRouter.get(
         pool.query(
           `SELECT status, count(*)::int AS total
            FROM crm_meta_lead_inbox
+           WHERE status <> 'deleted'
            GROUP BY status
            ORDER BY status`
         ),

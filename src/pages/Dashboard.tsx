@@ -19,8 +19,9 @@ import {
   Wrench,
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
+import { CrmDeleteLeadDialog } from "@/components/CrmDeleteLeadDialog";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
-import { fetchCrmLeads, submitCrmWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
+import { deleteCrmLead, fetchCrmLeads, submitCrmWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
 type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
@@ -533,6 +534,8 @@ function DashboardShell() {
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [canDeleteLeads, setCanDeleteLeads] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("clientes");
 
   async function loadLeads() {
@@ -544,7 +547,9 @@ function DashboardShell() {
       if (!token) throw new Error("Missing Clerk token");
       const data = await fetchCrmLeads(token);
       setLeads(data.leads.map((lead) => mapLead(lead as ApiLead)));
+      setCanDeleteLeads(data.permissions?.canDeleteLeads === true);
     } catch (err) {
+      setCanDeleteLeads(false);
       console.error("[dashboard] failed to load PostgreSQL leads", err);
       setError(tr(
         "No se han podido cargar los datos desde PostgreSQL. Revisa que el email usado en Clerk esté en BOOTSTRAP_ADMIN_EMAILS de Railway.",
@@ -601,6 +606,26 @@ function DashboardShell() {
       console.error("[dashboard] failed to submit workflow", err);
       setError(tr("Non è stato possibile salvare l'azione. Controlla Railway/Network e riprova.", "Non è stato possibile salvare l'azione. Controlla Railway/Network e riprova.", "Could not save the action. Check Railway/Network and try again."));
       return false;
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function removeLead(lead: DashboardLead) {
+    setSavingId(lead.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Missing Clerk token");
+      if (!lead.email) throw new Error("Missing contact email");
+      await deleteCrmLead(token, lead.id, lead.email);
+      setLeads((current) => current.filter((item) => item.id !== lead.id));
+      setNotice(tr(
+        `Contacto ${lead.nombre} eliminado del CRM.`,
+        `Contatto ${lead.nombre} eliminato dal CRM.`,
+        `Contact ${lead.nombre} deleted from CRM.`,
+      ));
     } finally {
       setSavingId(null);
     }
@@ -679,7 +704,8 @@ function DashboardShell() {
         </div>
       </div>
 
-      {error && <div className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
+      {error && <div role="alert" className="mb-6 rounded-sm border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
+      {notice && <div role="status" className="mb-6 rounded-sm border border-border bg-card p-4 text-sm text-foreground">{notice}</div>}
 
       <div className="grid gap-4 md:grid-cols-7">
         <Metric icon={Users} label={tr("Clientes", "Clienti", "Clients")} value={stats.clients} helper={tr("Solicitudes comerciales", "Richieste commerciali", "Commercial requests")} />
@@ -708,7 +734,9 @@ function DashboardShell() {
           funnel={CLIENT_FUNNEL}
           loading={loading}
           savingId={savingId}
+          canDeleteLeads={canDeleteLeads}
           onSubmit={submitWorkflow}
+          onDelete={removeLead}
         />
       )}
 
@@ -720,7 +748,9 @@ function DashboardShell() {
           funnel={PARTNER_FUNNEL}
           loading={loading}
           savingId={savingId}
+          canDeleteLeads={canDeleteLeads}
           onSubmit={submitWorkflow}
+          onDelete={removeLead}
         />
       )}
 
@@ -734,14 +764,16 @@ function DashboardShell() {
   );
 }
 
-function LeadsBoard({ type, leads, actions, funnel, loading, savingId, onSubmit }: {
+function LeadsBoard({ type, leads, actions, funnel, loading, savingId, canDeleteLeads, onSubmit, onDelete }: {
   type: "client" | "partner";
   leads: DashboardLead[];
   actions: WorkflowAction[];
   funnel: { status: LeadStatus; label: string; job: string }[];
   loading: boolean;
   savingId: string | null;
+  canDeleteLeads: boolean;
   onSubmit: (lead: DashboardLead, action: WorkflowAction, form: WorkflowForm) => Promise<boolean>;
+  onDelete: (lead: DashboardLead) => Promise<void>;
 }) {
   const emptyText = type === "partner"
     ? tr("No hay candidaturas partner todavía.", "Non ci sono ancora candidature partner.", "There are no partner applications yet.")
@@ -776,7 +808,9 @@ function LeadsBoard({ type, leads, actions, funnel, loading, savingId, onSubmit 
               actions={actions}
               funnel={funnel}
               saving={savingId === lead.id}
+              canDeleteLeads={canDeleteLeads}
               onSubmit={onSubmit}
+              onDelete={onDelete}
             />
           ))
         )}
@@ -797,13 +831,15 @@ function LeadsBoard({ type, leads, actions, funnel, loading, savingId, onSubmit 
   );
 }
 
-function LeadCard({ type, lead, actions, funnel, saving, onSubmit }: {
+function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmit, onDelete }: {
   type: "client" | "partner";
   lead: DashboardLead;
   actions: WorkflowAction[];
   funnel: { status: LeadStatus; label: string; job: string }[];
   saving: boolean;
+  canDeleteLeads: boolean;
   onSubmit: (lead: DashboardLead, action: WorkflowAction, form: WorkflowForm) => Promise<boolean>;
+  onDelete: (lead: DashboardLead) => Promise<void>;
 }) {
   const partner = type === "partner";
   const recommendedKey = getRecommendedActionKey(lead, partner);
@@ -872,6 +908,15 @@ function LeadCard({ type, lead, actions, funnel, saving, onSubmit }: {
             <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
               <Mail size={14} /> Email
             </a>
+          )}
+          {canDeleteLeads && lead.email && (
+            <CrmDeleteLeadDialog
+              leadId={lead.id}
+              name={lead.nombre}
+              email={lead.email}
+              busy={saving}
+              onDelete={() => onDelete(lead)}
+            />
           )}
         </div>
       </div>
