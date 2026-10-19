@@ -34,7 +34,7 @@ import {
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
 import { deleteCrmLead, fetchCrmLeadDetails, fetchCrmLeads, submitCrmWorkflow, type CrmLeadDetails, type CrmWorkflowPayload } from "@/lib/crm";
 import { filterCrmLeads, isCrmQualified, type CrmViewFilter } from "@/lib/crmDashboardFilters";
-import { formatCrmDate } from "@/lib/crmSheetPrint";
+import { formatCrmDate, openCrmClientSheetPrint } from "@/lib/crmSheetPrint";
 import { tr } from "@/lib/i18n";
 
 type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
@@ -919,8 +919,42 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
   const [form, setForm] = useState<WorkflowForm>({ channel: "whatsapp", outcome: "", budget: "", nextFollowUp: "", amount: "", visitDate: "", note: "", checked: {} });
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [details, setDetails] = useState<CrmLeadDetails | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const { getToken } = useAuth();
 
   const selectedAction = actions.find((action) => action.key === selectedKey) || actions[0];
+
+  // Always read the existing activities and outcome milestones from PostgreSQL.
+  // Re-open and refresh after a workflow edit; never reconstruct history from UI state.
+  useEffect(() => {
+    if (!historyOpen && !sheetOpen) return;
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError(null);
+    void (async () => {
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Missing Clerk token");
+        const result = await fetchCrmLeadDetails(token, lead.id);
+        if (!cancelled) setDetails(result);
+      } catch (error) {
+        if (!cancelled) {
+          setDetails(null);
+          setDetailError(error instanceof Error ? error.message : tr(
+            "No se ha podido abrir la ficha.", "Impossibile caricare lo storico.", "Could not load history.", "Kan geschiedenis niet laden."
+          ));
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [historyOpen, sheetOpen, lead.id, lead.updatedAt, getToken]);
 
   useEffect(() => {
     const nextKey = getRecommendedActionKey(lead, partner);
@@ -972,25 +1006,58 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
             <span>{formatDate(lead.createdAt)}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
-              <MessageCircle size={14} /> WhatsApp
+        <div className="flex max-w-full flex-wrap items-start justify-end gap-2">
+          <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
+            <MessageCircle size={14} /> WhatsApp
+          </a>
+          {lead.email && (
+            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
+              <Mail size={14} /> Email
             </a>
-            {lead.email && (
-              <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
-                <Mail size={14} /> Email
-              </a>
-            )}
-          </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="inline-flex items-center gap-1.5 rounded-sm border border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10">
+                <ClientFile size={14} /> {tr("Ficha de cliente", "Scheda cliente", "Client record", "Klantdossier")} <ChevronDown size={13} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[190px]">
+              <DropdownMenuItem onSelect={() => setSheetOpen(true)}>
+                <ClientFile className="mr-2 h-4 w-4" /> {tr("Ver ficha", "Visualizza scheda", "View record", "Dossier bekijken")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => {
+                if (!details || !openCrmClientSheetPrint(details)) setSheetOpen(true);
+              }}>
+                <Printer className="mr-2 h-4 w-4" /> {tr("Imprimir / PDF", "Stampa / Salva PDF", "Print / Save PDF", "Afdrukken / PDF")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canDeleteLeads && lead.email && (
-            <CrmDeleteLeadDialog
-              leadId={lead.id}
-              name={lead.nombre}
-              email={lead.email}
-              busy={saving}
-              onDelete={() => onDelete(lead)}
-            />
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label={tr("Más acciones", "Altre azioni", "More actions", "Meer acties")} className="inline-flex items-center justify-center rounded-sm border border-border p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground">
+                    <MoreHorizontal size={17} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" /> {tr("Eliminar contacto", "Elimina contatto", "Delete contact", "Contact verwijderen")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <CrmDeleteLeadDialog
+                leadId={lead.id}
+                name={lead.nombre}
+                email={lead.email}
+                busy={saving}
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                hideTrigger
+                onDelete={() => onDelete(lead)}
+              />
+            </>
           )}
         </div>
       </div>
@@ -1016,30 +1083,36 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
       <div className="mt-5 rounded-sm border-2 border-primary bg-primary/5 p-5 shadow-soft">
         <FunnelStepper current={lead.status} funnel={funnel} />
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[0.75fr_1fr]">
-          <div className="rounded-sm border border-border bg-background p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-primary">{tr("Cosa fare adesso", "Cosa fare adesso", "What to do now")}</div>
-            <h4 className="mt-2 font-display text-2xl text-foreground">{selectedAction.label}</h4>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{selectedAction.objective}</p>
-            <p className="mt-3 rounded-sm bg-accent/60 p-3 text-xs leading-relaxed text-muted-foreground"><span className="font-medium text-foreground">Quando usarlo:</span> {selectedAction.when}</p>
-          </div>
-
-          <div className="rounded-sm border border-border bg-background p-4">
+        <div className="mt-5 space-y-3">
+          <div className="rounded-sm border border-border bg-background p-4 sm:p-5">
             <div className="text-xs uppercase tracking-[0.18em] text-primary">{partner ? tr("Azioni partner", "Azioni partner", "Partner actions") : tr("Azioni cliente", "Azioni cliente", "Client actions")}</div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <p className="mt-2 text-sm text-muted-foreground">{tr(
+              "Selecciona una acción para registrar el siguiente paso.",
+              "Seleziona un'azione per registrare il prossimo passaggio.",
+              "Select an action to record the next step.",
+              "Kies een actie om de volgende stap vast te leggen."
+            )}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {actions.map((action) => (
                 <button
                   key={`${lead.id}-${action.key}`}
                   type="button"
+                  aria-pressed={selectedKey === action.key}
                   disabled={saving}
                   onClick={() => { setSelectedKey(action.key); setLocalError(null); setSuccess(null); }}
-                  className={`min-h-[72px] rounded-sm border-2 px-3 py-2 text-left text-xs transition disabled:opacity-50 ${selectedKey === action.key ? "border-primary bg-primary/15 text-primary" : "border-border bg-card text-foreground hover:bg-accent"}`}
+                  className={`min-h-[86px] rounded-sm border-2 px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50 ${selectedKey === action.key ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/60 hover:bg-accent/40"}`}
                 >
-                  <span className="block text-sm font-semibold">{action.label}</span>
-                  <span className="mt-1 block opacity-75">{action.when}</span>
+                  <span className="block text-sm font-semibold leading-snug">{action.label}</span>
+                  <span className="mt-1.5 block text-xs leading-relaxed opacity-75">{action.when}</span>
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="rounded-sm border border-border bg-background p-4 sm:p-5">
+            <div className="text-xs uppercase tracking-[0.18em] text-primary">{tr("Cosa fare adesso", "Cosa fare adesso", "What to do now")}</div>
+            <h4 className="mt-2 font-display text-xl text-foreground">{selectedAction.label}</h4>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{selectedAction.objective}</p>
           </div>
         </div>
 
@@ -1101,6 +1174,66 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
           {success && <p className="mt-4 rounded-sm border border-secondary/30 bg-secondary/10 p-3 text-sm text-secondary">{success}</p>}
         </div>
       </div>
+
+      <section className="mt-4 rounded-sm border border-border bg-background shadow-soft">
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((current) => !current)}
+          aria-expanded={historyOpen}
+          className="flex w-full items-center justify-between gap-3 p-4 text-left text-sm font-semibold text-foreground hover:bg-accent/30"
+        >
+          <span className="inline-flex items-center gap-2">
+            <History size={17} className="text-primary" />
+            {tr("Historial de actividades", "Storico attività", "Activity history", "Activiteitengeschiedenis")}
+            {details && <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground">{details.activities.length}</span>}
+          </span>
+          <ChevronDown size={17} className={`text-muted-foreground transition ${historyOpen ? "rotate-180" : ""}`} />
+        </button>
+        {historyOpen && (
+          <div className="space-y-3 border-t border-border p-4">
+            {detailLoading && <p role="status" className="text-sm text-muted-foreground">{tr("Cargando historial…", "Caricamento storico…", "Loading history…", "Geschiedenis laden…")}</p>}
+            {detailError && <p role="alert" className="text-sm text-destructive">{detailError}</p>}
+            {!detailLoading && details && details.activities.length === 0 && (
+              <p className="text-sm text-muted-foreground">{tr("Sin actividades guardadas.", "Nessuna attività registrata.", "No activities saved.", "Geen activiteiten opgeslagen.")}</p>
+            )}
+            {!detailLoading && details?.activities.map((activity) => (
+              <article key={activity.id} className="rounded-sm border border-border bg-card p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <strong className="text-sm">{activity.title}</strong>
+                  <time className="text-xs text-muted-foreground">{formatCrmDate(activity.created_at)}</time>
+                </div>
+                {activity.notes && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">{activity.notes}</p>}
+                {activity.due_at && <p className="mt-1 text-xs text-primary">Follow-up: {formatCrmDate(activity.due_at)}</p>}
+              </article>
+            ))}
+            {!detailLoading && details && details.outcomes.length > 0 && (
+              <div className="border-t border-border pt-3">
+                <h4 className="mb-2 text-sm font-semibold">{tr("Resultados guardados", "Esiti registrati", "Recorded outcomes", "Vastgelegde uitkomsten")}</h4>
+                <div className="space-y-2">
+                  {details.outcomes.map((outcome) => (
+                    <div key={outcome.id} className="rounded-sm bg-card p-3 text-sm">
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <strong>{outcome.action_key}{outcome.outcome ? ` · ${outcome.outcome}` : ""}</strong>
+                        <time className="text-xs text-muted-foreground">{formatCrmDate(outcome.occurred_at)}</time>
+                      </div>
+                      {Object.entries(outcome.metadata || {}).filter(([, value]) => value !== null && value !== "").map(([key, value]) => (
+                        <p key={key} className="mt-1 break-words text-xs text-muted-foreground">{key}: {String(value)}</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+      <CrmClientSheetDialog
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        details={details}
+        loading={detailLoading}
+        error={detailError}
+      />
     </article>
   );
 }
