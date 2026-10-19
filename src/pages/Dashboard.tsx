@@ -1078,6 +1078,14 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
                 <Mail size={14} /> Email
               </a>
             )}
+            <button
+              type="button"
+              onClick={onSheet}
+              className="inline-flex items-center gap-2 rounded-sm border border-primary/35 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/10"
+            >
+              <FileText size={14} />
+              {tr("Ficha PDF", "Scheda PDF", "PDF record", "PDF-dossier")}
+            </button>
           </div>
           {canDeleteLeads && lead.email && (
             <CrmDeleteLeadDialog
@@ -1280,19 +1288,44 @@ function FunnelStepper({ current, funnel }: { current: LeadStatus; funnel: { sta
   );
 }
 
-function PipelineSummary({ leads, funnel }: { leads: DashboardLead[]; funnel: { status: LeadStatus; label: string }[] }) {
-  const rows = funnel.map((step) => ({ status: step.status, label: step.label, total: leads.filter((lead) => lead.status === step.status).length }));
+function PipelineSummary({ leads, funnel, activeFilter, onSelect }: {
+  leads: DashboardLead[];
+  funnel: { status: LeadStatus; label: string }[];
+  activeFilter: LeadFilter;
+  onSelect: (status: LeadStatus) => void;
+}) {
+  const rows = funnel.map((step) => ({
+    status: step.status,
+    label: step.label,
+    total: leads.filter((lead) => lead.status === step.status).length,
+  }));
 
   return (
     <div className="rounded-sm border border-border bg-card p-5 shadow-soft">
-      <div className="flex items-center gap-2 text-sm font-medium"><Target size={17} className="text-primary" /> Pipeline</div>
-      <div className="mt-4 space-y-3">
-        {rows.map((row) => (
-          <div key={`${row.status}-${row.label}`} className="flex items-center justify-between gap-3 border-b border-border/70 pb-2 last:border-0 last:pb-0">
-            <span className="text-sm text-muted-foreground">{row.label}</span>
-            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusTone(row.status)}`}>{row.total}</span>
-          </div>
-        ))}
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Target size={17} className="text-primary" /> Pipeline
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {tr("Selecciona una fase para filtrar la lista.", "Clicca una fase per filtrare l'elenco.", "Select a stage to filter the list.", "Selecteer een fase om de lijst te filteren.")}
+      </p>
+      <div className="mt-4 divide-y divide-border/70">
+        {rows.map((row) => {
+          const active = activeFilter === `stage:${row.status}`;
+          return (
+            <button
+              key={row.status}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(row.status)}
+              className={`flex w-full items-center justify-between gap-3 rounded-sm px-2 py-3 text-left transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "bg-primary/10" : ""}`}
+            >
+              <span className={`text-sm ${active ? "font-semibold text-primary" : "text-muted-foreground"}`}>{row.label}</span>
+              <span className={`inline-flex min-w-[36px] shrink-0 items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusTone(row.status)}`}>
+                {row.total}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1329,14 +1362,29 @@ function ControlPanel() {
   );
 }
 
-function Metric({ icon: Icon, label, value, helper }: { icon: LucideIcon; label: string; value: number; helper: string }) {
+function Metric({ icon: Icon, label, value, helper, active, onClick }: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+  helper: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="rounded-sm border border-border bg-card p-5 shadow-soft">
-      <Icon size={20} className="text-primary" />
-      <div className="mt-4 text-3xl font-medium tracking-tight">{value}</div>
-      <div className="mt-1 text-sm font-medium">{label}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{helper}</div>
-    </div>
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`group min-w-0 rounded-sm border p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "border-primary bg-primary/10" : "border-border bg-card"}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <Icon size={20} className="text-primary" />
+        <ChevronRight size={17} className="text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+      </div>
+      <div className="mt-3 text-3xl font-medium tracking-tight text-foreground">{value}</div>
+      <div className="mt-1 text-sm font-semibold text-foreground">{label}</div>
+      <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{helper}</div>
+    </button>
   );
 }
 
