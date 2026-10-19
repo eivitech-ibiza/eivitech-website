@@ -9,6 +9,10 @@ import {
   FileText,
   Check,
   ChevronRight,
+  ChevronDown,
+  MoreHorizontal,
+  Printer,
+  Trash2,
   Hammer,
   Lock,
   Mail,
@@ -24,6 +28,7 @@ import { SEO } from "@/components/SEO";
 import { CrmDeleteLeadDialog } from "@/components/CrmDeleteLeadDialog";
 import { CrmActivityHistory } from "@/components/CrmActivityHistory";
 import { CrmClientSheetDialog } from "@/components/CrmClientSheetDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
 import { deleteCrmLead, fetchCrmLeads, submitCrmWorkflow, type CrmActivityRecord, type CrmWorkflowPayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
@@ -571,7 +576,6 @@ function DashboardShell() {
   const [canDeleteLeads, setCanDeleteLeads] = useState(hasAccess);
   const [activeTab, setActiveTab] = useState<DashboardTab>("clientes");
   const [activeFilter, setActiveFilter] = useState<LeadFilter>("all");
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [sheetLeadId, setSheetLeadId] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -717,7 +721,6 @@ function DashboardShell() {
   function chooseTab(tab: DashboardTab) {
     setActiveTab(tab);
     setActiveFilter("all");
-    setSelectedLeadId(null);
   }
 
   if (!hasAccess) {
@@ -814,8 +817,6 @@ function DashboardShell() {
           onClearFilter={() => setActiveFilter("all")}
           onPipelineFilter={(status) => applyFilter(activeTab === "partners" ? "partners" : "clientes", `stage:${status}`)}
           onSheet={setSheetLeadId}
-          selectedLeadId={selectedLeadId}
-          onSelectedLeadChange={setSelectedLeadId}
         />
       )}
 
@@ -836,8 +837,6 @@ function DashboardShell() {
           onClearFilter={() => setActiveFilter("all")}
           onPipelineFilter={(status) => applyFilter(activeTab === "partners" ? "partners" : "clientes", `stage:${status}`)}
           onSheet={setSheetLeadId}
-          selectedLeadId={selectedLeadId}
-          onSelectedLeadChange={setSelectedLeadId}
         />
       )}
 
@@ -857,7 +856,7 @@ function DashboardShell() {
 function LeadsBoard({
   type, leads, allLeads, actions, funnel, loading, savingId, canDeleteLeads,
   filter, onClearFilter, onPipelineFilter, onSubmit, onDelete, getToken,
-  onSheet, selectedLeadId, onSelectedLeadChange,
+  onSheet,
 }: {
   type: "client" | "partner";
   leads: DashboardLead[];
@@ -874,10 +873,7 @@ function LeadsBoard({
   onDelete: (lead: DashboardLead) => Promise<void>;
   getToken: () => Promise<string | null>;
   onSheet: (leadId: string) => void;
-  selectedLeadId: string | null;
-  onSelectedLeadChange: (leadId: string) => void;
 }) {
-  const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? leads[0] ?? null;
   const emptyText = filter !== "all"
     ? tr("No hay contactos para este filtro.", "Nessun contatto corrisponde a questo filtro.", "No contacts match this filter.", "Geen contacten voor dit filter.")
     : type === "partner"
@@ -941,57 +937,19 @@ function LeadsBoard({
 
       <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
         <PipelineSummary leads={allLeads} funnel={funnel} activeFilter={filter} onSelect={onPipelineFilter} />
-        <div className="rounded-sm border border-border bg-card p-5 text-sm shadow-soft">
-          <div className="font-medium text-foreground">
-            {type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}
-          </div>
+        <details className="group rounded-sm border border-border bg-card p-5 text-sm shadow-soft">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-medium text-foreground">
+            <span>{type === "partner" ? tr("Metodo partner", "Metodo partner", "Partner method") : tr("Metodo cliente", "Metodo cliente", "Client method")}</span>
+            <ChevronDown size={17} className="text-muted-foreground transition group-open:rotate-180" />
+          </summary>
           <p className="mt-2 leading-relaxed text-muted-foreground">
             {type === "partner"
               ? tr("Idoneo come riserva significa: collaboratore secondario, non prima scelta, da usare se il principale non è disponibile.", "Idoneo come riserva significa: collaboratore secondario, non prima scelta, da usare se il principale non è disponibile.", "Suitable as backup means: secondary collaborator, not first choice, used when the main one is not available.")
               : tr("Alta priorità è una flag, non una fase: il cliente resta nello step corretto ma viene evidenziato come urgente/importante.", "Alta priorità è una flag, non una fase: il cliente resta nello step corretto ma viene evidenziato come urgente/importante.", "High priority is a flag, not a stage: the client stays in the correct step but is highlighted as urgent/important.")}
           </p>
-        </div>
+        </details>
 
-        <div className="rounded-sm border border-primary/35 bg-primary/5 p-5 shadow-soft">
-          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <FileText size={18} className="text-primary" />
-            {type === "partner"
-              ? tr("Ficha de colaborador", "Scheda partner", "Partner record", "Partnerdossier")
-              : tr("Ficha de cliente", "Scheda cliente", "Client record", "Klantdossier")}
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {tr(
-              "Ficha Eivitech con datos, estados, notas y actividades, lista para imprimir o guardar como PDF.",
-              "Documento Eivitech con dati, stati, note e attività, stampabile o salvabile in PDF.",
-              "Eivitech record with data, statuses, notes and activities, ready to print or save as PDF.",
-              "Eivitech-document met gegevens, status, notities en activiteiten, afdrukbaar als PDF.",
-            )}
-          </p>
-          {selectedLead && (
-            <div className="mt-4">
-              <label htmlFor={`sheet-customer-${type}`} className="text-xs font-medium text-foreground">
-                {tr("Selecciona contacto", "Seleziona contatto", "Select contact", "Selecteer contact")}
-              </label>
-              <select
-                id={`sheet-customer-${type}`}
-                className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2.5 text-sm"
-                value={selectedLead.id}
-                onChange={(event) => onSelectedLeadChange(event.target.value)}
-              >
-                {leads.map((item) => <option key={item.id} value={item.id}>{item.nombre} · {item.email || item.id.slice(0, 8)}</option>)}
-              </select>
-            </div>
-          )}
-          <button
-            type="button"
-            disabled={!selectedLead}
-            onClick={() => { if (selectedLead) onSheet(selectedLead.id); }}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-          >
-            <FileText size={16} />
-            {tr("Crear / Imprimir ficha PDF", "Crea / Stampa scheda PDF", "Create / Print PDF record", "Dossier maken / PDF afdrukken")}
-          </button>
-        </div>
+
       </aside>
     </div>
   );
@@ -1015,6 +973,7 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
   const [form, setForm] = useState<WorkflowForm>({ channel: "whatsapp", outcome: "", budget: "", nextFollowUp: "", amount: "", visitDate: "", note: "", checked: {} });
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const selectedAction = actions.find((action) => action.key === selectedKey) || actions[0];
 
@@ -1068,33 +1027,60 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
             <span>{formatDate(lead.createdAt)}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
-              <MessageCircle size={14} /> WhatsApp
+        <div className="flex max-w-full flex-wrap items-start justify-end gap-2">
+          <a href={getWhatsAppHref(lead, partner)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white">
+            <MessageCircle size={14} /> WhatsApp
+          </a>
+          {lead.email && (
+            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
+              <Mail size={14} /> Email
             </a>
-            {lead.email && (
-              <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
-                <Mail size={14} /> Email
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={onSheet}
-              className="inline-flex items-center gap-2 rounded-sm border border-primary/35 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/10"
-            >
-              <FileText size={14} />
-              {tr("Ficha PDF", "Scheda PDF", "PDF record", "PDF-dossier")}
-            </button>
-          </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="inline-flex items-center gap-1.5 rounded-sm border border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10">
+                <FileText size={14} />
+                {tr("Ficha de cliente", "Scheda cliente", "Client record", "Klantdossier")}
+                <ChevronDown size={14} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[190px]">
+              <DropdownMenuItem onSelect={onSheet}>
+                <FileText className="mr-2 h-4 w-4" />
+                {tr("Ver ficha", "Visualizza scheda", "View record", "Dossier bekijken")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onSheet}>
+                <Printer className="mr-2 h-4 w-4" />
+                {tr("Imprimir / PDF", "Stampa / Salva PDF", "Print / Save PDF", "Afdrukken / PDF")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canDeleteLeads && lead.email && (
-            <CrmDeleteLeadDialog
-              leadId={lead.id}
-              name={lead.nombre}
-              email={lead.email}
-              busy={saving}
-              onDelete={() => onDelete(lead)}
-            />
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label={tr("Más acciones", "Altre azioni", "More actions", "Meer acties")} className="inline-flex items-center justify-center rounded-sm border border-border p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground">
+                    <MoreHorizontal size={17} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {tr("Eliminar contacto", "Elimina contatto", "Delete contact", "Contact verwijderen")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <CrmDeleteLeadDialog
+                leadId={lead.id}
+                name={lead.nombre}
+                email={lead.email}
+                busy={saving}
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                hideTrigger
+                onDelete={() => onDelete(lead)}
+              />
+            </>
           )}
         </div>
       </div>
