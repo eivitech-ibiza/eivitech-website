@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FileDown, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchCrmLeadDetails, type CrmLeadDetailsResponse } from "@/lib/crm";
+import { collectCrmOperatorNotes, splitCrmActivityNotes } from "@/lib/crmOperationalNotes";
 import { tr } from "@/lib/i18n";
 
 type Props = {
@@ -86,6 +87,7 @@ export function CrmClientSheetDialog({ leadId, onClose, getToken }: Props) {
   }, [leadId, open, getToken]);
 
   const lead = data?.lead;
+  const operatorNotes = collectCrmOperatorNotes(data?.activities ?? []);
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -193,6 +195,33 @@ export function CrmClientSheetDialog({ leadId, onClose, getToken }: Props) {
                 )}
               </section>
 
+              {operatorNotes.length > 0 && (
+                <section className="eivitech-print-section mt-7 border-t border-[#e8e1d9] pt-5">
+                  <h3 className="font-display text-xl">
+                    {tr("Notas y motivos registrados", "Note e motivazioni registrate", "Recorded notes and reasons", "Geregistreerde notities en redenen")}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-[#77716c]">
+                    {tr(
+                      "Observaciones escritas durante las acciones del funnel.",
+                      "Osservazioni inserite durante le operazioni del funnel.",
+                      "Notes entered during CRM workflow actions.",
+                      "Notities toegevoegd bij CRM-acties.",
+                    )}
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {operatorNotes.map((entry) => (
+                      <div key={entry.id} className="eivitech-print-section rounded-sm border-l-4 border-[#ad583a] bg-[#f8f5f0] px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <strong className="text-sm text-[#352b24]">{entry.title}</strong>
+                          <time className="text-xs text-[#77716c]">{dateTime(entry.createdAt)}</time>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-[#2b2926]">{entry.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               <section className="mt-7 border-t border-[#e8e1d9] pt-5">
                 <h3 className="font-display text-xl">
                   {tr("Acciones registradas", "Azioni registrate", "Recorded workflow actions", "Geregistreerde acties")}
@@ -227,18 +256,29 @@ export function CrmClientSheetDialog({ leadId, onClose, getToken }: Props) {
                   <p className="mt-3 text-sm text-[#77716c]">{tr("Ninguna actividad registrada.", "Nessuna attività registrata.", "No recorded activities.", "Geen activiteiten geregistreerd.")}</p>
                 ) : (
                   <div className="mt-4 space-y-4">
-                    {data.activities.map((activity) => (
-                      <div className="eivitech-print-section border-b border-[#eee7df] pb-3" key={activity.id}>
-                        <div className="flex flex-wrap justify-between gap-2">
-                          <strong className="text-sm">{activity.title}</strong>
-                          <time className="text-xs text-[#77716c]">{dateTime(activity.created_at)}</time>
+                    {data.activities.map((activity) => {
+                      const { operatorNote, details } = splitCrmActivityNotes(activity.notes);
+                      return (
+                        <div className="eivitech-print-section border-b border-[#eee7df] pb-3" key={activity.id}>
+                          <div className="flex flex-wrap justify-between gap-2">
+                            <strong className="text-sm">{activity.title}</strong>
+                            <time className="text-xs text-[#77716c]">{dateTime(activity.created_at)}</time>
+                          </div>
+                          {operatorNote && (
+                            <div className="mt-2 border-l-2 border-[#ad583a] bg-[#f8f5f0] px-3 py-2">
+                              <strong className="text-xs font-semibold text-[#ad583a]">
+                                {tr("Nota registrada", "Nota registrata", "Recorded note", "Opgeslagen notitie")}
+                              </strong>
+                              <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{operatorNote}</p>
+                            </div>
+                          )}
+                          {details && <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-[#77716c]">{details}</p>}
+                          {activity.due_at && <p className="mt-1 text-xs text-[#916442]">
+                            {tr("Vencimiento", "Scadenza", "Due", "Vervaldatum")}: {dateTime(activity.due_at)}
+                          </p>}
                         </div>
-                        {activity.notes && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{activity.notes}</p>}
-                        {activity.due_at && <p className="mt-1 text-xs text-[#916442]">
-                          {tr("Vencimiento", "Scadenza", "Due", "Vervaldatum")}: {dateTime(activity.due_at)}
-                        </p>}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
