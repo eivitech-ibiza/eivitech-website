@@ -18,14 +18,18 @@ type Props = {
   email: string;
   busy: boolean;
   onDelete: () => Promise<void>;
+  open?: boolean;
+  onOpenChange?: (nextOpen: boolean) => void;
+  hideTrigger?: boolean;
 };
 
 /**
  * Requiring an exact email confirmation makes accidental deletion of a real
  * customer much harder than a single native confirm() click.
  */
-export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete }: Props) {
-  const [open, setOpen] = useState(false);
+export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete, open: controlledOpen, onOpenChange, hideTrigger = false }: Props) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
   const [typedEmail, setTypedEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +39,8 @@ export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete }: Pro
 
   function changeOpen(nextOpen: boolean) {
     if (submitting) return;
-    setOpen(nextOpen);
+    if (onOpenChange) onOpenChange(nextOpen);
+    else setInternalOpen(nextOpen);
     if (!nextOpen) {
       setTypedEmail("");
       setError(null);
@@ -48,7 +53,8 @@ export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete }: Pro
     setError(null);
     try {
       await onDelete();
-      setOpen(false);
+      if (onOpenChange) onOpenChange(false);
+      else setInternalOpen(false);
       setTypedEmail("");
     } catch (err) {
       setError(err instanceof Error ? err.message : tr(
@@ -64,7 +70,7 @@ export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete }: Pro
 
   return (
     <AlertDialog open={open} onOpenChange={changeOpen}>
-      <AlertDialogTrigger asChild>
+      {!hideTrigger && <AlertDialogTrigger asChild>
         <button
           type="button"
           disabled={disabled || !email}
@@ -74,7 +80,7 @@ export function CrmDeleteLeadDialog({ leadId, name, email, busy, onDelete }: Pro
           <Trash2 size={14} />
           {tr("Eliminar contacto", "Elimina contatto", "Delete contact", "Contact verwijderen")}
         </button>
-      </AlertDialogTrigger>
+      </AlertDialogTrigger>}
 
       <AlertDialogContent>
         <AlertDialogHeader>
