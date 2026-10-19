@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ClerkProvider, SignInButton, SignOutButton, SignedIn, SignedOut, UserButton, useAuth, useUser } from "@clerk/clerk-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -7,6 +7,8 @@ import {
   ClipboardCheck,
   Clock,
   FileText,
+  Check,
+  ChevronRight,
   Hammer,
   Lock,
   Mail,
@@ -20,13 +22,16 @@ import {
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { CrmDeleteLeadDialog } from "@/components/CrmDeleteLeadDialog";
+import { CrmActivityHistory } from "@/components/CrmActivityHistory";
+import { CrmClientSheetDialog } from "@/components/CrmClientSheetDialog";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
-import { deleteCrmLead, fetchCrmLeads, submitCrmWorkflow, type CrmWorkflowPayload } from "@/lib/crm";
+import { deleteCrmLead, fetchCrmLeads, submitCrmWorkflow, type CrmActivityRecord, type CrmWorkflowPayload } from "@/lib/crm";
 import { tr } from "@/lib/i18n";
 
 type LeadStatus = "new" | "first_contact" | "visit_review" | "proposal" | "follow_up" | "won" | "lost" | "review_portfolio";
 type LeadPriority = "alta" | "media" | "baja";
 type DashboardTab = "clientes" | "partners" | "control";
+type LeadFilter = "all" | "qualified" | "high" | "won" | "lost" | "approved" | `stage:${LeadStatus}`;
 type ActivityType = "note" | "call" | "whatsapp" | "email" | "visit" | "proposal" | "follow_up" | "status_change";
 
 type ApiLead = {
@@ -52,6 +57,9 @@ type ApiLead = {
   utm_source?: string | null;
   next_action?: string | null;
   next_follow_up_at?: string | null;
+  qualification_outcome?: string | null;
+  recorded_actions?: string[];
+  last_activity?: Pick<CrmActivityRecord, "id" | "title" | "notes" | "created_at" | "type"> | null;
 };
 
 type DashboardLead = {
@@ -77,6 +85,9 @@ type DashboardLead = {
   utmSource?: string;
   nextAction?: string;
   nextFollowUpAt?: string;
+  qualificationOutcome?: string;
+  recordedActions: string[];
+  lastActivity?: Pick<CrmActivityRecord, "id" | "title" | "notes" | "created_at" | "type"> | null;
 };
 
 type WorkflowField = {
@@ -439,7 +450,29 @@ function mapLead(lead: ApiLead): DashboardLead {
     utmSource: lead.utm_source ?? undefined,
     nextAction: lead.next_action ?? undefined,
     nextFollowUpAt: lead.next_follow_up_at ?? undefined,
+    qualificationOutcome: lead.qualification_outcome ?? undefined,
+    recordedActions: Array.isArray(lead.recorded_actions) ? lead.recorded_actions : [],
+    lastActivity: lead.last_activity ?? null,
   };
+}
+
+function matchesLeadFilter(lead: DashboardLead, filter: LeadFilter) {
+  if (filter === "all") return true;
+  if (filter === "qualified") return lead.qualificationOutcome === "qualified";
+  if (filter === "high") return lead.priority === "alta";
+  if (filter === "won" || filter === "approved") return lead.status === "won";
+  if (filter === "lost") return lead.status === "lost";
+  return filter.startsWith("stage:") && lead.status === filter.slice(6);
+}
+
+function labelForFilter(filter: LeadFilter) {
+  if (filter === "all") return tr("Todos", "Tutti", "All", "Alle");
+  if (filter === "qualified") return tr("Cualificados", "Qualificati", "Qualified", "Gekwalificeerd");
+  if (filter === "high") return tr("Alta prioridad", "Alta priorità", "High priority", "Hoge prioriteit");
+  if (filter === "won") return tr("Concluidos", "Conclusi", "Won", "Afgesloten");
+  if (filter === "lost") return tr("Fallidos", "Falliti", "Lost", "Verloren");
+  if (filter === "approved") return tr("Aprobados", "Approvati", "Approved", "Goedgekeurd");
+  return STATUS_LABELS[filter.slice(6) as LeadStatus] || filter;
 }
 
 function isPartnerLead(lead: DashboardLead) {
@@ -537,6 +570,10 @@ function DashboardShell() {
   const [notice, setNotice] = useState<string | null>(null);
   const [canDeleteLeads, setCanDeleteLeads] = useState(hasAccess);
   const [activeTab, setActiveTab] = useState<DashboardTab>("clientes");
+  const [activeFilter, setActiveFilter] = useState<LeadFilter>("all");
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [sheetLeadId, setSheetLeadId] = useState<string | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   async function loadLeads() {
     setLoading(true);
@@ -603,7 +640,14 @@ function DashboardShell() {
 
       const result = await submitCrmWorkflow(token, lead.id, payload);
       const updated = mapLead(result.lead as ApiLead);
-      setLeads((current) => current.map((item) => (item.id === lead.id ? updated : item)));
+      const activity = result.activity as CrmActivityRecord;
+      setLeads((current) => current.map((item) => (item.id === lead.id
+        ? {
+          ...updated,
+          recordedActions: [...new Set([...item.recordedActions, action.key])],
+          lastActivity: activity,
+        }
+        : item)));
       return true;
     } catch (err) {
       console.error("[dashboard] failed to submit workflow", err);
@@ -624,6 +668,8 @@ function DashboardShell() {
       if (!lead.email) throw new Error("Missing contact email");
       await deleteCrmLead(token, lead.id, lead.email);
       setLeads((current) => current.filter((item) => item.id !== lead.id));
+      setSelectedLeadId((current) => current === lead.id ? null : current);
+      setSheetLeadId((current) => current === lead.id ? null : current);
       setNotice(tr(
         `Contacto ${lead.nombre} eliminado del CRM.`,
         `Contatto ${lead.nombre} eliminato dal CRM.`,
@@ -645,13 +691,34 @@ function DashboardShell() {
 
   const stats = useMemo(() => ({
     clients: clientLeads.length,
-    qualified: clientLeads.filter((lead) => lead.status !== "new" && lead.status !== "lost").length,
+    qualified: clientLeads.filter((lead) => lead.qualificationOutcome === "qualified").length,
     high: clientLeads.filter((lead) => lead.priority === "alta").length,
     won: clientLeads.filter((lead) => lead.status === "won").length,
     lost: clientLeads.filter((lead) => lead.status === "lost").length,
     partners: partnerLeads.length,
     approvedPartners: partnerLeads.filter((lead) => lead.status === "won").length,
   }), [clientLeads, partnerLeads]);
+
+  const filteredClients = useMemo(
+    () => sortedClients.filter((lead) => matchesLeadFilter(lead, activeFilter)),
+    [sortedClients, activeFilter],
+  );
+  const filteredPartners = useMemo(
+    () => sortedPartners.filter((lead) => matchesLeadFilter(lead, activeFilter)),
+    [sortedPartners, activeFilter],
+  );
+
+  function applyFilter(tab: "clientes" | "partners", filter: LeadFilter) {
+    setActiveTab(tab);
+    setActiveFilter(filter);
+    window.requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function chooseTab(tab: DashboardTab) {
+    setActiveTab(tab);
+    setActiveFilter("all");
+    setSelectedLeadId(null);
+  }
 
   if (!hasAccess) {
     return (
