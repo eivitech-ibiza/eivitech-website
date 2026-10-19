@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, ChevronDown, ChevronUp, History } from "lucide-react";
 import { fetchCrmLeadDetails, type CrmActivityRecord } from "@/lib/crm";
+import { splitCrmActivityNotes } from "@/lib/crmOperationalNotes";
 import { tr } from "@/lib/i18n";
 
 type ActivityPreview = Pick<CrmActivityRecord, "title" | "created_at" | "notes" | "type">;
@@ -23,6 +24,7 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
   const [loading, setLoading] = useState(false);
   const [activities, setActivities] = useState<CrmActivityRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const lastSplit = splitCrmActivityNotes(latestActivity?.notes);
 
   useEffect(() => {
     if (!expanded) return;
@@ -85,7 +87,16 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
           <div className="min-w-0">
             <span className="font-medium text-foreground">{latestActivity.title}</span>
             <span className="ml-2 text-xs text-muted-foreground">{dateTime(latestActivity.created_at)}</span>
-            {latestActivity.notes && <p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-xs text-muted-foreground">{latestActivity.notes}</p>}
+            {lastSplit.operatorNote ? (
+              <div className="mt-2 rounded-sm border-l-2 border-primary bg-primary/5 px-3 py-2">
+                <strong className="block text-xs font-semibold text-primary">
+                  {tr("Última nota del cliente", "Ultima nota operativa", "Latest operator note", "Laatste notitie")}
+                </strong>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">{lastSplit.operatorNote}</p>
+              </div>
+            ) : lastSplit.details ? (
+              <p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-xs text-muted-foreground">{lastSplit.details}</p>
+            ) : null}
           </div>
         </div>
       )}
@@ -99,18 +110,29 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
               {tr("Ninguna actividad registrada.", "Nessuna attività registrata.", "No recorded activities.", "Geen activiteiten geregistreerd.")}
             </p>
           )}
-          {!loading && !error && activities.map((entry) => (
-            <div key={entry.id} className="border-l-2 border-primary/50 pl-3">
-              <div className="flex flex-wrap justify-between gap-2">
-                <p className="text-sm font-semibold">{entry.title}</p>
-                <time className="text-xs text-muted-foreground">{dateTime(entry.created_at)}</time>
+          {!loading && !error && activities.map((entry) => {
+            const { operatorNote, details } = splitCrmActivityNotes(entry.notes);
+            return (
+              <div key={entry.id} className="border-l-2 border-primary/50 pl-3">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <p className="text-sm font-semibold">{entry.title}</p>
+                  <time className="text-xs text-muted-foreground">{dateTime(entry.created_at)}</time>
+                </div>
+                {operatorNote && (
+                  <div className="mt-2 rounded-sm bg-primary/5 px-3 py-2">
+                    <strong className="text-xs font-semibold text-primary">
+                      {tr("Nota registrada", "Nota registrata", "Recorded note", "Opgeslagen notitie")}
+                    </strong>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{operatorNote}</p>
+                  </div>
+                )}
+                {details && <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{details}</p>}
+                {entry.due_at && <p className="mt-1 text-xs text-primary">
+                  {tr("Vencimiento", "Scadenza", "Due", "Vervaldatum")}: {dateTime(entry.due_at)}
+                </p>}
               </div>
-              {entry.notes && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">{entry.notes}</p>}
-              {entry.due_at && <p className="mt-1 text-xs text-primary">
-                {tr("Vencimiento", "Scadenza", "Due", "Vervaldatum")}: {dateTime(entry.due_at)}
-              </p>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
