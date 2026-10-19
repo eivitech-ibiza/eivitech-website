@@ -997,7 +997,7 @@ function LeadsBoard({
   );
 }
 
-function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmit, onDelete }: {
+function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmit, onDelete, getToken, onSheet }: {
   type: "client" | "partner";
   lead: DashboardLead;
   actions: WorkflowAction[];
@@ -1006,6 +1006,8 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
   canDeleteLeads: boolean;
   onSubmit: (lead: DashboardLead, action: WorkflowAction, form: WorkflowForm) => Promise<boolean>;
   onDelete: (lead: DashboardLead) => Promise<void>;
+  getToken: () => Promise<string | null>;
+  onSheet: () => void;
 }) {
   const partner = type === "partner";
   const recommendedKey = getRecommendedActionKey(lead, partner);
@@ -1110,31 +1112,56 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
       <div className="mt-5 rounded-sm border-2 border-primary bg-primary/5 p-5 shadow-soft">
         <FunnelStepper current={lead.status} funnel={funnel} />
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[0.75fr_1fr]">
-          <div className="rounded-sm border border-border bg-background p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-primary">{tr("Cosa fare adesso", "Cosa fare adesso", "What to do now")}</div>
-            <h4 className="mt-2 font-display text-2xl text-foreground">{selectedAction.label}</h4>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{selectedAction.objective}</p>
-            <p className="mt-3 rounded-sm bg-accent/60 p-3 text-xs leading-relaxed text-muted-foreground"><span className="font-medium text-foreground">Quando usarlo:</span> {selectedAction.when}</p>
-          </div>
-
-          <div className="rounded-sm border border-border bg-background p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-primary">{partner ? tr("Azioni partner", "Azioni partner", "Partner actions") : tr("Azioni cliente", "Azioni cliente", "Client actions")}</div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {actions.map((action) => (
+        <div className="mt-5 rounded-sm border border-border bg-background p-4 sm:p-5">
+          <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            {partner ? tr("Acciones de colaborador", "Azioni partner", "Partner actions", "Partneracties") : tr("Acciones de cliente", "Azioni cliente", "Client actions", "Klantacties")}
+          </h4>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tr(
+              "Elige una acción. Las ya registradas muestran una marca, y todos los detalles siguen disponibles en el historial.",
+              "Seleziona un'azione. Quelle già registrate sono contrassegnate e i dettagli restano nello storico.",
+              "Choose an action. Completed actions are marked, and the full details remain in the history.",
+              "Kies een actie. Uitgevoerde acties zijn gemarkeerd en de details staan in de geschiedenis.",
+            )}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {actions.map((action) => {
+              const recorded = lead.recordedActions.includes(action.key);
+              return (
                 <button
                   key={`${lead.id}-${action.key}`}
                   type="button"
+                  aria-pressed={selectedKey === action.key}
                   disabled={saving}
                   onClick={() => { setSelectedKey(action.key); setLocalError(null); setSuccess(null); }}
-                  className={`min-h-[72px] rounded-sm border-2 px-3 py-2 text-left text-xs transition disabled:opacity-50 ${selectedKey === action.key ? "border-primary bg-primary/15 text-primary" : "border-border bg-card text-foreground hover:bg-accent"}`}
+                  className={`flex min-h-[104px] flex-col items-start rounded-sm border-2 px-4 py-3.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50 ${selectedKey === action.key ? "border-primary bg-primary/10" : "border-border bg-card hover:border-primary/45 hover:bg-accent/50"}`}
                 >
-                  <span className="block text-sm font-semibold">{action.label}</span>
-                  <span className="mt-1 block opacity-75">{action.when}</span>
+                  <span className="flex w-full flex-wrap items-start justify-between gap-2">
+                    <span className="text-sm font-semibold leading-snug text-foreground">{action.label}</span>
+                    {recorded && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary/15 px-2 py-0.5 text-[11px] font-medium text-secondary">
+                        <Check size={12} />
+                        {tr("Registrado", "Registrato", "Recorded", "Geregistreerd")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-2 text-xs leading-relaxed text-muted-foreground">{action.when}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
+
+        <div className="mt-4 rounded-sm border border-primary/35 bg-primary/5 p-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            {tr("Qué hacer ahora", "Cosa fare adesso", "What to do now", "Wat nu te doen")}
+          </div>
+          <h4 className="mt-2 font-display text-xl text-foreground">{selectedAction.label}</h4>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{selectedAction.objective}</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{tr("Cuándo usarlo", "Quando usarlo", "When to use it", "Wanneer gebruiken")}: </span>
+            {selectedAction.when}
+          </p>
         </div>
 
         <div className="mt-4 rounded-sm border border-border bg-card p-4">
@@ -1195,6 +1222,12 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
           {success && <p className="mt-4 rounded-sm border border-secondary/30 bg-secondary/10 p-3 text-sm text-secondary">{success}</p>}
         </div>
       </div>
+      <CrmActivityHistory
+        leadId={lead.id}
+        latestActivity={lead.lastActivity}
+        updatedAt={lead.updatedAt}
+        getToken={getToken}
+      />
     </article>
   );
 }
@@ -1231,14 +1264,14 @@ function FunnelStepper({ current, funnel }: { current: LeadStatus; funnel: { sta
   return (
     <div>
       <div className="text-xs uppercase tracking-[0.18em] text-primary">{tr("Funnel operativo", "Funnel operativo", "Operational funnel")}</div>
-      <div className="mt-3 grid gap-2 md:grid-cols-4 xl:grid-cols-7">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4">
         {funnel.map((step, index) => {
           const active = step.status === current;
           const done = index < currentIndex;
           return (
             <div key={`${step.status}-${step.label}`} className={`rounded-sm border p-3 ${active ? "border-primary bg-primary/10" : done ? "border-secondary/30 bg-secondary/10" : "border-border bg-background"}`}>
-              <div className="text-xs font-semibold">{index + 1}. {step.label}</div>
-              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{step.job}</p>
+              <div className="text-sm font-semibold leading-snug">{index + 1}. {step.label}</div>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{step.job}</p>
             </div>
           );
         })}
