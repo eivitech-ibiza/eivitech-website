@@ -28,6 +28,7 @@ import { SEO } from "@/components/SEO";
 import { CrmDeleteLeadDialog } from "@/components/CrmDeleteLeadDialog";
 import { CrmActivityHistory } from "@/components/CrmActivityHistory";
 import { CrmClientSheetDialog } from "@/components/CrmClientSheetDialog";
+import { CrmDirectEmailDialog } from "@/components/CrmDirectEmailDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ALLOWED_ADMIN_EMAILS, CLERK_ENABLED, CLERK_PUBLISHABLE_KEY, hasClientAdminAccess } from "@/lib/config";
 import { deleteCrmLead, fetchCrmLeads, submitCrmWorkflow, type CrmActivityRecord, type CrmWorkflowPayload } from "@/lib/crm";
@@ -812,6 +813,7 @@ function DashboardShell() {
           canDeleteLeads={canDeleteLeads}
           onSubmit={submitWorkflow}
           onDelete={removeLead}
+          onEmailSent={() => void loadLeads()}
           getToken={getToken}
           filter={activeFilter}
           onClearFilter={() => setActiveFilter("all")}
@@ -832,6 +834,7 @@ function DashboardShell() {
           canDeleteLeads={canDeleteLeads}
           onSubmit={submitWorkflow}
           onDelete={removeLead}
+          onEmailSent={() => void loadLeads()}
           getToken={getToken}
           filter={activeFilter}
           onClearFilter={() => setActiveFilter("all")}
@@ -855,7 +858,7 @@ function DashboardShell() {
 
 function LeadsBoard({
   type, leads, allLeads, actions, funnel, loading, savingId, canDeleteLeads,
-  filter, onClearFilter, onPipelineFilter, onSubmit, onDelete, getToken,
+  filter, onClearFilter, onPipelineFilter, onSubmit, onDelete, onEmailSent, getToken,
   onSheet,
 }: {
   type: "client" | "partner";
@@ -871,6 +874,7 @@ function LeadsBoard({
   onPipelineFilter: (status: LeadStatus) => void;
   onSubmit: (lead: DashboardLead, action: WorkflowAction, form: WorkflowForm) => Promise<boolean>;
   onDelete: (lead: DashboardLead) => Promise<void>;
+  onEmailSent: () => void;
   getToken: () => Promise<string | null>;
   onSheet: (leadId: string) => void;
 }) {
@@ -928,6 +932,7 @@ function LeadsBoard({
               canDeleteLeads={canDeleteLeads}
               onSubmit={onSubmit}
               onDelete={onDelete}
+              onEmailSent={onEmailSent}
               getToken={getToken}
               onSheet={() => onSheet(lead.id)}
             />
@@ -955,7 +960,7 @@ function LeadsBoard({
   );
 }
 
-function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmit, onDelete, getToken, onSheet }: {
+function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmit, onDelete, onEmailSent, getToken, onSheet }: {
   type: "client" | "partner";
   lead: DashboardLead;
   actions: WorkflowAction[];
@@ -964,6 +969,7 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
   canDeleteLeads: boolean;
   onSubmit: (lead: DashboardLead, action: WorkflowAction, form: WorkflowForm) => Promise<boolean>;
   onDelete: (lead: DashboardLead) => Promise<void>;
+  onEmailSent: () => void;
   getToken: () => Promise<string | null>;
   onSheet: () => void;
 }) {
@@ -974,6 +980,7 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
 
   const selectedAction = actions.find((action) => action.key === selectedKey) || actions[0];
 
@@ -1032,9 +1039,20 @@ function LeadCard({ type, lead, actions, funnel, saving, canDeleteLeads, onSubmi
             <MessageCircle size={14} /> WhatsApp
           </a>
           {lead.email && (
-            <a href={`mailto:${lead.email}?subject=Eivitech Ibiza`} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
-              <Mail size={14} /> Email
-            </a>
+            <>
+              <button type="button" onClick={() => setEmailOpen(true)} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-medium hover:bg-accent">
+                <Mail size={14} /> Email
+              </button>
+              <CrmDirectEmailDialog
+                open={emailOpen}
+                onOpenChange={setEmailOpen}
+                leadId={lead.id}
+                name={lead.nombre}
+                email={lead.email}
+                getToken={getToken}
+                onSent={onEmailSent}
+              />
+            </>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
