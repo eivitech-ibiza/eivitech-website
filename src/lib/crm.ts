@@ -284,10 +284,57 @@ export type CrmDetailedLead = {
   lead_kind?: string | null;
 };
 
+export type CrmDirectEmailRecord = {
+  id: string;
+  recipient_email: string;
+  subject: string;
+  body_text: string;
+  sender: string;
+  reply_to: string;
+  status: string;
+  resend_email_id: string | null;
+  error_message: string | null;
+  created_at: string;
+  accepted_at: string | null;
+  last_event_at: string | null;
+};
+
+export type CrmDirectEmailResponse = {
+  id: string;
+  status: "accepted" | "sending" | "delivered" | "bounced" | "complained"
+    | "suppressed" | "delayed" | "failed" | "unknown";
+  duplicate: boolean;
+  resendEmailId?: string | null;
+};
+
+export async function sendCrmDirectEmail(
+  token: string,
+  leadId: string,
+  body: {
+    request_id: string;
+    expected_email: string;
+    subject: string;
+    body: string;
+    relationship_confirmed: true;
+  },
+): Promise<CrmDirectEmailResponse> {
+  const response = await fetch(`${CRM_ENDPOINT}/api/leads/${encodeURIComponent(leadId)}/direct-email`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => null) as (CrmDirectEmailResponse & { error?: string }) | null;
+  if (!data || (response.status >= 400 && !["failed", "unknown"].includes(data.status))) {
+    throw new Error(data?.error || "Could not send the individual CRM email");
+  }
+  return data;
+}
+
 export type CrmLeadDetailsResponse = {
   lead: CrmDetailedLead;
   activities: CrmActivityRecord[];
   outcomes: CrmOutcomeRecord[];
+  direct_emails: CrmDirectEmailRecord[];
 };
 
 export async function fetchCrmLeadDetails(token: string, leadId: string): Promise<CrmLeadDetailsResponse> {

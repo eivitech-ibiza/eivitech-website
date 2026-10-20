@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, ChevronDown, ChevronUp, History } from "lucide-react";
-import { fetchCrmLeadDetails, type CrmActivityRecord } from "@/lib/crm";
+import { fetchCrmLeadDetails, type CrmActivityRecord, type CrmDirectEmailRecord } from "@/lib/crm";
 import { splitCrmActivityNotes } from "@/lib/crmOperationalNotes";
 import { tr } from "@/lib/i18n";
 
@@ -23,6 +23,7 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activities, setActivities] = useState<CrmActivityRecord[]>([]);
+  const [outbound, setOutbound] = useState<CrmDirectEmailRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const lastSplit = splitCrmActivityNotes(latestActivity?.notes);
 
@@ -36,7 +37,10 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
         const token = await getToken();
         if (!token) throw new Error("Missing Clerk token");
         const details = await fetchCrmLeadDetails(token, leadId);
-        if (!cancelled) setActivities(details.activities);
+        if (!cancelled) {
+          setActivities(details.activities);
+          setOutbound(details.direct_emails ?? []);
+        }
       } catch {
         if (!cancelled) setError(tr(
           "No se pudo cargar el historial del cliente.",
@@ -109,6 +113,21 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
             <p className="text-sm text-muted-foreground">
               {tr("Ninguna actividad registrada.", "Nessuna attività registrata.", "No recorded activities.", "Geen activiteiten geregistreerd.")}
             </p>
+          )}
+          {!loading && !error && outbound.length > 0 && (
+            <section className="space-y-2">
+              <h4 className="text-sm font-semibold">{tr("Correos enviados", "Email inviate", "Sent emails", "Verzonden e-mails")}</h4>
+              {outbound.map((item) => (
+                <article key={item.id} className="rounded-sm border border-border bg-card p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="break-words text-sm">{item.subject}</strong>
+                    <time className="text-xs text-muted-foreground">{dateTime(item.created_at)}</time>
+                  </div>
+                  <p className="mt-1 text-xs text-primary">{tr("Estado", "Stato", "Status", "Status")}: {item.status}</p>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm">{item.body_text}</p>
+                </article>
+              ))}
+            </section>
           )}
           {!loading && !error && activities.map((entry) => {
             const { operatorNote, details } = splitCrmActivityNotes(entry.notes);

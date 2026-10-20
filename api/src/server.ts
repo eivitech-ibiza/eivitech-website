@@ -18,6 +18,7 @@ import { deleteCrmLead } from "./leadDeletion.js";
 import { resubscribeResendMarketingContact } from "./resendContactConsent.js";
 import { requireCrmUser, requireRole } from "./auth.js";
 import { notifyLeadByEmail } from "./email.js";
+import { directEmailSchema, sendCrmDirectEmail } from "./crmDirectEmail.js";
 import { handleResendOwnerWebhook } from "./resendWebhook.js";
 import { marketingRouter } from "./marketing.js";
 import { marketingCampaignDeliveryRouter } from "./marketingCampaignDelivery.js";
@@ -65,6 +66,13 @@ const marketingJsonParser = express.json({ limit: "12mb" });
 
 const publicLeadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+});
+
+const crmDirectEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
   limit: 20,
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -548,7 +556,7 @@ app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
   const lead = await query(`SELECT * FROM crm_leads WHERE id = $1`, [req.params.id]);
   if (lead.rows.length === 0) return res.status(404).json({ error: "Lead not found" });
 
-  const [activities, outcomes] = await Promise.all([
+  const [activities, outcomes, directEmails] = await Promise.all([
     query(
       `SELECT id, lead_id, created_at, created_by, type, title, notes, due_at, completed_at
        FROM crm_activities
@@ -561,11 +569,60 @@ app.get("/api/leads/:id", requireCrmUser, async (req, res) => {
        WHERE lead_id = $1 ORDER BY occurred_at DESC`,
       [req.params.id]
     ),
+    query(
+      `SELECT id, recipient_email, subject, body_text, sender, reply_to,
+              status, resend_email_id, error_message, created_at, accepted_at,
+              last_event_at
+       FROM crm_direct_emails WHERE lead_id = $1 ORDER BY created_at DESC LIMIT 200`,
+      [req.params.id]
+    ),
   ]);
 
-  res.set("Cache-Control", "no-store");
-  res.json({ lead: lead.rows[0], activities: activities.rows, outcomes: outcomes.rows });
+  res.set("Cache-Control", "private, no-store");
+  res.json({ lead: lead.rows[0], activities: activities.rows, outcomes: outcomes.rows, direct_emails: directEmails.rows });
 });
+
+// One-to-one operational correspondence: explicitly confirmed in the CRM,
+// independent of the newsletter contact list / Resend Broadcasts.
+app.post(
+  "/api/leads/:id/direct-email",
+  requireCrmUser,
+  (req, res, next) => {
+    if (!req.crmUser || (
+      !canDeleteCrmLead(req.crmUser)
+      && !["manager", "operator"].includes(req.crmUser.role)
+    )) return res.status(403).json({ error: "Insufficient permissions" });
+    return next();
+  },
+  crmDirectEmailLimiter,
+  async (req, res, next) => {
+    const id = z.string().uuid().safeParse(req.params.id);
+    const input = directEmailSchema.safeParse(req.body);
+    if (!id.success || !input.success) {
+      return res.status(400).json({ error: "Invalid direct email request" });
+    }
+    try {
+      const outcome = await sendCrmDirectEmail(id.data, input.data, req.crmUser!.id);
+      if (outcome.status === "not_configured") {
+        return res.status(503).json({ error: "Eivitech Resend owner sender not configured" });
+      }
+      if (outcome.status === "not_found") return res.status(404).json({ error: "Contact not found" });
+      if (outcome.status === "recipient_changed") {
+        return res.status(409).json({ error: "Contact address changed: refresh the CRM" });
+      }
+      if (outcome.status === "conflict") {
+        return res.status(409).json({ error: "Request ID is already bound to another message" });
+      }
+      const httpStatus = outcome.status === "failed" ? 502
+        : outcome.status === "unknown" ? 202
+          : outcome.status === "accepted" && !outcome.duplicate ? 201 : 200;
+      res.set("Cache-Control", "no-store");
+      return res.status(httpStatus).json(outcome);
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 
 app.delete(
   "/api/leads/:id",
