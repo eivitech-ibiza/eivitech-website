@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, ChevronDown, ChevronUp, History } from "lucide-react";
-import { fetchCrmLeadDetails, type CrmActivityRecord } from "@/lib/crm";
+import { fetchCrmLeadDetails, type CrmActivityRecord, type CrmDirectEmailRecord } from "@/lib/crm";
 import { splitCrmActivityNotes } from "@/lib/crmOperationalNotes";
 import { tr } from "@/lib/i18n";
 
@@ -23,6 +23,7 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activities, setActivities] = useState<CrmActivityRecord[]>([]);
+  const [outbound, setOutbound] = useState<CrmDirectEmailRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const lastSplit = splitCrmActivityNotes(latestActivity?.notes);
 
@@ -36,7 +37,10 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
         const token = await getToken();
         if (!token) throw new Error("Missing Clerk token");
         const details = await fetchCrmLeadDetails(token, leadId);
-        if (!cancelled) setActivities(details.activities);
+        if (!cancelled) {
+          setActivities(details.activities);
+          setOutbound(details.direct_emails ?? []);
+        }
       } catch {
         if (!cancelled) setError(tr(
           "No se pudo cargar el historial del cliente.",
