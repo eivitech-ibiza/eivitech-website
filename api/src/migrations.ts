@@ -326,6 +326,34 @@ ALTER TABLE crm_automation_events
 CREATE INDEX IF NOT EXISTS idx_crm_automation_events_lead_id ON crm_automation_events(lead_id);
 CREATE INDEX IF NOT EXISTS idx_crm_automation_events_status ON crm_automation_events(status);
 
+-- One-to-one CRM correspondence is independent of newsletter contacts and Broadcasts.
+-- The client-generated UUID is the idempotency key; never reuse it for a new message.
+CREATE TABLE IF NOT EXISTS crm_direct_emails (
+  id uuid PRIMARY KEY,
+  lead_id uuid NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+  created_by uuid REFERENCES crm_users(id) ON DELETE SET NULL,
+  recipient_email text NOT NULL,
+  subject text NOT NULL,
+  body_text text NOT NULL,
+  sender text NOT NULL,
+  reply_to text NOT NULL,
+  status text NOT NULL DEFAULT 'sending'
+    CHECK (status IN ('sending', 'accepted', 'delayed', 'delivered',
+                     'bounced', 'failed', 'complained', 'suppressed', 'unknown')),
+  resend_email_id text UNIQUE,
+  error_message text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  accepted_at timestamptz,
+  last_event_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_direct_emails_lead
+  ON crm_direct_emails(lead_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_crm_direct_emails_status
+  ON crm_direct_emails(status, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS crm_email_notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lead_id uuid NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
