@@ -248,6 +248,45 @@ export function CrmClientSheetDialog({ leadId, onClose, getToken }: Props) {
                 )}
               </section>
 
+              <section className="eivitech-print-section mt-7 border-t border-[#e8e1d9] pt-5">
+                <h3 className="font-display text-xl">
+                  {tr("Correos individuales enviados", "Email individuali dal CRM", "Individual CRM emails", "Individuele CRM-e-mails")}
+                </h3>
+                {(data.direct_emails ?? []).length === 0 ? (
+                  <p className="mt-3 text-sm text-[#77716c]">
+                    {tr("Ningún correo individual registrado.", "Nessuna email individuale registrata.", "No individual emails recorded.", "Geen individuele e-mails geregistreerd.")}
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-4">
+                    {(data.direct_emails ?? []).map((message) => (
+                      <article key={message.id} className="eivitech-print-section rounded-sm border border-[#e8e1d9] px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <strong className="break-words text-sm">{message.subject}</strong>
+                          <time className="text-xs text-[#77716c]">{dateTime(message.created_at)}</time>
+                        </div>
+                        <p className="mt-1 break-all text-xs text-[#77716c]">
+                          {tr("A", "A", "To", "Aan")}: {message.recipient_email}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-[#916442]">
+                          {tr("Estado", "Stato", "Status", "Status")}: {{
+                            accepted: "Accettata da Resend (consegna non confermata)",
+                            sending: "Invio in corso / da verificare",
+                            unknown: "Esito da verificare",
+                            delivered: "Consegnata",
+                            delayed: "Consegna in ritardo",
+                            failed: "Non accettata / fallita",
+                            bounced: "Respinta dal destinatario",
+                            complained: "Segnalata come spam",
+                            suppressed: "Bloccata dal provider",
+                          }[message.status] || message.status}
+                        </p>
+                        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed">{message.body_text}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               <section className="mt-7 border-t border-[#e8e1d9] pt-5">
                 <h3 className="font-display text-xl">
                   {tr("Registro completo de actividades", "Registro completo attività", "Full activity log", "Volledig activiteitenlogboek")}
