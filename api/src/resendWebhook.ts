@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { query } from "./db.js";
+import { mapDirectEmailEvent } from "./crmDirectEmail.js";
 
 type ResendWebhookData = {
   id?: string;
@@ -352,6 +353,25 @@ export async function handleResendOwnerWebhook(req: Request, res: Response) {
          WHERE resend_email_id = $5`,
         [status, eventAt, errorMessage, JSON.stringify({ lastResendEvent: eventType, resendEvent: event }), resendEmailId]
       );
+    }
+
+    // Individual CRM emails are independent of marketing contacts and
+    // broadcasts. Use the signed owner webhook to track actual delivery.
+    if (resendEmailId && EVENT_STATUS[eventType]) {
+      const record = await query<{ id: string; status: string }>(
+        `SELECT id, status FROM crm_direct_emails WHERE resend_email_id = $1`,
+        [resendEmailId],
+      );
+      const direct = record.rows[0];
+      const nextStatus = direct && mapDirectEmailEvent(direct.status, eventType);
+      if (direct && nextStatus && nextStatus !== direct.status) {
+        await query(
+          `UPDATE crm_direct_emails
+           SET status = $2, last_event_at = $3::timestamptz, updated_at = now()
+           WHERE id = $1 AND status = $4`,
+          [direct.id, nextStatus, eventAt, direct.status],
+        );
+      }
     }
 
     if (eventType === "contact.updated" && event.data?.unsubscribed === true) {
