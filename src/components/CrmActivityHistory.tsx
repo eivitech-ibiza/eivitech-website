@@ -114,6 +114,21 @@ export function CrmActivityHistory({ leadId, latestActivity, updatedAt, getToken
               {tr("Ninguna actividad registrada.", "Nessuna attività registrata.", "No recorded activities.", "Geen activiteiten geregistreerd.")}
             </p>
           )}
+          {!loading && !error && outbound.length > 0 && (
+            <section className="space-y-2">
+              <h4 className="text-sm font-semibold">{tr("Correos enviados", "Email inviate", "Sent emails", "Verzonden e-mails")}</h4>
+              {outbound.map((item) => (
+                <article key={item.id} className="rounded-sm border border-border bg-card p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="break-words text-sm">{item.subject}</strong>
+                    <time className="text-xs text-muted-foreground">{dateTime(item.created_at)}</time>
+                  </div>
+                  <p className="mt-1 text-xs text-primary">{tr("Estado", "Stato", "Status", "Status")}: {item.status}</p>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm">{item.body_text}</p>
+                </article>
+              ))}
+            </section>
+          )}
           {!loading && !error && activities.map((entry) => {
             const { operatorNote, details } = splitCrmActivityNotes(entry.notes);
             return (
