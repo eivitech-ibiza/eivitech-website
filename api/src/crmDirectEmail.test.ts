@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDirectEmailPayload, renderDirectEmailText, mapDirectEmailEvent } from "./crmDirectEmail.js";
+// The module imports the shared DB pool; tests never connect to production.
+process.env.DATABASE_URL ||= "postgresql://ci_test:ci_test@127.0.0.1:5432/ci_test";
+const { createDirectEmailPayload, renderDirectEmailText, mapDirectEmailEvent } =
+  await import("./crmDirectEmail.js");
 
 test("outbound payload is one recipient with fixed corporate reply-to and stable request id", () => {
   const result = createDirectEmailPayload({
