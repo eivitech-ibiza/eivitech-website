@@ -89,6 +89,7 @@ function EmailMarketingShell() {
   const [languageFilter, setLanguageFilter] = useState<MarketingLanguage | "">("");
   const [contactTypeFilter, setContactTypeFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"" | "A" | "A1" | "A2" | "B" | "C">("");
   const [consentFilter, setConsentFilter] = useState<"" | "true" | "false">("");
   const [membershipFilter, setMembershipFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [contactPage, setContactPage] = useState(0);
@@ -112,7 +113,7 @@ function EmailMarketingShell() {
     try {
       const token = await tokenOrThrow();
       const [contactsData, segmentsData, campaignsData, statsData] = await Promise.all([
-        fetchMarketingContacts(token, { search, status: statusFilter, language: languageFilter, contactType: contactTypeFilter, tag: tagFilter, consent: consentFilter, membership: membershipFilter, limit: 100, offset: page * 100 }),
+        fetchMarketingContacts(token, { search, status: statusFilter, language: languageFilter, contactType: contactTypeFilter, tag: tagFilter, priority: priorityFilter, consent: consentFilter, membership: membershipFilter, limit: 100, offset: page * 100 }),
         fetchMarketingSegments(token),
         fetchMarketingCampaigns(token),
         fetchMarketingStats(token),
@@ -490,6 +491,9 @@ function EmailMarketingShell() {
               <Select label={tr("Idioma", "Lingua", "Language", "Taal")} value={languageFilter} options={[{ value: "", label: tr("Todos", "Tutte", "All", "Alle") }, ...LANGUAGE_OPTIONS]} onChange={(value) => setLanguageFilter(value as MarketingLanguage | "")} />
               <Input label={tr("Sector / tipo", "Settore / tipo", "Sector / type", "Sector / type")} value={contactTypeFilter} onChange={setContactTypeFilter} />
               <Input label={tr("Etiqueta exacta", "Tag esatto", "Exact tag", "Exacte tag")} value={tagFilter} onChange={setTagFilter} />
+              <Select label={tr("Prioridad", "Priorità", "Priority", "Prioriteit")} value={priorityFilter}
+                options={[{ value: "", label: tr("Todas", "Tutte", "All", "Alle") }, { value: "A", label: "A" }, { value: "A1", label: "A1" }, { value: "A2", label: "A2" }, { value: "B", label: "B" }, { value: "C", label: "C" }]}
+                onChange={(value) => setPriorityFilter(value as "" | "A" | "A1" | "A2" | "B" | "C")} />
               <Select label={tr("Consentimiento", "Consenso", "Consent", "Toestemming")} value={consentFilter}
                 options={[{ value: "", label: tr("Todos", "Tutti", "All", "Alle") }, { value: "true", label: tr("Sí", "Sì", "Yes", "Ja") }, { value: "false", label: "No" }]}
                 onChange={(value) => setConsentFilter(value as "" | "true" | "false")} />
