@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { CheckCircle2, Pencil, Plus, Search, UserMinus, UserPlus, XCircle } from "lucide-react";
+import { Archive, ArchiveRestore, CheckCircle2, Pencil, Plus, Search, UserMinus, UserPlus, XCircle } from "lucide-react";
 import {
   createMarketingContact,
-  fetchMarketingContacts,
+  fetchAllMarketingContacts,
+  setMarketingSegmentArchived,
   updateMarketingContact,
   updateMarketingSegment,
   updateMarketingSegmentMembers,
@@ -31,6 +32,7 @@ function contactName(contact: MarketingContact) {
 export function SegmentManager({ segments, onChanged }: Props) {
   const { getToken } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [members, setMembers] = useState<MarketingContact[]>([]);
   const [allContacts, setAllContacts] = useState<MarketingContact[]>([]);
   const [name, setName] = useState("");
@@ -45,6 +47,8 @@ export function SegmentManager({ segments, onChanged }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const selected = segments.find((segment) => segment.id === selectedId) || null;
+  const visibleSegments = segments.filter((segment) => Boolean(segment.archived_at) === showArchived);
+  const archivedCount = segments.filter((segment) => Boolean(segment.archived_at)).length;
   const memberIds = useMemo(() => new Set(members.map((member) => member.id)), [members]);
   const eligibleCount = useMemo(() => members.filter(isEligible).length, [members]);
   const filteredContacts = useMemo(() => {
@@ -71,11 +75,11 @@ export function SegmentManager({ segments, onChanged }: Props) {
     try {
       const token = await tokenOrThrow();
       const [memberData, contactData] = await Promise.all([
-        fetchMarketingContacts(token, { segmentId: segment.id }),
-        fetchMarketingContacts(token),
+        fetchAllMarketingContacts(token, { segmentId: segment.id }),
+        fetchAllMarketingContacts(token),
       ]);
-      setMembers(memberData.contacts);
-      setAllContacts(contactData.contacts);
+      setMembers(memberData);
+      setAllContacts(contactData);
     } catch (err) {
       console.error("[segment-manager] load failed", err);
       setError(tr("No se ha podido cargar el segmento.", "Non è stato possibile caricare il segmento.", "Could not load the segment.", "Het segment kon niet worden geladen."));
@@ -88,11 +92,11 @@ export function SegmentManager({ segments, onChanged }: Props) {
     if (!segmentId) return;
     const token = await tokenOrThrow();
     const [memberData, contactData] = await Promise.all([
-      fetchMarketingContacts(token, { segmentId }),
-      fetchMarketingContacts(token),
+      fetchAllMarketingContacts(token, { segmentId }),
+      fetchAllMarketingContacts(token),
     ]);
-    setMembers(memberData.contacts);
-    setAllContacts(contactData.contacts);
+    setMembers(memberData);
+    setAllContacts(contactData);
     await onChanged();
   }
 
@@ -114,7 +118,7 @@ export function SegmentManager({ segments, onChanged }: Props) {
   }
 
   async function setMembership(contact: MarketingContact, shouldBeMember: boolean) {
-    if (!selectedId) return;
+    if (!selectedId || selected?.archived_at) return;
     setBusy(true);
     setError(null);
     try {
@@ -133,7 +137,7 @@ export function SegmentManager({ segments, onChanged }: Props) {
   }
 
   async function addByEmail() {
-    if (!selectedId) return;
+    if (!selectedId || selected?.archived_at) return;
     const normalizedEmail = quickEmail.trim().toLowerCase();
     if (!normalizedEmail) return;
     setBusy(true);
@@ -197,10 +201,44 @@ export function SegmentManager({ segments, onChanged }: Props) {
     }
   }
 
+  async function toggleArchive() {
+    if (!selected) return;
+    const archived = Boolean(selected.archived_at);
+    const confirmed = window.confirm(archived
+      ? tr("¿Restaurar este segmento?", "Ripristinare questo segmento?", "Restore this segment?", "Dit segment herstellen?")
+      : tr("¿Archivar el segmento? Sus contactos y campañas anteriores se conservarán. Los borradores y campañas activas bloquean el archivo.",
+        "Archiviare il segmento? Contatti e campagne storiche saranno conservati. Bozze e campagne attive bloccano l'archiviazione.",
+        "Archive segment? Contacts and historic campaigns remain. Drafts and active campaigns block archiving.",
+        "Segment archiveren? Contacten en historische campagnes blijven. Concepten en actieve campagnes blokkeren archivering."));
+    if (!confirmed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await setMarketingSegmentArchived(await tokenOrThrow(), selected.id, !archived);
+      setSelectedId(null);
+      setNotice(null);
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("Error.", "Errore.", "Error.", "Fout."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="min-w-0 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-card p-3">
+        <span className="text-sm text-muted-foreground">{tr("Los segmentos archivados no se pueden utilizar en campañas nuevas.",
+          "I segmenti archiviati restano nello storico ma non sono utilizzabili per nuove campagne.",
+          "Archived segments remain in history but cannot be used for new campaigns.",
+          "Gearchiveerde segmenten blijven in de geschiedenis, maar zijn niet bruikbaar voor nieuwe campagnes.")}</span>
+        <button type="button" onClick={() => { setShowArchived((current) => !current); setSelectedId(null); }}
+          className="rounded-sm border border-border px-3 py-2 text-xs text-primary hover:bg-accent">
+          {showArchived ? tr("Ver activos", "Mostra attivi", "Show active", "Toon actief") : tr("Ver archivados", "Mostra archiviati", "Show archived", "Toon archief")} ({archivedCount})
+        </button>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {segments.map((segment) => (
+        {visibleSegments.map((segment) => (
           <button
             key={segment.id}
             type="button"
@@ -213,10 +251,12 @@ export function SegmentManager({ segments, onChanged }: Props) {
             </div>
             <div className="mt-2 min-h-10 text-sm text-muted-foreground">{segment.description || tr("Sin descripción", "Senza descrizione", "No description", "Geen beschrijving")}</div>
             <div className="mt-5 text-3xl font-medium">{segment.member_count || 0}</div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">{tr("Contactos · haz clic para editar", "Contatti · clicca per modificare", "Contacts · click to edit", "Contacten · klik om te bewerken")}</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {tr("Contactos", "Contatti", "Contacts", "Contacten")} · {tr("Aptos", "Idonei", "Eligible", "Geschikt")}: {segment.eligible_count ?? 0}
+            </div>
           </button>
         ))}
-        {segments.length === 0 && (
+        {visibleSegments.length === 0 && (
           <div className="rounded-sm border border-dashed border-border p-8 text-sm text-muted-foreground">
             {tr("Crea el primer segmento.", "Crea il primo segmento.", "Create the first segment.", "Maak het eerste segment.")}
           </div>
@@ -244,6 +284,18 @@ export function SegmentManager({ segments, onChanged }: Props) {
 
           {error && <div className="mt-4 rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
           {notice && <div className="mt-4 rounded-sm border border-secondary/30 bg-secondary/10 p-3 text-sm">{notice}</div>}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border p-3">
+            <span className="text-xs text-muted-foreground">
+              {selected.archived_at
+                ? tr("Archivado: solo lectura.", "Archiviato: sola lettura.", "Archived: read-only.", "Gearchiveerd: alleen-lezen.")
+                : tr("Archivar conserva contactos y campañas antiguas.", "Archiviare conserva contatti e campagne precedenti.", "Archiving preserves contacts and historic campaigns.", "Archiveren bewaart contacten en oude campagnes.")}
+            </span>
+            <button type="button" disabled={busy} onClick={() => void toggleArchive()} className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs hover:bg-accent disabled:opacity-50">
+              {selected.archived_at ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+              {selected.archived_at ? tr("Restaurar", "Ripristina", "Restore", "Herstellen") : tr("Archivar", "Archivia", "Archive", "Archiveren")}
+            </button>
+          </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <div className="space-y-4">
@@ -273,7 +325,7 @@ export function SegmentManager({ segments, onChanged }: Props) {
                   <input type="checkbox" className="mt-1" checked={quickConsent} onChange={(event) => setQuickConsent(event.target.checked)} />
                   <span>{tr("Existe consentimiento marketing explícito y documentado", "Esiste consenso marketing esplicito e documentato", "Explicit documented marketing consent exists", "Er is expliciete gedocumenteerde marketingtoestemming")}</span>
                 </label>
-                <button type="button" disabled={busy || !quickEmail.trim()} onClick={() => void addByEmail()} className="mt-3 inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
+                <button type="button" disabled={busy || Boolean(selected.archived_at) || !quickEmail.trim()} onClick={() => void addByEmail()} className="mt-3 inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
                   <UserPlus size={16} /> {tr("Añadir al segmento", "Aggiungi al segmento", "Add to segment", "Aan segment toevoegen")}
                 </button>
               </div>
@@ -301,7 +353,7 @@ export function SegmentManager({ segments, onChanged }: Props) {
                             : `${contact.status || "pending"} · ${contact.marketing_consent ? "consenso sì" : "consenso no"}`}
                         </div>
                       </div>
-                      <button type="button" disabled={busy} onClick={() => void setMembership(contact, !member)} className={`inline-flex shrink-0 items-center gap-1 rounded-sm border px-3 py-2 text-xs ${member ? "border-destructive/30 text-destructive hover:bg-destructive/10" : "border-primary/30 text-primary hover:bg-primary/10"}`}>
+                      <button type="button" disabled={busy || Boolean(selected.archived_at)} onClick={() => void setMembership(contact, !member)} className={`inline-flex shrink-0 items-center gap-1 rounded-sm border px-3 py-2 text-xs ${member ? "border-destructive/30 text-destructive hover:bg-destructive/10" : "border-primary/30 text-primary hover:bg-primary/10"}`}>
                         {member ? <UserMinus size={14} /> : <UserPlus size={14} />}
                         {member ? tr("Quitar", "Rimuovi", "Remove", "Verwijderen") : tr("Añadir", "Aggiungi", "Add", "Toevoegen")}
                       </button>
