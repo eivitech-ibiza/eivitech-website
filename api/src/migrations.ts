@@ -452,6 +452,9 @@ CREATE TABLE IF NOT EXISTS crm_marketing_segments (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE crm_marketing_segments
+  ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+
 CREATE TABLE IF NOT EXISTS crm_marketing_segment_members (
   segment_id uuid NOT NULL REFERENCES crm_marketing_segments(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES crm_marketing_contacts(id) ON DELETE CASCADE,
