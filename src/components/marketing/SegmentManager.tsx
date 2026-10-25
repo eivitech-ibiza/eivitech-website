@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Archive, ArchiveRestore, CheckCircle2, Pencil, Plus, Search, UserMinus, UserPlus, XCircle } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -33,6 +33,9 @@ function contactName(contact: MarketingContact) {
 
 export function SegmentManager({ segments, onChanged }: Props) {
   const { getToken } = useAuth();
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [view, setView] = useState<"overview" | "edit" | "contacts">("overview");
@@ -105,10 +108,14 @@ export function SegmentManager({ segments, onChanged }: Props) {
 
   function changeView(nextView: "overview" | "edit" | "contacts") {
     if (view === nextView) return;
-    if (hasUnsavedChanges && !window.confirm(tr(
-      "¿Descartar los cambios sin guardar?", "Scartare le modifiche non salvate?",
-      "Discard unsaved changes?", "Niet-opgeslagen wijzigingen negeren?",
-    ))) return;
+    if (hasUnsavedChanges) {
+      if (!window.confirm(tr(
+        "¿Descartar los cambios sin guardar?", "Scartare le modifiche non salvate?",
+        "Discard unsaved changes?", "Niet-opgeslagen wijzigingen negeren?",
+      ))) return;
+      setName(selected?.name || "");
+      setDescription(selected?.description || "");
+    }
     setView(nextView);
     setError(null);
     setNotice(null);
@@ -121,7 +128,7 @@ export function SegmentManager({ segments, onChanged }: Props) {
     setError(null);
     void (async () => {
       try {
-        const token = await getToken();
+        const token = await getTokenRef.current();
         if (!token) throw new Error("Missing Clerk token");
         const [memberData, contactData] = await Promise.all([
           fetchAllMarketingContacts(token, { segmentId: selectedId }),
@@ -142,7 +149,11 @@ export function SegmentManager({ segments, onChanged }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedId, view, getToken]);
+  }, [selectedId, view]);
+
+  useEffect(() => {
+    if (selectedId && view === "edit" && !selected?.archived_at) nameInputRef.current?.focus();
+  }, [selectedId, view, selected?.archived_at]);
 
   async function refreshSelected(segmentId = selectedId) {
     if (!segmentId) return;
@@ -413,7 +424,7 @@ export function SegmentManager({ segments, onChanged }: Props) {
                   )}
                   <label className="mt-4 block text-sm">
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">{tr("Nombre", "Nome", "Name", "Naam")}</span>
-                    <input type="text" maxLength={120} disabled={Boolean(selected.archived_at) || busy}
+                    <input ref={nameInputRef} type="text" maxLength={120} disabled={Boolean(selected.archived_at) || busy}
                       className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2.5 disabled:opacity-50"
                       value={name} onChange={(event) => setName(event.target.value)} />
                   </label>
