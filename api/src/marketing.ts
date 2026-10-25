@@ -813,6 +813,44 @@ message: row.error.issues.map((issue) => issue.message).join("; "),
   }
 }));
 
+// Campaign history is resolved directly by segment ID; the general campaign list is capped at 200.
+marketingRouter.get("/segments/:id/campaigns", asyncRoute(async (req, res) => {
+  const segmentId = z.string().uuid().safeParse(req.params.id);
+  const page = z.object({
+    offset: z.coerce.number().int().min(0).max(100000).default(0),
+  }).safeParse(req.query);
+  if (!segmentId.success || !page.success) {
+    return res.status(400).json({ error: "Invalid segment campaign history query" });
+  }
+
+  const segment = await query("SELECT id FROM crm_marketing_segments WHERE id = $1", [segmentId.data]);
+  if (segment.rows.length === 0) return res.status(404).json({ error: "Segment not found" });
+
+  const [count, history] = await Promise.all([
+    query<{ total: number }>(
+      "SELECT count(*)::int AS total FROM crm_marketing_campaigns WHERE segment_id = $1",
+      [segmentId.data],
+    ),
+    query(
+      `SELECT id, name, status, created_at, sent_at, scheduled_at,
+              recipient_count, delivered_count, opened_count, clicked_count,
+              bounced_count, unsubscribed_count
+         FROM crm_marketing_campaigns
+        WHERE segment_id = $1
+        ORDER BY created_at DESC, id DESC
+        LIMIT 50 OFFSET $2`,
+      [segmentId.data, page.data.offset],
+    ),
+  ]);
+
+  return res.json({
+    campaigns: history.rows,
+    total: count.rows[0]?.total || 0,
+    offset: page.data.offset,
+    limit: 50,
+  });
+}));
+
 marketingRouter.get("/segments/overlaps", asyncRoute(async (_req, res) => {
   const overlaps = await query(
     [
