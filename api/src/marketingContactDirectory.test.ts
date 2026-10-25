@@ -32,6 +32,15 @@ test("contact directory combines consent, tag, priority, sector and membership f
   assert.equal(filters.offset, 100);
 });
 
+test("priority A1 and exact tag filters are safely combined", () => {
+  const built = buildContactDirectoryWhere(contactDirectoryQuerySchema.parse({
+    priority: "A1",
+    tag: "b2b-ibiza",
+  }));
+  assert.deepEqual(built.params, ["b2b-ibiza", "subpriorita:A1"]);
+  assert.match(built.where, /c\.tags \? \$1 AND c\.tags \? \$2/);
+});
+
 test("contact directory does not interpolate user-controlled SQL", () => {
   const tag = "'; DROP TABLE crm_marketing_contacts; --";
   const built = buildContactDirectoryWhere(contactDirectoryQuerySchema.parse({ tag }));
