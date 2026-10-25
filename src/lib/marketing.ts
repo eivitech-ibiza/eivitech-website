@@ -153,6 +153,7 @@ export type MarketingContactFilters = {
   segmentId?: string;
   contactType?: string;
   tag?: string;
+  priority?: "A" | "A1" | "A2" | "B" | "C" | "";
   consent?: "" | "true" | "false";
   membership?: "all" | "assigned" | "unassigned";
   limit?: number;
@@ -167,6 +168,7 @@ export function fetchMarketingContacts(token: string, filters: MarketingContactF
   if (filters.segmentId) params.set("segment_id", filters.segmentId);
   if (filters.contactType) params.set("contact_type", filters.contactType);
   if (filters.tag) params.set("tag", filters.tag);
+  if (filters.priority) params.set("priority", filters.priority);
   if (filters.consent) params.set("consent", filters.consent);
   if (filters.membership && filters.membership !== "all") params.set("membership", filters.membership);
   if (filters.limit !== undefined) params.set("limit", String(filters.limit));
