@@ -26,6 +26,7 @@ import { parseMarketingContactsCsv } from "@/lib/marketingCsv";
 import { CampaignWorkspace } from "@/components/marketing/CampaignWorkspace";
 import { ContactDetailDrawer } from "@/components/marketing/ContactDetailDrawer";
 import { SegmentManager } from "@/components/marketing/SegmentManager";
+import { SegmentOverlapReport } from "@/components/marketing/SegmentOverlapReport";
 import { tr } from "@/lib/i18n";
 
 type WorkspaceTab = "contacts" | "campaigns" | "segments";
@@ -620,6 +621,7 @@ function EmailMarketingShell() {
             </div>
           </form>
           <SegmentManager segments={segments} onChanged={loadWorkspace} />
+          <div className="lg:col-span-2"><SegmentOverlapReport segments={segments} /></div>
         </div>
       )}
 
