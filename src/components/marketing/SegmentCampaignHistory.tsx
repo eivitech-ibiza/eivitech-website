@@ -113,7 +113,12 @@ export function SegmentCampaignHistory({ segmentId }: { segmentId: string }) {
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {!loading && !error && campaigns.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          {tr("Todavía no hay campañas vinculadas.", "Nessuna campagna collegata.", "No linked campaigns yet.", "Nog geen gekoppelde campagnes.")}
+          {tr(
+            "Ninguna campaña se envió directamente a este segmento. Los segmentos derivados de aperturas/clics pueden no tener un vínculo directo con la campaña original.",
+            "Nessuna campagna è stata inviata direttamente a questo segmento. I segmenti derivati da aperture/clic potrebbero non avere un collegamento diretto con la campagna originale.",
+            "No campaigns were sent directly to this segment. Open/click-derived segments may not be directly linked to their original campaign.",
+            "Er zijn geen campagnes rechtstreeks naar dit segment verzonden. Segmenten op basis van opens/klikken zijn mogelijk niet direct gekoppeld aan de oorspronkelijke campagne.",
+          )}
         </p>
       )}
       {!loading && campaigns.length > 0 && (
