@@ -907,6 +907,10 @@ marketingRouter.patch("/segments/:id", asyncRoute(async (req, res) => {
   const current = await query(`SELECT * FROM crm_marketing_segments WHERE id = $1`, [req.params.id]);
   if (current.rows.length === 0) return res.status(404).json({ error: "Segment not found" });
   const existing = current.rows[0] as Record<string, unknown>;
+  if (existing.archived_at) return res.status(409).json({
+    code: "SEGMENT_ARCHIVED",
+    error: "Restore this segment before editing its metadata",
+  });
   const result = await query(
     `UPDATE crm_marketing_segments
      SET name = $1, description = $2, filters = $3::jsonb, updated_at = now()
