@@ -9,6 +9,7 @@ export const contactDirectoryQuerySchema = z.object({
   language: language.optional(),
   contact_type: z.string().trim().max(80).optional(),
   tag: z.string().trim().max(80).optional(),
+  priority: z.enum(["A", "A1", "A2", "B", "C"]).optional(),
   consent: z.enum(["true", "false"]).optional(),
   membership: z.enum(["all", "assigned", "unassigned"]).default("all"),
   segment_id: z.string().uuid().optional(),
@@ -33,6 +34,7 @@ export function buildContactDirectoryWhere(filters: ContactDirectoryQuery) {
   if (filters.language) conditions.push("c.language = " + param(filters.language));
   if (filters.contact_type) conditions.push("c.contact_type ILIKE " + param("%" + filters.contact_type + "%"));
   if (filters.tag) conditions.push("c.tags ? " + param(filters.tag));
+  if (filters.priority) conditions.push("c.tags ? " + param(filters.priority === "A1" || filters.priority === "A2" ? "subpriorita:" + filters.priority : "priorita:" + filters.priority));
   if (filters.consent) conditions.push("c.marketing_consent = " + param(filters.consent === "true"));
   if (filters.segment_id) {
     conditions.push("EXISTS (SELECT 1 FROM crm_marketing_segment_members m WHERE m.contact_id = c.id AND m.segment_id = " + param(filters.segment_id) + ")");
