@@ -46,6 +46,8 @@ export type MarketingSegment = {
   description?: string | null;
   filters?: Record<string, unknown>;
   member_count: number;
+  eligible_count?: number;
+  archived_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -144,17 +146,48 @@ export function fetchMarketingStats(token: string) {
   return marketingRequest<MarketingStats>("/stats", { token });
 }
 
-export function fetchMarketingContacts(
-  token: string,
-  filters: { search?: string; status?: MarketingContactStatus | ""; language?: MarketingLanguage | ""; segmentId?: string } = {}
-) {
+export type MarketingContactFilters = {
+  search?: string;
+  status?: MarketingContactStatus | "";
+  language?: MarketingLanguage | "";
+  segmentId?: string;
+  contactType?: string;
+  tag?: string;
+  priority?: "A" | "A1" | "A2" | "B" | "C" | "";
+  consent?: "" | "true" | "false";
+  membership?: "all" | "assigned" | "unassigned";
+  limit?: number;
+  offset?: number;
+};
+
+export function fetchMarketingContacts(token: string, filters: MarketingContactFilters = {}) {
   const params = new URLSearchParams();
   if (filters.search) params.set("search", filters.search);
   if (filters.status) params.set("status", filters.status);
   if (filters.language) params.set("language", filters.language);
   if (filters.segmentId) params.set("segment_id", filters.segmentId);
+  if (filters.contactType) params.set("contact_type", filters.contactType);
+  if (filters.tag) params.set("tag", filters.tag);
+  if (filters.priority) params.set("priority", filters.priority);
+  if (filters.consent) params.set("consent", filters.consent);
+  if (filters.membership && filters.membership !== "all") params.set("membership", filters.membership);
+  if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.offset !== undefined) params.set("offset", String(filters.offset));
   const query = params.toString();
-  return marketingRequest<{ contacts: MarketingContact[]; total: number }>(`/contacts${query ? `?${query}` : ""}`, { token });
+  return marketingRequest<{ contacts: MarketingContact[]; total: number; limit: number; offset: number }>(
+    "/contacts" + (query ? "?" + query : ""), { token },
+  );
+}
+
+// Segment member editors must not silently drop records beyond the first page.
+export async function fetchAllMarketingContacts(token: string, filters: MarketingContactFilters = {}) {
+  const contacts: MarketingContact[] = [];
+  for (let offset = 0; offset < 100000; offset += 500) {
+    const page = await fetchMarketingContacts(token, { ...filters, limit: 500, offset });
+    contacts.push(...page.contacts);
+    if (contacts.length >= page.total || page.contacts.length === 0) break;
+  }
+  return contacts;
 }
 
 export function createMarketingContact(token: string, payload: MarketingContactInput) {
@@ -200,6 +233,24 @@ export function importMarketingContacts(
 
 export function fetchMarketingSegments(token: string) {
   return marketingRequest<{ segments: MarketingSegment[] }>("/segments", { token });
+}
+
+export type MarketingSegmentOverlap = {
+  left_id: string;
+  right_id: string;
+  common_count: number;
+  eligible_common_count: number;
+};
+
+export function fetchMarketingSegmentOverlaps(token: string) {
+  return marketingRequest<{ overlaps: MarketingSegmentOverlap[] }>("/segments/overlaps", { token });
+}
+
+export function setMarketingSegmentArchived(token: string, segmentId: string, archived: boolean) {
+  return marketingRequest<{ segment: MarketingSegment }>(
+    "/segments/" + segmentId + "/archive",
+    { method: "PATCH", token, body: { archived } },
+  );
 }
 
 export function createMarketingSegment(token: string, payload: { name: string; description?: string }) {

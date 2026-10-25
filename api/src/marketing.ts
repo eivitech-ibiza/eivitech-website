@@ -4,6 +4,7 @@ import { Router } from "express";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { pool, query } from "./db.js";
+import { buildContactDirectoryWhere, contactDirectoryQuerySchema } from "./marketingContactDirectory.js";
 import {
   ResendMarketingError,
   createOrUpdateResendBroadcast,
@@ -85,7 +86,7 @@ const importSchema = z.object({
 const segmentSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: optionalText(500),
-  filters: z.record(z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
 });
 
 const segmentMembersSchema = z.object({
@@ -104,7 +105,7 @@ const campaignSchema = z.object({
   status: campaignStatusSchema.optional(),
   segment_id: z.string().uuid().optional().nullable(),
   topic: optionalText(160),
-  editor_json: z.record(z.unknown()).optional(),
+  editor_json: z.record(z.string(), z.unknown()).optional(),
   html: z.string().max(500_000).optional(),
   scheduled_at: z.string().datetime().optional().nullable(),
 });
@@ -477,6 +478,8 @@ async function syncSegmentToResend(segmentId: string, campaignId: string) {
     [segmentId],
   );
   if (segmentResult.rows.length === 0) throw new MarketingOperationError(404, "Segment not found");
+  const archivedResult = await query("SELECT archived_at FROM crm_marketing_segments WHERE id = $1", [segmentId]);
+  if (archivedResult.rows[0]?.archived_at) throw new MarketingOperationError(409, "Archived segment cannot be prepared for sending");
 
   const resendSegmentId = await allocateResendSegmentPool(campaignId);
 
@@ -555,63 +558,40 @@ marketingRouter.get("/stats", asyncRoute(async (_req, res) => {
        count(*) FILTER (WHERE status = 'sent')::int AS sent
      FROM crm_marketing_campaigns`
   );
-  const segments = await query(`SELECT count(*)::int AS total FROM crm_marketing_segments`);
+  const segments = await query("SELECT count(*) FILTER (WHERE archived_at IS NULL)::int AS total FROM crm_marketing_segments");
 
   res.json({ contacts: contacts.rows[0], campaigns: campaigns.rows[0], segments: segments.rows[0] });
 }));
 
 marketingRouter.get("/contacts", asyncRoute(async (req, res) => {
-  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
-  const status = contactStatusSchema.safeParse(req.query.status);
-  const language = languageSchema.safeParse(req.query.language);
-  const segmentId = typeof req.query.segment_id === "string" && z.string().uuid().safeParse(req.query.segment_id).success
-    ? req.query.segment_id
-    : null;
-  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
-  const offset = Math.max(Number(req.query.offset) || 0, 0);
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  const parsed = contactDirectoryQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid directory filters", details: parsed.error.flatten() });
 
-  if (search) {
-    params.push(`%${search}%`);
-    conditions.push(`concat_ws(' ', c.email, c.first_name, c.last_name, c.phone, c.contact_type) ILIKE $${params.length}`);
-  }
-  if (status.success) {
-    params.push(status.data);
-    conditions.push(`c.status = $${params.length}`);
-  }
-  if (language.success) {
-    params.push(language.data);
-    conditions.push(`c.language = $${params.length}`);
-  }
-  if (segmentId) {
-    params.push(segmentId);
-    conditions.push(`EXISTS (
-      SELECT 1 FROM crm_marketing_segment_members sm
-      WHERE sm.contact_id = c.id AND sm.segment_id = $${params.length}
-    )`);
-  }
-
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const countResult = await query(`SELECT count(*)::int AS total FROM crm_marketing_contacts c ${where}`, params);
-  params.push(limit, offset);
-  const contacts = await query(
-    `SELECT c.*,
-       COALESCE(
-         jsonb_agg(jsonb_build_object('id', s.id, 'name', s.name)) FILTER (WHERE s.id IS NOT NULL),
-         '[]'::jsonb
-       ) AS segments
-     FROM crm_marketing_contacts c
-     LEFT JOIN crm_marketing_segment_members sm ON sm.contact_id = c.id
-     LEFT JOIN crm_marketing_segments s ON s.id = sm.segment_id
-     ${where}
-     GROUP BY c.id
-     ORDER BY c.created_at DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params
+  const { where, params } = buildContactDirectoryWhere(parsed.data);
+  const countResult = await query(
+    "SELECT count(*)::int AS total FROM crm_marketing_contacts c " + where,
+    params,
   );
-
-  res.json({ contacts: contacts.rows, total: countResult.rows[0]?.total || 0, limit, offset });
+  const limitPosition = params.length + 1;
+  const offsetPosition = params.length + 2;
+  const sql = [
+    "SELECT c.*,",
+    " COALESCE(jsonb_agg(jsonb_build_object('id', s.id, 'name', s.name)) FILTER (WHERE s.id IS NOT NULL), '[]'::jsonb) AS segments",
+    "FROM crm_marketing_contacts c",
+    "LEFT JOIN crm_marketing_segment_members sm ON sm.contact_id = c.id",
+    "LEFT JOIN crm_marketing_segments s ON s.id = sm.segment_id",
+    where,
+    "GROUP BY c.id",
+    "ORDER BY c.created_at DESC, c.id DESC",
+    "LIMIT $" + limitPosition + " OFFSET $" + offsetPosition,
+  ].join("\n");
+  const contacts = await query(sql, [...params, parsed.data.limit, parsed.data.offset]);
+  res.json({
+    contacts: contacts.rows,
+    total: countResult.rows[0]?.total || 0,
+    limit: parsed.data.limit,
+    offset: parsed.data.offset,
+  });
 }));
 
 marketingRouter.post("/contacts", asyncRoute(async (req, res) => {
@@ -833,13 +813,38 @@ message: row.error.issues.map((issue) => issue.message).join("; "),
   }
 }));
 
+marketingRouter.get("/segments/overlaps", asyncRoute(async (_req, res) => {
+  const overlaps = await query(
+    [
+      "SELECT a.segment_id AS left_id, b.segment_id AS right_id,",
+      " count(*)::int AS common_count,",
+      " count(*) FILTER (WHERE c.status = 'subscribed' AND c.marketing_consent = true",
+      "  AND c.unsubscribed_at IS NULL AND c.suppressed_at IS NULL)::int AS eligible_common_count",
+      "FROM crm_marketing_segment_members a",
+      "JOIN crm_marketing_segment_members b ON b.contact_id = a.contact_id AND a.segment_id < b.segment_id",
+      "JOIN crm_marketing_segments left_s ON left_s.id = a.segment_id AND left_s.archived_at IS NULL",
+      "JOIN crm_marketing_segments right_s ON right_s.id = b.segment_id AND right_s.archived_at IS NULL",
+      "JOIN crm_marketing_contacts c ON c.id = a.contact_id",
+      "GROUP BY a.segment_id, b.segment_id",
+      "ORDER BY common_count DESC, a.segment_id, b.segment_id",
+      "LIMIT 1000",
+    ].join("\n"),
+  );
+  res.json({ overlaps: overlaps.rows });
+}));
+
 marketingRouter.get("/segments", asyncRoute(async (_req, res) => {
   const result = await query(
-    `SELECT s.*, count(sm.contact_id)::int AS member_count
-     FROM crm_marketing_segments s
-     LEFT JOIN crm_marketing_segment_members sm ON sm.segment_id = s.id
-     GROUP BY s.id
-     ORDER BY s.name ASC`
+    [
+      "SELECT s.*, count(sm.contact_id)::int AS member_count,",
+      " count(c.id) FILTER (WHERE c.status = 'subscribed' AND c.marketing_consent = true",
+      "  AND c.unsubscribed_at IS NULL AND c.suppressed_at IS NULL)::int AS eligible_count",
+      "FROM crm_marketing_segments s",
+      "LEFT JOIN crm_marketing_segment_members sm ON sm.segment_id = s.id",
+      "LEFT JOIN crm_marketing_contacts c ON c.id = sm.contact_id",
+      "GROUP BY s.id",
+      "ORDER BY (s.archived_at IS NOT NULL), s.name ASC",
+    ].join("\n"),
   );
   res.json({ segments: result.rows });
 }));
@@ -879,9 +884,58 @@ marketingRouter.patch("/segments/:id", asyncRoute(async (req, res) => {
   return res.json({ segment: result.rows[0] });
 }));
 
+marketingRouter.patch("/segments/:id/archive", asyncRoute(async (req, res) => {
+  const parsed = z.object({ archived: z.boolean() }).safeParse(req.body);
+  if (!parsed.success || !z.string().uuid().safeParse(req.params.id).success) {
+    return res.status(400).json({ error: "Invalid archive request" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const current = await client.query(
+      "SELECT id, archived_at FROM crm_marketing_segments WHERE id = $1 FOR UPDATE",
+      [req.params.id],
+    );
+    if (!current.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Segment not found" });
+    }
+    if (parsed.data.archived && !current.rows[0].archived_at) {
+      const inUse = await client.query(
+        "SELECT count(*)::int AS total FROM crm_marketing_campaigns WHERE segment_id = $1 AND status IN ('draft', 'scheduled', 'sending', 'paused')",
+        [req.params.id],
+      );
+      if (inUse.rows[0]?.total > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: "This segment is still used by draft or active campaigns. Reassign or complete them before archiving.",
+          code: "SEGMENT_HAS_ACTIVE_CAMPAIGNS",
+        });
+      }
+    }
+
+    const changed = await client.query(
+      "UPDATE crm_marketing_segments SET archived_at = CASE WHEN $2::boolean THEN COALESCE(archived_at, now()) ELSE NULL END, updated_at = now() WHERE id = $1 RETURNING *",
+      [req.params.id, parsed.data.archived],
+    );
+    await client.query("COMMIT");
+    return res.json({ segment: changed.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
 marketingRouter.post("/segments/:id/members", asyncRoute(async (req, res) => {
   const parsed = segmentMembersSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid segment membership update", details: parsed.error.flatten() });
+
+  const segment = await query("SELECT archived_at FROM crm_marketing_segments WHERE id = $1", [req.params.id]);
+  if (!segment.rows.length) return res.status(404).json({ error: "Segment not found" });
+  if (segment.rows[0].archived_at) return res.status(409).json({ error: "Archived segments are read-only", code: "SEGMENT_ARCHIVED" });
 
   const client = await pool.connect();
   try {
@@ -932,6 +986,11 @@ marketingRouter.post("/campaigns", asyncRoute(async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Invalid campaign", details: parsed.error.flatten() });
 
   const data = parsed.data;
+  if (data.segment_id) {
+    const audience = await query("SELECT archived_at FROM crm_marketing_segments WHERE id = $1", [data.segment_id]);
+    if (!audience.rows.length) return res.status(404).json({ error: "Segment not found" });
+    if (audience.rows[0].archived_at) return res.status(409).json({ error: "Archived segments cannot be used for new campaigns", code: "SEGMENT_ARCHIVED" });
+  }
   const result = await query(
     `INSERT INTO crm_marketing_campaigns (
        name, subject, preview_text, from_name, from_email, reply_to, language,
@@ -973,6 +1032,12 @@ marketingRouter.patch("/campaigns/:id", asyncRoute(async (req, res) => {
   }
   if (data.status && data.status !== "draft") {
     return res.status(400).json({ error: "Campaign status cannot be changed from the editor" });
+  }
+  const targetSegmentId = data.segment_id === undefined ? existing.segment_id : data.segment_id;
+  if (targetSegmentId) {
+    const audience = await query("SELECT archived_at FROM crm_marketing_segments WHERE id = $1", [targetSegmentId]);
+    if (!audience.rows.length) return res.status(404).json({ error: "Segment not found" });
+    if (audience.rows[0].archived_at) return res.status(409).json({ error: "Archived segments cannot be used for campaign edits", code: "SEGMENT_ARCHIVED" });
   }
   const result = await query(
     `UPDATE crm_marketing_campaigns SET

@@ -26,6 +26,7 @@ import { parseMarketingContactsCsv } from "@/lib/marketingCsv";
 import { CampaignWorkspace } from "@/components/marketing/CampaignWorkspace";
 import { ContactDetailDrawer } from "@/components/marketing/ContactDetailDrawer";
 import { SegmentManager } from "@/components/marketing/SegmentManager";
+import { SegmentOverlapReport } from "@/components/marketing/SegmentOverlapReport";
 import { tr } from "@/lib/i18n";
 
 type WorkspaceTab = "contacts" | "campaigns" | "segments";
@@ -85,6 +86,17 @@ function EmailMarketingShell() {
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MarketingContactStatus | "">("");
+  const [languageFilter, setLanguageFilter] = useState<MarketingLanguage | "">("");
+  const [contactTypeFilter, setContactTypeFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"" | "A" | "A1" | "A2" | "B" | "C">("");
+  const [consentFilter, setConsentFilter] = useState<"" | "true" | "false">("");
+  const [membershipFilter, setMembershipFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [contactPage, setContactPage] = useState(0);
+  const [contactTotal, setContactTotal] = useState(0);
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+  const [bulkTargetSegment, setBulkTargetSegment] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [contactForm, setContactForm] = useState<MarketingContactInput>(EMPTY_CONTACT);
   const [segmentForm, setSegmentForm] = useState({ name: "", description: "" });
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -95,18 +107,19 @@ function EmailMarketingShell() {
     return token;
   }
 
-  async function loadWorkspace() {
+  async function loadWorkspace(page = contactPage) {
     setLoading(true);
     setError(null);
     try {
       const token = await tokenOrThrow();
       const [contactsData, segmentsData, campaignsData, statsData] = await Promise.all([
-        fetchMarketingContacts(token, { search, status: statusFilter }),
+        fetchMarketingContacts(token, { search, status: statusFilter, language: languageFilter, contactType: contactTypeFilter, tag: tagFilter, priority: priorityFilter, consent: consentFilter, membership: membershipFilter, limit: 100, offset: page * 100 }),
         fetchMarketingSegments(token),
         fetchMarketingCampaigns(token),
         fetchMarketingStats(token),
       ]);
       setContacts(contactsData.contacts);
+      setContactTotal(contactsData.total);
       setSegments(segmentsData.segments);
       setCampaigns(campaignsData.campaigns);
       setStats(statsData);
@@ -132,6 +145,47 @@ function EmailMarketingShell() {
     () => contacts.find((contact) => contact.id === selectedContactId) || null,
     [contacts, selectedContactId],
   );
+
+  const activeSegments = useMemo(() => segments.filter((segment) => !segment.archived_at), [segments]);
+
+  async function applyContactFilters() {
+    setSelectedContactIds([]);
+    setContactPage(0);
+    await loadWorkspace(0);
+  }
+
+  async function changeContactPage(nextPage: number) {
+    setContactPage(nextPage);
+    setSelectedContactIds([]);
+    await loadWorkspace(nextPage);
+  }
+
+  async function assignSelectedContacts() {
+    if (!selectedContactIds.length || !bulkTargetSegment || bulkSaving) return;
+    const target = activeSegments.find((segment) => segment.id === bulkTargetSegment);
+    if (!target) return;
+    const confirmed = window.confirm(tr(
+      "¿Añadir " + selectedContactIds.length + " contactos a «" + target.name + "»? Su estado y consentimiento no cambiarán.",
+      "Aggiungere " + selectedContactIds.length + " contatti a «" + target.name + "»? Stato e consenso non cambieranno.",
+      "Add " + selectedContactIds.length + " contacts to “" + target.name + "”? Status and consent will not change.",
+      selectedContactIds.length + " contacten toevoegen aan ‘" + target.name + "’? Status en toestemming blijven gelijk.",
+    ));
+    if (!confirmed) return;
+    setBulkSaving(true);
+    setError(null);
+    try {
+      const token = await tokenOrThrow();
+      await updateMarketingSegmentMembers(token, target.id, { add: selectedContactIds });
+      setSelectedContactIds([]);
+      await loadWorkspace();
+      setNotice(tr("Asignación masiva completada; consentimiento sin cambios.", "Assegnazione massiva completata; consensi invariati.", "Bulk assignment complete; consent unchanged.", "Bulktoewijzing voltooid; toestemming ongewijzigd."));
+    } catch (err) {
+      console.error("[email-marketing] bulk assignment failed", err);
+      setError(err instanceof Error ? err.message : tr("Error de asignación.", "Errore di assegnazione.", "Assignment failed.", "Toewijzing mislukt."));
+    } finally {
+      setBulkSaving(false);
+    }
+  }
 
   async function saveContact(event: FormEvent) {
     event.preventDefault();
@@ -431,16 +485,59 @@ function EmailMarketingShell() {
           </form>
 
           <div className="min-w-0 rounded-sm border border-border bg-card p-5 shadow-soft">
-            <div className="flex flex-wrap items-end gap-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <Input label={tr("Buscar", "Cerca", "Search", "Zoeken")} value={search} onChange={setSearch} />
               <Select label={tr("Estado", "Stato", "Status", "Status")} value={statusFilter} options={[{ value: "", label: tr("Todos", "Tutti", "All", "Alle") }, ...STATUS_OPTIONS]} onChange={(value) => setStatusFilter(value as MarketingContactStatus | "")} />
-              <button onClick={() => void loadWorkspace()} className="rounded-sm border border-border px-4 py-2.5 text-sm hover:bg-accent">{tr("Aplicar filtros", "Applica filtri", "Apply filters", "Filters toepassen")}</button>
+              <Select label={tr("Idioma", "Lingua", "Language", "Taal")} value={languageFilter} options={[{ value: "", label: tr("Todos", "Tutte", "All", "Alle") }, ...LANGUAGE_OPTIONS]} onChange={(value) => setLanguageFilter(value as MarketingLanguage | "")} />
+              <Input label={tr("Sector / tipo", "Settore / tipo", "Sector / type", "Sector / type")} value={contactTypeFilter} onChange={setContactTypeFilter} />
+              <Input label={tr("Etiqueta exacta", "Tag esatto", "Exact tag", "Exacte tag")} value={tagFilter} onChange={setTagFilter} />
+              <Select label={tr("Prioridad", "Priorità", "Priority", "Prioriteit")} value={priorityFilter}
+                options={[{ value: "", label: tr("Todas", "Tutte", "All", "Alle") }, { value: "A", label: "A" }, { value: "A1", label: "A1" }, { value: "A2", label: "A2" }, { value: "B", label: "B" }, { value: "C", label: "C" }]}
+                onChange={(value) => setPriorityFilter(value as "" | "A" | "A1" | "A2" | "B" | "C")} />
+              <Select label={tr("Consentimiento", "Consenso", "Consent", "Toestemming")} value={consentFilter}
+                options={[{ value: "", label: tr("Todos", "Tutti", "All", "Alle") }, { value: "true", label: tr("Sí", "Sì", "Yes", "Ja") }, { value: "false", label: "No" }]}
+                onChange={(value) => setConsentFilter(value as "" | "true" | "false")} />
+              <Select label={tr("Segmentación", "Segmentazione", "Membership", "Lidmaatschap")} value={membershipFilter}
+                options={[{ value: "all", label: tr("Todos", "Tutti", "All", "Alle") }, { value: "assigned", label: tr("Asignados", "Assegnati", "Assigned", "Toegewezen") }, { value: "unassigned", label: tr("Sin segmento", "Senza segmento", "Unassigned", "Niet toegewezen") }]}
+                onChange={(value) => setMembershipFilter(value as "all" | "assigned" | "unassigned")} />
+              <button type="button" onClick={() => void applyContactFilters()} disabled={loading}
+                className="self-end rounded-sm border border-border px-4 py-2.5 text-sm hover:bg-accent disabled:opacity-50">{tr("Aplicar filtros", "Applica filtri", "Apply filters", "Filters toepassen")}</button>
+            </div>
+
+            <div className="mt-5 rounded-sm border border-primary/20 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium">{tr("Seleccionados", "Selezionati", "Selected", "Geselecteerd")}: {selectedContactIds.length}</span>
+                <select aria-label={tr("Segmento de destino", "Segmento di destinazione", "Target segment", "Doelsegment")}
+                  value={bulkTargetSegment} onChange={(event) => setBulkTargetSegment(event.target.value)}
+                  className="min-w-0 flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm">
+                  <option value="">{tr("Elegir segmento...", "Scegli segmento...", "Choose segment...", "Kies segment...")}</option>
+                  {activeSegments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name}</option>)}
+                </select>
+                <button type="button" onClick={() => void assignSelectedContacts()}
+                  disabled={!selectedContactIds.length || !bulkTargetSegment || bulkSaving}
+                  className="rounded-sm bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">
+                  {tr("Añadir seleccionados", "Assegna selezionati", "Assign selected", "Selectie toewijzen")}
+                </button>
+                <button type="button" onClick={() => setSelectedContactIds([])} disabled={!selectedContactIds.length}
+                  className="rounded-sm border border-border px-3 py-2 text-xs disabled:opacity-50">{tr("Limpiar", "Annulla selezione", "Clear", "Wissen")}</button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {tr("Se seleccionan solamente los contactos de la página visible (100 máximo). La asignación no autoriza envíos.",
+                  "La selezione riguarda solo la pagina visibile (massimo 100). Assegnare non autorizza l'invio di email.",
+                  "Selection covers this page only (up to 100). Assignment never grants email permission.",
+                  "Selectie geldt alleen voor deze pagina (maximaal 100). Toewijzing geeft geen verzendrechten.")}
+              </p>
             </div>
 
             <div className="mt-5 overflow-x-auto">
               <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
+                    <th className="px-3 py-3">
+                      <input type="checkbox" aria-label={tr("Seleccionar página", "Seleziona pagina", "Select page", "Selecteer pagina")}
+                        checked={filteredContacts.length > 0 && filteredContacts.every((contact) => selectedContactIds.includes(contact.id))}
+                        onChange={(event) => setSelectedContactIds(event.target.checked ? filteredContacts.map((contact) => contact.id) : [])} />
+                    </th>
                     <th className="px-3 py-3">{tr("Contacto", "Contatto", "Contact", "Contact")}</th>
                     <th className="px-3 py-3">{tr("Idioma", "Lingua", "Language", "Taal")}</th>
                     <th className="px-3 py-3">{tr("Tipo", "Tipo", "Type", "Type")}</th>
@@ -457,6 +554,11 @@ function EmailMarketingShell() {
                       className="cursor-pointer border-b border-border/70 align-top transition hover:bg-accent/40"
                       title={tr("Abrir detalle del contacto", "Apri dettaglio contatto", "Open contact details", "Contactdetails openen")}
                     >
+                      <td className="px-3 py-4" onClick={(event) => event.stopPropagation()}>
+                        <input type="checkbox" aria-label={contact.email} checked={selectedContactIds.includes(contact.id)}
+                          onChange={(event) => setSelectedContactIds((current) => event.target.checked
+                            ? [...new Set([...current, contact.id])] : current.filter((id) => id !== contact.id))} />
+                      </td>
                       <td className="px-3 py-4">
                         <div className="font-medium">{displayName(contact)}</div>
                         <div className="text-muted-foreground">{contact.email}</div>
@@ -486,15 +588,24 @@ function EmailMarketingShell() {
                             className="mt-2 rounded-sm border border-border bg-background px-2 py-2 text-xs"
                           >
                             <option value="">+ {tr("Añadir", "Aggiungi", "Add", "Toevoegen")}</option>
-                            {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name}</option>)}
+                            {activeSegments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name}</option>)}
                           </select>
                         )}
                       </td>
                     </tr>
                   ))}
-                  {!loading && filteredContacts.length === 0 && <tr><td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">{tr("No hay contactos.", "Nessun contatto.", "No contacts.", "Geen contacten.")}</td></tr>}
+                  {!loading && filteredContacts.length === 0 && <tr><td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">{tr("No hay contactos.", "Nessun contatto.", "No contacts.", "Geen contacten.")}</td></tr>}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm text-muted-foreground">
+              <span>{tr("Resultados", "Risultati", "Results", "Resultaten")}: {contactTotal} · {tr("Página", "Pagina", "Page", "Pagina")} {contactPage + 1} / {Math.max(1, Math.ceil(contactTotal / 100))}</span>
+              <div className="flex gap-2">
+                <button type="button" disabled={loading || contactPage === 0} onClick={() => void changeContactPage(contactPage - 1)}
+                  className="rounded-sm border border-border px-3 py-2 disabled:opacity-40">{tr("Anterior", "Precedente", "Previous", "Vorige")}</button>
+                <button type="button" disabled={loading || (contactPage + 1) * 100 >= contactTotal} onClick={() => void changeContactPage(contactPage + 1)}
+                  className="rounded-sm border border-border px-3 py-2 disabled:opacity-40">{tr("Siguiente", "Successiva", "Next", "Volgende")}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -514,14 +625,15 @@ function EmailMarketingShell() {
             </div>
           </form>
           <SegmentManager segments={segments} onChanged={loadWorkspace} />
+          <div className="lg:col-span-2"><SegmentOverlapReport segments={segments} /></div>
         </div>
       )}
 
-      {activeTab === "campaigns" && <CampaignWorkspace campaigns={campaigns} segments={segments} onChanged={loadWorkspace} />}
+      {activeTab === "campaigns" && <CampaignWorkspace campaigns={campaigns} segments={activeSegments} onChanged={loadWorkspace} />}
 
       <ContactDetailDrawer
         contact={selectedContact}
-        segments={segments}
+        segments={activeSegments}
         saving={saving}
         onClose={() => setSelectedContactId(null)}
         onSave={saveContactEdits}
