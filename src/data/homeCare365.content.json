@@ -1,0 +1,1366 @@
+{
+  "path": "/home-care-365",
+  "image": {
+    "src": "/media/projects/casa-vinya/casa-vinya-ibiza-luxury-mediterranean-villa-cover.webp",
+    "width": 1800,
+    "height": 1125,
+    "type": "image/webp"
+  },
+  "plans": [
+    "essential",
+    "care",
+    "premium"
+  ],
+  "es": {
+    "meta": {
+      "title": "Mantenimiento preventivo de villas en Ibiza | Eivitech Home Care 365",
+      "description": "Revisiones técnicas periódicas de villas y segundas residencias en Ibiza: agua, electricidad, climatización y humedades, con informe y fotos en cada visita.",
+      "imageAlt": "Vestidor de una villa en Ibiza con climatizador, iluminación empotrada y ventana practicable.",
+      "serviceType": "Mantenimiento técnico preventivo de viviendas",
+      "breadcrumb": "Home Care 365"
+    },
+    "hero": {
+      "eyebrow": "Eivitech Home Care 365",
+      "title": "Tu casa en Ibiza, revisada mientras no estás.",
+      "lead": "Home Care 365 es el servicio de mantenimiento técnico preventivo de Eivitech para segundas residencias y villas en Ibiza que pasan largos periodos vacías. Un técnico visita la casa con la frecuencia acordada, comprueba que todo funciona y te envía un informe con fotos.",
+      "tagline": "La revisamos mientras no estás. Tú la disfrutas cuando llegas.",
+      "primaryCta": "Solicitar visita técnica",
+      "secondaryCta": "Ver qué revisamos"
+    },
+    "facts": {
+      "title": "En resumen",
+      "items": [
+        {
+          "label": "Para quién",
+          "value": "Propietarios de villas, casas y apartamentos en Ibiza que no viven en ellos todo el año."
+        },
+        {
+          "label": "Qué hacemos",
+          "value": "Controles técnicos de agua, desagües, electricidad, climatización, cerramientos y humedades."
+        },
+        {
+          "label": "Frecuencia",
+          "value": "Mensual, quincenal o semanal según el plan; se ajusta a cada propiedad."
+        },
+        {
+          "label": "Después de cada visita",
+          "value": "Informe con controles realizados, fotos, anomalías e intervenciones recomendadas."
+        },
+        {
+          "label": "Precio",
+          "value": "Propuesta a medida tras una visita técnica inicial. Reparaciones y materiales aparte."
+        }
+      ]
+    },
+    "problem": {
+      "eyebrow": "El problema",
+      "title": "Una casa vacía no avisa cuando algo falla.",
+      "intro": "Con semanas o meses sin uso, pequeños problemas aparecen en silencio. Y en una estancia corta, uno solo basta para perder días de vacaciones esperando a un técnico.",
+      "items": [
+        "Grifos y duchas bloqueados por la cal o con poco caudal.",
+        "Cisternas que pierden agua.",
+        "Sifones secos y malos olores en los desagües.",
+        "Llaves de paso agarrotadas.",
+        "Climatizadores que no arrancan o con filtros sucios.",
+        "Puntos de luz fundidos.",
+        "Cerraduras, manillas y bisagras que se atascan.",
+        "Humedades, filtraciones o fugas que nadie ha visto.",
+        "Filtros de agua y equipos de ósmosis sin mantenimiento."
+      ]
+    },
+    "checks": {
+      "eyebrow": "Qué revisamos",
+      "title": "Una lista de controles técnicos, siempre la misma.",
+      "intro": "Cada visita sigue una lista estándar, adaptada a las instalaciones de tu propiedad. Así cada informe es comparable con el anterior.",
+      "safety": "Las comprobaciones del cuadro eléctrico las realiza solo personal cualificado, y cualquier intervención en circuitos frigoríficos, solo operadores habilitados.",
+      "groups": [
+        {
+          "title": "Agua y saneamiento",
+          "items": [
+            "Apertura periódica de grifos y duchas",
+            "Descarga de cisternas y control de fugas visibles",
+            "Sifones y olores en desagües",
+            "Llaves de paso accesibles",
+            "Aireadores, rociadores, cal y filtros"
+          ]
+        },
+        {
+          "title": "Electricidad e iluminación",
+          "items": [
+            "Prueba de los puntos de luz",
+            "Anomalías visibles",
+            "Aparatos o circuitos que no funcionan"
+          ]
+        },
+        {
+          "title": "Climatización y ventilación",
+          "items": [
+            "Encendido y prueba de funcionamiento",
+            "Control visual de filtros",
+            "Fugas, olores o ruidos anómalos",
+            "Programación de limpiezas autorizadas"
+          ]
+        },
+        {
+          "title": "Puertas, ventanas y herrajes",
+          "items": [
+            "Apertura y cierre",
+            "Cerraduras, manillas y bisagras",
+            "Lubricación programada donde procede",
+            "Elementos dañados o deteriorados"
+          ]
+        },
+        {
+          "title": "Instalaciones complementarias",
+          "items": [
+            "Filtración de agua y ósmosis",
+            "Sistemas de ventilación",
+            "Bombas y grupos de presión",
+            "Otras instalaciones de la vivienda"
+          ]
+        },
+        {
+          "title": "Estado general",
+          "items": [
+            "Aireación controlada",
+            "Humedades y filtraciones",
+            "Accesos y cierres",
+            "Aviso de anomalías y necesidades de intervención"
+          ]
+        }
+      ]
+    },
+    "plansSection": {
+      "eyebrow": "Planes",
+      "title": "Tres niveles de cuidado.",
+      "intro": "Cada plan incluye el anterior. La frecuencia es orientativa: el plan definitivo, con su precio y sus límites, se define después de ver la propiedad.",
+      "note": "El precio depende de la superficie, los baños, los climatizadores, las instalaciones y la frecuencia. Reparaciones, recambios y materiales no están incluidos: se presupuestan aparte y solo se hacen con tu autorización.",
+      "frequencyLabel": "Frecuencia orientativa",
+      "items": {
+        "essential": {
+          "name": "Essential",
+          "frequency": "Una visita al mes",
+          "summary": "Los controles fundamentales para que la casa no se deteriore en tu ausencia.",
+          "includes": [
+            "Agua, desagües y cisternas",
+            "Ventilación y aireación",
+            "Iluminación",
+            "Accesos y cierres",
+            "Revisión general e informe"
+          ]
+        },
+        "care": {
+          "name": "Care",
+          "frequency": "Dos visitas al mes",
+          "summary": "Más profundidad en las instalaciones que más se resienten del desuso.",
+          "includes": [
+            "Todo lo de Essential",
+            "Climatización: prueba de funcionamiento y filtros",
+            "Llaves de paso",
+            "Cerraduras, manillas y bisagras",
+            "Control detallado de humedades"
+          ]
+        },
+        "premium": {
+          "name": "Premium",
+          "frequency": "Una visita a la semana",
+          "summary": "Para villas y propiedades con más instalaciones, o que quieres encontrar siempre a punto.",
+          "includes": [
+            "Todo lo de Care",
+            "Gestión programada de filtros",
+            "Revisión antes de tu llegada",
+            "Atención a instalaciones complejas",
+            "Mayor frecuencia de visitas"
+          ]
+        }
+      },
+      "cta": "Me interesa este plan"
+    },
+    "report": {
+      "eyebrow": "El informe",
+      "title": "Sabes cómo está tu casa sin tener que ir.",
+      "text": "Después de cada visita recibes un informe claro que separa lo que está bien de lo que necesita atención.",
+      "items": [
+        "Fecha y hora de la visita",
+        "Controles realizados y su resultado",
+        "Fotos de lo revisado y de cualquier anomalía",
+        "Intervenciones recomendadas, con presupuesto si lo pides"
+      ]
+    },
+    "scope": {
+      "eyebrow": "Alcance",
+      "title": "Nos ocupamos de que la casa funcione.",
+      "includedTitle": "Home Care 365 sí incluye",
+      "included": [
+        "Controles técnicos periódicos",
+        "Informe con fotos tras cada visita",
+        "Detección temprana de averías",
+        "Presupuesto de reparaciones cuando hacen falta"
+      ],
+      "excludedTitle": "No es un servicio de",
+      "excluded": [
+        "Limpieza",
+        "Jardinería",
+        "Mantenimiento de piscinas",
+        "Gestión de alquiler turístico",
+        "Conserjería"
+      ],
+      "note": "Detrás del servicio está una empresa de reformas e instalaciones: si una revisión detecta un problema, el mismo equipo puede presupuestarlo y resolverlo."
+    },
+    "process": {
+      "eyebrow": "Cómo empieza",
+      "title": "De la solicitud a la primera visita.",
+      "steps": [
+        {
+          "title": "Cuéntanos tu propiedad",
+          "text": "Tipo, zona, baños, climatizadores e instalaciones. Sin fechas de ausencia ni datos de acceso."
+        },
+        {
+          "title": "Visita técnica inicial",
+          "text": "Vemos la casa, sus instalaciones y el tiempo real que requiere cada control."
+        },
+        {
+          "title": "Propuesta a medida",
+          "text": "Plan, frecuencia, límites y precio, por escrito."
+        },
+        {
+          "title": "Visitas e informes",
+          "text": "Revisiones periódicas con informe y fotos después de cada una."
+        },
+        {
+          "title": "Solo con tu autorización",
+          "text": "Cualquier reparación se presupuesta y se realiza únicamente si la apruebas."
+        }
+      ]
+    },
+    "faq": {
+      "eyebrow": "Preguntas frecuentes",
+      "title": "Lo que suelen preguntarnos.",
+      "items": [
+        {
+          "q": "¿Qué es Eivitech Home Care 365?",
+          "a": "Es un servicio de mantenimiento técnico preventivo para segundas residencias y villas en Ibiza. Un técnico de Eivitech visita la propiedad con una frecuencia acordada, comprueba agua, desagües, electricidad, climatización, cerramientos y humedades, y envía al propietario un informe con fotos después de cada visita."
+        },
+        {
+          "q": "¿En qué se diferencia de un servicio de conserjería o de gestión de propiedades?",
+          "a": "Home Care 365 no incluye limpieza, jardinería, piscina ni gestión de alquileres. Se centra en el funcionamiento técnico de la casa y lo realiza una empresa de reformas e instalaciones, que además puede presupuestar y ejecutar las reparaciones necesarias."
+        },
+        {
+          "q": "¿Cada cuánto se visita la propiedad?",
+          "a": "Como referencia, una vez al mes en el plan Essential, dos veces al mes en Care y una vez a la semana en Premium. La frecuencia final se acuerda según la propiedad y el uso que le das."
+        },
+        {
+          "q": "¿Cuánto cuesta Home Care 365?",
+          "a": "El precio se define después de una visita técnica inicial, porque depende de la superficie, el número de baños y climatizadores, las instalaciones y la frecuencia de las visitas. Reparaciones, recambios y materiales se presupuestan aparte."
+        },
+        {
+          "q": "¿Las reparaciones están incluidas?",
+          "a": "No. Si una visita detecta una anomalía, la documentamos en el informe y, si lo pides, preparamos un presupuesto. Ninguna reparación se realiza sin tu autorización."
+        },
+        {
+          "q": "¿Necesitáis las llaves de la casa?",
+          "a": "Sí, para poder visitarla mientras no estás. La entrega y custodia de las llaves y los datos de acceso se acuerdan al contratar el servicio, nunca a través del formulario web."
+        },
+        {
+          "q": "¿Garantiza que no habrá ninguna avería?",
+          "a": "No. Ningún servicio puede garantizarlo. Las revisiones periódicas reducen la probabilidad de encontrar problemas al llegar, permiten detectarlos antes y dejan constancia documentada del estado de la casa."
+        },
+        {
+          "q": "¿En qué zonas de Ibiza trabajáis?",
+          "a": "Trabajamos en Ibiza. Confirmamos la disponibilidad según la ubicación de la propiedad en la primera conversación."
+        }
+      ]
+    },
+    "form": {
+      "eyebrow": "Solicitud",
+      "title": "Cuéntanos cómo es tu casa.",
+      "intro": "Con estos datos preparamos la visita técnica inicial. No te pedimos cuándo estará vacía la casa ni datos de acceso: eso se acuerda al contratar.",
+      "name": "Nombre",
+      "email": "Email",
+      "phone": "Teléfono / WhatsApp",
+      "profile": "Eres",
+      "profileOptions": {
+        "propietario": "Propietario",
+        "agencia": "Agencia, administrador o property manager",
+        "empresa": "Empresa",
+        "otro": "Otro"
+      },
+      "propertyType": "Tipo de propiedad",
+      "propertyOptions": {
+        "villa": "Villa",
+        "apartamento": "Apartamento",
+        "casa": "Casa o finca",
+        "otro": "Otro"
+      },
+      "zone": "Zona de Ibiza",
+      "zonePlaceholder": "Sant Josep, Santa Eulària…",
+      "size": "Superficie aproximada",
+      "sizeOptions": {
+        "lt100": "Menos de 100 m²",
+        "100-200": "100–200 m²",
+        "200-400": "200–400 m²",
+        "gt400": "Más de 400 m²"
+      },
+      "bathrooms": "Baños",
+      "acUnits": "Climatizadores",
+      "acOptions": {
+        "0": "Ninguno",
+        "1-2": "1–2",
+        "3-5": "3–5",
+        "6+": "6 o más"
+      },
+      "usage": "¿Cuánto tiempo al año usas la casa?",
+      "usageOptions": {
+        "lt1": "Menos de 1 mes",
+        "1-3": "1–3 meses",
+        "4-6": "4–6 meses",
+        "gt6": "Más de 6 meses"
+      },
+      "plan": "Plan que te interesa",
+      "planUndecided": "Todavía no lo sé",
+      "systems": "Instalaciones particulares",
+      "systemsOptions": {
+        "osmosis": "Ósmosis o filtros de agua",
+        "bombas": "Bombas o grupo de presión",
+        "ventilacion": "Ventilación mecánica",
+        "aerotermia": "Aerotermia o solar térmica"
+      },
+      "message": "Algo más que debamos saber",
+      "messagePlaceholder": "Por ejemplo: problemas que has encontrado al llegar en otras ocasiones.",
+      "required": "obligatorio",
+      "consent": "He leído y acepto la",
+      "consentLink": "política de privacidad",
+      "consentTail": ". Acepto el tratamiento de mis datos para responder a la solicitud.",
+      "marketingOptional": "Opcional.",
+      "marketing": "Quiero recibir por email novedades, consejos y comunicaciones comerciales de Eivitech. Puedo darme de baja en cualquier momento.",
+      "submit": "Solicitar visita técnica",
+      "submitting": "Enviando…",
+      "error": "No hemos podido enviar la solicitud en este momento. Inténtalo de nuevo o escríbenos por WhatsApp.",
+      "errors": {
+        "name": "Indica tu nombre",
+        "email": "Email no válido",
+        "phone": "Indica un teléfono o WhatsApp",
+        "consent": "Debes aceptar la política de privacidad"
+      }
+    },
+    "cta": {
+      "title": "Llega a Ibiza y empieza las vacaciones.",
+      "text": "Cuéntanos tu propiedad y te proponemos el plan adecuado después de una visita técnica.",
+      "whatsapp": "Hola, me interesa Home Care 365 para mi casa en Ibiza."
+    }
+  },
+  "it": {
+    "meta": {
+      "title": "Manutenzione preventiva della casa a Ibiza | Eivitech Home Care 365",
+      "description": "Controlli tecnici periodici per ville e seconde case a Ibiza: acqua, impianto elettrico, climatizzazione e umidità, con report e foto dopo ogni visita.",
+      "imageAlt": "Cabina armadio di una villa a Ibiza con climatizzatore, luci a incasso e finestra apribile.",
+      "serviceType": "Manutenzione tecnica preventiva della casa",
+      "breadcrumb": "Home Care 365"
+    },
+    "hero": {
+      "eyebrow": "Eivitech Home Care 365",
+      "title": "La tua casa a Ibiza, controllata mentre sei via.",
+      "lead": "Home Care 365 è il servizio di manutenzione tecnica preventiva di Eivitech per seconde case e ville a Ibiza che restano vuote per lunghi periodi. Un tecnico visita la casa con la frequenza concordata, verifica che tutto funzioni e ti invia un report con foto.",
+      "tagline": "La controlliamo mentre sei via. Tu te la godi quando arrivi.",
+      "primaryCta": "Richiedi un sopralluogo",
+      "secondaryCta": "Cosa controlliamo"
+    },
+    "facts": {
+      "title": "In sintesi",
+      "items": [
+        {
+          "label": "Per chi",
+          "value": "Proprietari di ville, case e appartamenti a Ibiza che non ci vivono tutto l'anno."
+        },
+        {
+          "label": "Cosa facciamo",
+          "value": "Controlli tecnici di acqua, scarichi, impianto elettrico, climatizzazione, infissi e umidità."
+        },
+        {
+          "label": "Frequenza",
+          "value": "Mensile, quindicinale o settimanale secondo il piano; si adatta a ogni proprietà."
+        },
+        {
+          "label": "Dopo ogni visita",
+          "value": "Report con controlli eseguiti, foto, anomalie e interventi consigliati."
+        },
+        {
+          "label": "Prezzo",
+          "value": "Proposta su misura dopo un sopralluogo tecnico. Riparazioni e materiali a parte."
+        }
+      ]
+    },
+    "problem": {
+      "eyebrow": "Il problema",
+      "title": "Una casa vuota non avvisa quando qualcosa si guasta.",
+      "intro": "Dopo settimane o mesi di inutilizzo, i piccoli problemi si accumulano in silenzio. E in un soggiorno breve ne basta uno per perdere giorni di vacanza ad aspettare un tecnico.",
+      "items": [
+        "Rubinetti e docce bloccati dal calcare o con poca portata.",
+        "WC che perdono acqua.",
+        "Sifoni asciutti e cattivi odori dagli scarichi.",
+        "Valvole di intercettazione bloccate.",
+        "Climatizzatori che non partono o con filtri sporchi.",
+        "Punti luce bruciati.",
+        "Serrature, maniglie e cerniere che si inceppano.",
+        "Umidità, infiltrazioni o perdite che nessuno ha notato.",
+        "Filtri dell'acqua e impianti di osmosi trascurati."
+      ]
+    },
+    "checks": {
+      "eyebrow": "Cosa controlliamo",
+      "title": "Una checklist tecnica, sempre la stessa.",
+      "intro": "Ogni visita segue una lista standard, adattata agli impianti della tua proprietà. Così ogni report è confrontabile con il precedente.",
+      "safety": "I controlli sul quadro elettrico li esegue solo personale qualificato; qualsiasi intervento sui circuiti frigoriferi, solo operatori abilitati.",
+      "groups": [
+        {
+          "title": "Impianto idrico e sanitario",
+          "items": [
+            "Apertura periodica di rubinetti e docce",
+            "Scarico dei WC e controllo delle perdite visibili",
+            "Sifoni e odori dagli scarichi",
+            "Valvole di intercettazione accessibili",
+            "Aeratori, soffioni, calcare e filtri"
+          ]
+        },
+        {
+          "title": "Impianto elettrico e illuminazione",
+          "items": [
+            "Prova dei punti luce",
+            "Anomalie visibili",
+            "Apparecchi o circuiti non funzionanti"
+          ]
+        },
+        {
+          "title": "Climatizzazione e ventilazione",
+          "items": [
+            "Accensione e prova di funzionamento",
+            "Controllo visivo dei filtri",
+            "Perdite, odori o rumori anomali",
+            "Programmazione delle pulizie autorizzate"
+          ]
+        },
+        {
+          "title": "Porte, finestre e ferramenta",
+          "items": [
+            "Apertura e chiusura",
+            "Serrature, maniglie e cerniere",
+            "Lubrificazione programmata dove opportuna",
+            "Elementi danneggiati o deteriorati"
+          ]
+        },
+        {
+          "title": "Impianti complementari",
+          "items": [
+            "Filtrazione dell'acqua e osmosi",
+            "Sistemi di ventilazione",
+            "Pompe e autoclavi",
+            "Altri impianti della casa"
+          ]
+        },
+        {
+          "title": "Condizioni generali",
+          "items": [
+            "Aerazione controllata",
+            "Umidità e infiltrazioni",
+            "Accessi e chiusure",
+            "Segnalazione di anomalie e interventi necessari"
+          ]
+        }
+      ]
+    },
+    "plansSection": {
+      "eyebrow": "Piani",
+      "title": "Tre livelli di cura.",
+      "intro": "Ogni piano include il precedente. La frequenza è indicativa: il piano definitivo, con prezzo e limiti, si definisce dopo aver visto la proprietà.",
+      "note": "Il prezzo dipende da superficie, bagni, climatizzatori, impianti e frequenza. Riparazioni, ricambi e materiali non sono inclusi: si preventivano a parte e si eseguono solo con la tua autorizzazione.",
+      "frequencyLabel": "Frequenza indicativa",
+      "items": {
+        "essential": {
+          "name": "Essential",
+          "frequency": "Una visita al mese",
+          "summary": "I controlli fondamentali perché la casa non si deteriori in tua assenza.",
+          "includes": [
+            "Acqua, scarichi e WC",
+            "Ventilazione e aerazione",
+            "Illuminazione",
+            "Accessi e chiusure",
+            "Verifica generale e report"
+          ]
+        },
+        "care": {
+          "name": "Care",
+          "frequency": "Due visite al mese",
+          "summary": "Più profondità sugli impianti che soffrono di più l'inutilizzo.",
+          "includes": [
+            "Tutto Essential",
+            "Climatizzazione: prova di funzionamento e filtri",
+            "Valvole di intercettazione",
+            "Serrature, maniglie e cerniere",
+            "Controllo approfondito dell'umidità"
+          ]
+        },
+        "premium": {
+          "name": "Premium",
+          "frequency": "Una visita a settimana",
+          "summary": "Per ville e proprietà con più impianti, o che vuoi trovare sempre pronte.",
+          "includes": [
+            "Tutto Care",
+            "Gestione programmata dei filtri",
+            "Controllo prima del tuo arrivo",
+            "Attenzione agli impianti complessi",
+            "Frequenza di visita più alta"
+          ]
+        }
+      },
+      "cta": "Mi interessa questo piano"
+    },
+    "report": {
+      "eyebrow": "Il report",
+      "title": "Sai com'è la tua casa senza doverci andare.",
+      "text": "Dopo ogni visita ricevi un report chiaro, che separa ciò che va bene da ciò che richiede attenzione.",
+      "items": [
+        "Data e ora della visita",
+        "Controlli eseguiti e relativo esito",
+        "Foto di quanto verificato e di ogni anomalia",
+        "Interventi consigliati, con preventivo se lo richiedi"
+      ]
+    },
+    "scope": {
+      "eyebrow": "Perimetro",
+      "title": "Ci occupiamo che la casa funzioni.",
+      "includedTitle": "Home Care 365 include",
+      "included": [
+        "Controlli tecnici periodici",
+        "Report con foto dopo ogni visita",
+        "Individuazione precoce dei guasti",
+        "Preventivo delle riparazioni quando servono"
+      ],
+      "excludedTitle": "Non è un servizio di",
+      "excluded": [
+        "Pulizie",
+        "Giardinaggio",
+        "Manutenzione piscine",
+        "Gestione affitti turistici",
+        "Concierge"
+      ],
+      "note": "Dietro il servizio c'è un'impresa di ristrutturazioni e impianti: se un controllo rileva un problema, lo stesso team può preventivarlo e risolverlo."
+    },
+    "process": {
+      "eyebrow": "Come si parte",
+      "title": "Dalla richiesta alla prima visita.",
+      "steps": [
+        {
+          "title": "Raccontaci la proprietà",
+          "text": "Tipo, zona, bagni, climatizzatori e impianti. Niente date di assenza né dati di accesso."
+        },
+        {
+          "title": "Sopralluogo tecnico",
+          "text": "Vediamo la casa, i suoi impianti e il tempo reale che richiede ogni controllo."
+        },
+        {
+          "title": "Proposta su misura",
+          "text": "Piano, frequenza, limiti e prezzo, per iscritto."
+        },
+        {
+          "title": "Visite e report",
+          "text": "Controlli periodici con report e foto dopo ognuno."
+        },
+        {
+          "title": "Solo con la tua autorizzazione",
+          "text": "Ogni riparazione viene preventivata ed eseguita solo se la approvi."
+        }
+      ]
+    },
+    "faq": {
+      "eyebrow": "Domande frequenti",
+      "title": "Quello che ci chiedono più spesso.",
+      "items": [
+        {
+          "q": "Che cos'è Eivitech Home Care 365?",
+          "a": "È un servizio di manutenzione tecnica preventiva per seconde case e ville a Ibiza. Un tecnico Eivitech visita la proprietà con una frequenza concordata, controlla acqua, scarichi, impianto elettrico, climatizzazione, infissi e umidità, e invia al proprietario un report con foto dopo ogni visita."
+        },
+        {
+          "q": "In cosa si differenzia da un servizio di concierge o di property management?",
+          "a": "Home Care 365 non include pulizie, giardinaggio, piscina né gestione degli affitti. Si concentra sul funzionamento tecnico della casa ed è svolto da un'impresa di ristrutturazioni e impianti, che può anche preventivare ed eseguire le riparazioni necessarie."
+        },
+        {
+          "q": "Ogni quanto viene visitata la proprietà?",
+          "a": "Indicativamente una volta al mese nel piano Essential, due volte al mese in Care e una volta a settimana in Premium. La frequenza definitiva si concorda in base alla proprietà e a come la usi."
+        },
+        {
+          "q": "Quanto costa Home Care 365?",
+          "a": "Il prezzo si definisce dopo un sopralluogo tecnico, perché dipende da superficie, numero di bagni e climatizzatori, impianti e frequenza delle visite. Riparazioni, ricambi e materiali si preventivano a parte."
+        },
+        {
+          "q": "Le riparazioni sono incluse?",
+          "a": "No. Se una visita rileva un'anomalia, la documentiamo nel report e, se lo richiedi, prepariamo un preventivo. Nessuna riparazione viene eseguita senza la tua autorizzazione."
+        },
+        {
+          "q": "Servono le chiavi di casa?",
+          "a": "Sì, per poterla visitare mentre sei via. Consegna e custodia delle chiavi e dei dati di accesso si concordano alla firma del contratto, mai tramite il modulo web."
+        },
+        {
+          "q": "Garantisce che non ci saranno guasti?",
+          "a": "No. Nessun servizio può garantirlo. I controlli periodici riducono la probabilità di trovare problemi all'arrivo, permettono di individuarli prima e documentano lo stato della casa."
+        },
+        {
+          "q": "In quali zone di Ibiza lavorate?",
+          "a": "Lavoriamo a Ibiza. Confermiamo la disponibilità in base alla posizione della proprietà nel primo contatto."
+        }
+      ]
+    },
+    "form": {
+      "eyebrow": "Richiesta",
+      "title": "Raccontaci com'è la tua casa.",
+      "intro": "Con questi dati prepariamo il sopralluogo tecnico. Non ti chiediamo quando la casa sarà vuota né i dati di accesso: si concordano al contratto.",
+      "name": "Nome",
+      "email": "Email",
+      "phone": "Telefono / WhatsApp",
+      "profile": "Sei",
+      "profileOptions": {
+        "propietario": "Proprietario",
+        "agencia": "Agenzia, amministratore o property manager",
+        "empresa": "Impresa",
+        "otro": "Altro"
+      },
+      "propertyType": "Tipo di proprietà",
+      "propertyOptions": {
+        "villa": "Villa",
+        "apartamento": "Appartamento",
+        "casa": "Casa o finca",
+        "otro": "Altro"
+      },
+      "zone": "Zona di Ibiza",
+      "zonePlaceholder": "Sant Josep, Santa Eulària…",
+      "size": "Superficie indicativa",
+      "sizeOptions": {
+        "lt100": "Meno di 100 m²",
+        "100-200": "100–200 m²",
+        "200-400": "200–400 m²",
+        "gt400": "Oltre 400 m²"
+      },
+      "bathrooms": "Bagni",
+      "acUnits": "Climatizzatori",
+      "acOptions": {
+        "0": "Nessuno",
+        "1-2": "1–2",
+        "3-5": "3–5",
+        "6+": "6 o più"
+      },
+      "usage": "Quanto tempo all'anno usi la casa?",
+      "usageOptions": {
+        "lt1": "Meno di 1 mese",
+        "1-3": "1–3 mesi",
+        "4-6": "4–6 mesi",
+        "gt6": "Oltre 6 mesi"
+      },
+      "plan": "Piano che ti interessa",
+      "planUndecided": "Non lo so ancora",
+      "systems": "Impianti particolari",
+      "systemsOptions": {
+        "osmosis": "Osmosi o filtri dell'acqua",
+        "bombas": "Pompe o autoclave",
+        "ventilacion": "Ventilazione meccanica",
+        "aerotermia": "Pompa di calore o solare termico"
+      },
+      "message": "Altro che dovremmo sapere",
+      "messagePlaceholder": "Ad esempio: problemi che hai trovato arrivando in passato.",
+      "required": "obbligatorio",
+      "consent": "Ho letto e accetto la",
+      "consentLink": "privacy policy",
+      "consentTail": ". Accetto il trattamento dei miei dati per rispondere alla richiesta.",
+      "marketingOptional": "Facoltativo.",
+      "marketing": "Desidero ricevere via email novità, consigli e comunicazioni commerciali di Eivitech. Posso disiscrivermi in qualsiasi momento.",
+      "submit": "Richiedi un sopralluogo",
+      "submitting": "Invio…",
+      "error": "Non siamo riusciti a inviare la richiesta in questo momento. Riprova o scrivici su WhatsApp.",
+      "errors": {
+        "name": "Indica il tuo nome",
+        "email": "Email non valida",
+        "phone": "Indica un telefono o WhatsApp",
+        "consent": "Devi accettare la privacy policy"
+      }
+    },
+    "cta": {
+      "title": "Arriva a Ibiza e comincia la vacanza.",
+      "text": "Raccontaci la tua proprietà: dopo un sopralluogo tecnico ti proponiamo il piano adatto.",
+      "whatsapp": "Ciao, mi interessa Home Care 365 per la mia casa a Ibiza."
+    }
+  },
+  "en": {
+    "meta": {
+      "title": "Preventive property maintenance in Ibiza | Eivitech Home Care 365",
+      "description": "Scheduled technical checks for villas and second homes in Ibiza: water, electrics, air conditioning and damp, with a photo report after every visit.",
+      "imageAlt": "Walk-in wardrobe in an Ibiza villa with an air-conditioning unit, recessed lighting and an opening window.",
+      "serviceType": "Preventive technical home maintenance",
+      "breadcrumb": "Home Care 365"
+    },
+    "hero": {
+      "eyebrow": "Eivitech Home Care 365",
+      "title": "Your Ibiza home, checked while you're away.",
+      "lead": "Home Care 365 is Eivitech's preventive technical maintenance service for second homes and villas in Ibiza that stand empty for long periods. A technician visits on an agreed schedule, checks that everything works and sends you a report with photos.",
+      "tagline": "When you arrive in Ibiza, your home should be ready — not waiting to be fixed.",
+      "primaryCta": "Request a technical visit",
+      "secondaryCta": "See what we check"
+    },
+    "facts": {
+      "title": "At a glance",
+      "items": [
+        {
+          "label": "Who it is for",
+          "value": "Owners of villas, houses and apartments in Ibiza who don't live there all year."
+        },
+        {
+          "label": "What we do",
+          "value": "Technical checks of water, drains, electrics, air conditioning, doors and windows, and damp."
+        },
+        {
+          "label": "Frequency",
+          "value": "Monthly, fortnightly or weekly depending on the plan, adjusted to each property."
+        },
+        {
+          "label": "After every visit",
+          "value": "A report with the checks carried out, photos, issues found and recommended work."
+        },
+        {
+          "label": "Price",
+          "value": "A tailored proposal after an initial technical visit. Repairs and materials are quoted separately."
+        }
+      ]
+    },
+    "problem": {
+      "eyebrow": "The problem",
+      "title": "An empty house doesn't tell you when something fails.",
+      "intro": "After weeks or months without use, small problems build up quietly. On a short stay, one is enough to lose days of your holiday waiting for a technician.",
+      "items": [
+        "Taps and showers blocked by limescale or with weak flow.",
+        "Toilets that leak water.",
+        "Dry traps and bad smells from the drains.",
+        "Seized stopcocks.",
+        "Air-conditioning units that won't start or have dirty filters.",
+        "Blown light fittings.",
+        "Locks, handles and hinges that stick.",
+        "Damp, seepage or leaks nobody has noticed.",
+        "Neglected water filters and reverse-osmosis systems."
+      ]
+    },
+    "checks": {
+      "eyebrow": "What we check",
+      "title": "One technical checklist, every time.",
+      "intro": "Every visit follows a standard list, adapted to the systems in your property, so each report can be compared with the last.",
+      "safety": "Checks on the electrical panel are carried out only by qualified staff, and any work on refrigerant circuits only by certified operators.",
+      "groups": [
+        {
+          "title": "Water and plumbing",
+          "items": [
+            "Running taps and showers regularly",
+            "Flushing toilets and checking for visible leaks",
+            "Traps and drain odours",
+            "Accessible stopcocks",
+            "Aerators, shower heads, limescale and filters"
+          ]
+        },
+        {
+          "title": "Electrics and lighting",
+          "items": [
+            "Testing light points",
+            "Visible faults",
+            "Appliances or circuits not working"
+          ]
+        },
+        {
+          "title": "Air conditioning and ventilation",
+          "items": [
+            "Switching on and testing operation",
+            "Visual filter check",
+            "Leaks, odours or unusual noises",
+            "Scheduling authorised cleaning"
+          ]
+        },
+        {
+          "title": "Doors, windows and hardware",
+          "items": [
+            "Opening and closing",
+            "Locks, handles and hinges",
+            "Scheduled lubrication where appropriate",
+            "Damaged or worn parts"
+          ]
+        },
+        {
+          "title": "Additional systems",
+          "items": [
+            "Water filtration and reverse osmosis",
+            "Ventilation systems",
+            "Pumps and pressure units",
+            "Other systems in the property"
+          ]
+        },
+        {
+          "title": "General condition",
+          "items": [
+            "Controlled airing",
+            "Damp and seepage",
+            "Access points and closures",
+            "Reporting issues and work needed"
+          ]
+        }
+      ]
+    },
+    "plansSection": {
+      "eyebrow": "Plans",
+      "title": "Three levels of care.",
+      "intro": "Each plan includes the one before. Frequencies are indicative: the final plan, with its price and limits, is set after we have seen the property.",
+      "note": "The price depends on floor area, bathrooms, air-conditioning units, systems and visit frequency. Repairs, spare parts and materials are not included: they are quoted separately and only carried out with your approval.",
+      "frequencyLabel": "Indicative frequency",
+      "items": {
+        "essential": {
+          "name": "Essential",
+          "frequency": "One visit a month",
+          "summary": "The core checks that keep the house from deteriorating while you're away.",
+          "includes": [
+            "Water, drains and toilets",
+            "Ventilation and airing",
+            "Lighting",
+            "Access points and closures",
+            "General check and report"
+          ]
+        },
+        "care": {
+          "name": "Care",
+          "frequency": "Two visits a month",
+          "summary": "More depth on the systems that suffer most from lack of use.",
+          "includes": [
+            "Everything in Essential",
+            "Air conditioning: operation test and filters",
+            "Stopcocks",
+            "Locks, handles and hinges",
+            "Detailed damp check"
+          ]
+        },
+        "premium": {
+          "name": "Premium",
+          "frequency": "One visit a week",
+          "summary": "For villas and properties with more systems, or homes you want ready at all times.",
+          "includes": [
+            "Everything in Care",
+            "Scheduled filter management",
+            "Pre-arrival check",
+            "Attention to complex systems",
+            "Higher visit frequency"
+          ]
+        }
+      },
+      "cta": "I'm interested in this plan"
+    },
+    "report": {
+      "eyebrow": "The report",
+      "title": "Know how your home is without having to go there.",
+      "text": "After every visit you receive a clear report that separates what is fine from what needs attention.",
+      "items": [
+        "Date and time of the visit",
+        "Checks carried out and their result",
+        "Photos of what was checked and of any issue",
+        "Recommended work, with a quote if you ask for one"
+      ]
+    },
+    "scope": {
+      "eyebrow": "Scope",
+      "title": "We make sure the house works.",
+      "includedTitle": "Home Care 365 includes",
+      "included": [
+        "Scheduled technical checks",
+        "A photo report after every visit",
+        "Early detection of faults",
+        "Quotes for repairs when they are needed"
+      ],
+      "excludedTitle": "It is not",
+      "excluded": [
+        "Cleaning",
+        "Gardening",
+        "Pool maintenance",
+        "Holiday-rental management",
+        "Concierge services"
+      ],
+      "note": "Behind the service is a renovation and installation company: if a check finds a problem, the same team can quote for it and fix it."
+    },
+    "process": {
+      "eyebrow": "How it starts",
+      "title": "From request to first visit.",
+      "steps": [
+        {
+          "title": "Tell us about your property",
+          "text": "Type, area, bathrooms, air-conditioning units and systems. No absence dates or access details."
+        },
+        {
+          "title": "Initial technical visit",
+          "text": "We see the house, its systems and the real time each check takes."
+        },
+        {
+          "title": "Tailored proposal",
+          "text": "Plan, frequency, limits and price, in writing."
+        },
+        {
+          "title": "Visits and reports",
+          "text": "Scheduled checks with a photo report after each one."
+        },
+        {
+          "title": "Only with your approval",
+          "text": "Any repair is quoted and carried out only if you approve it."
+        }
+      ]
+    },
+    "faq": {
+      "eyebrow": "Frequently asked questions",
+      "title": "What owners usually ask us.",
+      "items": [
+        {
+          "q": "What is Eivitech Home Care 365?",
+          "a": "It is a preventive technical maintenance service for second homes and villas in Ibiza. An Eivitech technician visits the property on an agreed schedule, checks water, drains, electrics, air conditioning, doors and windows, and damp, and sends the owner a report with photos after every visit."
+        },
+        {
+          "q": "How is it different from a concierge or property management service?",
+          "a": "Home Care 365 does not include cleaning, gardening, pool care or rental management. It focuses on how the house works technically and is carried out by a renovation and installation company that can also quote for and carry out any repairs needed."
+        },
+        {
+          "q": "How often is the property visited?",
+          "a": "As a guide, once a month on the Essential plan, twice a month on Care and once a week on Premium. The final frequency is agreed according to the property and how you use it."
+        },
+        {
+          "q": "How much does Home Care 365 cost?",
+          "a": "The price is set after an initial technical visit, because it depends on floor area, the number of bathrooms and air-conditioning units, the systems installed and how often we visit. Repairs, spare parts and materials are quoted separately."
+        },
+        {
+          "q": "Are repairs included?",
+          "a": "No. If a visit finds an issue, we document it in the report and, if you ask, prepare a quote. No repair is carried out without your approval."
+        },
+        {
+          "q": "Do you need the keys to the house?",
+          "a": "Yes, so that we can visit while you're away. Handover and safekeeping of keys and access details are agreed when you sign up, never through the website form."
+        },
+        {
+          "q": "Does it guarantee nothing will break?",
+          "a": "No. No service can guarantee that. Regular checks reduce the chance of finding problems when you arrive, catch them earlier and keep a documented record of the property's condition."
+        },
+        {
+          "q": "Which areas of Ibiza do you cover?",
+          "a": "We work in Ibiza. We confirm availability for your property's location in our first conversation."
+        }
+      ]
+    },
+    "form": {
+      "eyebrow": "Request",
+      "title": "Tell us about your home.",
+      "intro": "We use these details to prepare the initial technical visit. We don't ask when the house will be empty or for access details: those are agreed when you sign up.",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone / WhatsApp",
+      "profile": "You are",
+      "profileOptions": {
+        "propietario": "Owner",
+        "agencia": "Agency, administrator or property manager",
+        "empresa": "Company",
+        "otro": "Other"
+      },
+      "propertyType": "Property type",
+      "propertyOptions": {
+        "villa": "Villa",
+        "apartamento": "Apartment",
+        "casa": "House or finca",
+        "otro": "Other"
+      },
+      "zone": "Area of Ibiza",
+      "zonePlaceholder": "Sant Josep, Santa Eulària…",
+      "size": "Approximate floor area",
+      "sizeOptions": {
+        "lt100": "Under 100 m²",
+        "100-200": "100–200 m²",
+        "200-400": "200–400 m²",
+        "gt400": "Over 400 m²"
+      },
+      "bathrooms": "Bathrooms",
+      "acUnits": "Air-conditioning units",
+      "acOptions": {
+        "0": "None",
+        "1-2": "1–2",
+        "3-5": "3–5",
+        "6+": "6 or more"
+      },
+      "usage": "How much of the year do you use the house?",
+      "usageOptions": {
+        "lt1": "Less than 1 month",
+        "1-3": "1–3 months",
+        "4-6": "4–6 months",
+        "gt6": "More than 6 months"
+      },
+      "plan": "Plan you're interested in",
+      "planUndecided": "Not sure yet",
+      "systems": "Particular systems",
+      "systemsOptions": {
+        "osmosis": "Reverse osmosis or water filters",
+        "bombas": "Pumps or pressure unit",
+        "ventilacion": "Mechanical ventilation",
+        "aerotermia": "Heat pump or solar water heating"
+      },
+      "message": "Anything else we should know",
+      "messagePlaceholder": "For example: problems you've found on arrival in the past.",
+      "required": "required",
+      "consent": "I have read and accept the",
+      "consentLink": "privacy policy",
+      "consentTail": ". I accept the processing of my data to respond to the request.",
+      "marketingOptional": "Optional.",
+      "marketing": "I would like to receive Eivitech news, tips and marketing communications by email. I can unsubscribe at any time.",
+      "submit": "Request a technical visit",
+      "submitting": "Sending…",
+      "error": "We could not send the request right now. Try again or message us on WhatsApp.",
+      "errors": {
+        "name": "Enter your name",
+        "email": "Invalid email",
+        "phone": "Enter a phone number or WhatsApp",
+        "consent": "You must accept the privacy policy"
+      }
+    },
+    "cta": {
+      "title": "Arrive in Ibiza and start your holiday.",
+      "text": "Tell us about your property and we'll propose the right plan after a technical visit.",
+      "whatsapp": "Hello, I'm interested in Home Care 365 for my home in Ibiza."
+    }
+  },
+  "nl": {
+    "meta": {
+      "title": "Preventief onderhoud van je woning op Ibiza | Eivitech Home Care 365",
+      "description": "Periodieke technische controles van villa's en tweede woningen op Ibiza: water, elektra, airco en vocht, met een fotorapport na elk bezoek.",
+      "imageAlt": "Inloopkast in een villa op Ibiza met airco-unit, inbouwverlichting en een openslaand raam.",
+      "serviceType": "Preventief technisch woningonderhoud",
+      "breadcrumb": "Home Care 365"
+    },
+    "hero": {
+      "eyebrow": "Eivitech Home Care 365",
+      "title": "Je huis op Ibiza, gecontroleerd terwijl je weg bent.",
+      "lead": "Home Care 365 is de preventieve technische onderhoudsdienst van Eivitech voor tweede woningen en villa's op Ibiza die lange tijd leegstaan. Een technicus bezoekt de woning volgens een afgesproken schema, controleert of alles werkt en stuurt je een rapport met foto's.",
+      "tagline": "Wij controleren hem terwijl je weg bent. Jij geniet ervan als je er bent.",
+      "primaryCta": "Technisch bezoek aanvragen",
+      "secondaryCta": "Bekijk wat we controleren"
+    },
+    "facts": {
+      "title": "In het kort",
+      "items": [
+        {
+          "label": "Voor wie",
+          "value": "Eigenaren van villa's, huizen en appartementen op Ibiza die er niet het hele jaar wonen."
+        },
+        {
+          "label": "Wat we doen",
+          "value": "Technische controles van water, afvoeren, elektra, airco, ramen en deuren, en vocht."
+        },
+        {
+          "label": "Frequentie",
+          "value": "Maandelijks, tweewekelijks of wekelijks afhankelijk van het plan, afgestemd op elke woning."
+        },
+        {
+          "label": "Na elk bezoek",
+          "value": "Een rapport met de uitgevoerde controles, foto's, gevonden gebreken en aanbevolen werkzaamheden."
+        },
+        {
+          "label": "Prijs",
+          "value": "Een voorstel op maat na een eerste technisch bezoek. Reparaties en materialen apart."
+        }
+      ]
+    },
+    "problem": {
+      "eyebrow": "Het probleem",
+      "title": "Een leeg huis waarschuwt niet als er iets misgaat.",
+      "intro": "Na weken of maanden zonder gebruik ontstaan kleine problemen ongemerkt. Tijdens een kort verblijf is er één genoeg om dagen van je vakantie op een technicus te wachten.",
+      "items": [
+        "Kranen en douches die verstopt zijn door kalk of weinig water geven.",
+        "Toiletten die water lekken.",
+        "Droge sifons en stankoverlast uit de afvoer.",
+        "Vastzittende afsluitkranen.",
+        "Airco's die niet aanslaan of vuile filters hebben.",
+        "Doorgebrande lichtpunten.",
+        "Sloten, klinken en scharnieren die klemmen.",
+        "Vocht, insijpeling of lekkages die niemand heeft gezien.",
+        "Verwaarloosde waterfilters en omgekeerde-osmose-installaties."
+      ]
+    },
+    "checks": {
+      "eyebrow": "Wat we controleren",
+      "title": "Eén technische checklist, elke keer.",
+      "intro": "Elk bezoek volgt een vaste lijst, afgestemd op de installaties in je woning. Zo is elk rapport vergelijkbaar met het vorige.",
+      "safety": "Controles van de meterkast worden alleen door gekwalificeerd personeel uitgevoerd, en werkzaamheden aan koelcircuits alleen door gecertificeerde monteurs.",
+      "groups": [
+        {
+          "title": "Water en sanitair",
+          "items": [
+            "Regelmatig kranen en douches laten lopen",
+            "Toiletten doorspoelen en controleren op zichtbare lekkages",
+            "Sifons en geuren uit de afvoer",
+            "Bereikbare afsluitkranen",
+            "Perlators, douchekoppen, kalk en filters"
+          ]
+        },
+        {
+          "title": "Elektra en verlichting",
+          "items": [
+            "Lichtpunten testen",
+            "Zichtbare gebreken",
+            "Apparaten of groepen die niet werken"
+          ]
+        },
+        {
+          "title": "Airco en ventilatie",
+          "items": [
+            "Aanzetten en werking testen",
+            "Visuele controle van filters",
+            "Lekkages, geuren of afwijkende geluiden",
+            "Planning van goedgekeurde reiniging"
+          ]
+        },
+        {
+          "title": "Deuren, ramen en beslag",
+          "items": [
+            "Openen en sluiten",
+            "Sloten, klinken en scharnieren",
+            "Gepland smeren waar nodig",
+            "Beschadigde of versleten onderdelen"
+          ]
+        },
+        {
+          "title": "Aanvullende installaties",
+          "items": [
+            "Waterfiltratie en omgekeerde osmose",
+            "Ventilatiesystemen",
+            "Pompen en hydrofoorinstallaties",
+            "Overige installaties in de woning"
+          ]
+        },
+        {
+          "title": "Algemene staat",
+          "items": [
+            "Gecontroleerd luchten",
+            "Vocht en insijpeling",
+            "Toegangen en afsluitingen",
+            "Melden van gebreken en benodigde werkzaamheden"
+          ]
+        }
+      ]
+    },
+    "plansSection": {
+      "eyebrow": "Plannen",
+      "title": "Drie niveaus van zorg.",
+      "intro": "Elk plan bevat het vorige. De frequentie is indicatief: het definitieve plan, met prijs en grenzen, leggen we vast nadat we de woning hebben gezien.",
+      "note": "De prijs hangt af van oppervlakte, badkamers, airco-units, installaties en bezoekfrequentie. Reparaties, onderdelen en materialen zijn niet inbegrepen: die worden apart geoffreerd en alleen met jouw akkoord uitgevoerd.",
+      "frequencyLabel": "Indicatieve frequentie",
+      "items": {
+        "essential": {
+          "name": "Essential",
+          "frequency": "Eén bezoek per maand",
+          "summary": "De basiscontroles zodat het huis niet achteruitgaat terwijl je weg bent.",
+          "includes": [
+            "Water, afvoeren en toiletten",
+            "Ventilatie en luchten",
+            "Verlichting",
+            "Toegangen en afsluitingen",
+            "Algemene controle en rapport"
+          ]
+        },
+        "care": {
+          "name": "Care",
+          "frequency": "Twee bezoeken per maand",
+          "summary": "Meer diepgang bij de installaties die het meest lijden onder leegstand.",
+          "includes": [
+            "Alles uit Essential",
+            "Airco: werkingstest en filters",
+            "Afsluitkranen",
+            "Sloten, klinken en scharnieren",
+            "Uitgebreide vochtcontrole"
+          ]
+        },
+        "premium": {
+          "name": "Premium",
+          "frequency": "Eén bezoek per week",
+          "summary": "Voor villa's en woningen met meer installaties, of die je altijd klaar wilt aantreffen.",
+          "includes": [
+            "Alles uit Care",
+            "Gepland filterbeheer",
+            "Controle vóór je aankomst",
+            "Aandacht voor complexe installaties",
+            "Hogere bezoekfrequentie"
+          ]
+        }
+      },
+      "cta": "Ik heb interesse in dit plan"
+    },
+    "report": {
+      "eyebrow": "Het rapport",
+      "title": "Weten hoe je huis erbij staat, zonder erheen te gaan.",
+      "text": "Na elk bezoek ontvang je een duidelijk rapport dat scheidt wat in orde is van wat aandacht nodig heeft.",
+      "items": [
+        "Datum en tijd van het bezoek",
+        "Uitgevoerde controles en het resultaat",
+        "Foto's van wat is gecontroleerd en van elk gebrek",
+        "Aanbevolen werkzaamheden, met offerte als je daarom vraagt"
+      ]
+    },
+    "scope": {
+      "eyebrow": "Afbakening",
+      "title": "Wij zorgen dat het huis werkt.",
+      "includedTitle": "Home Care 365 omvat",
+      "included": [
+        "Periodieke technische controles",
+        "Een fotorapport na elk bezoek",
+        "Vroege opsporing van storingen",
+        "Offertes voor reparaties wanneer nodig"
+      ],
+      "excludedTitle": "Het is geen",
+      "excluded": [
+        "Schoonmaak",
+        "Tuinonderhoud",
+        "Zwembadonderhoud",
+        "Beheer van vakantieverhuur",
+        "Conciërgedienst"
+      ],
+      "note": "Achter de dienst staat een renovatie- en installatiebedrijf: vindt een controle een probleem, dan kan hetzelfde team het offreren en oplossen."
+    },
+    "process": {
+      "eyebrow": "Hoe het begint",
+      "title": "Van aanvraag tot eerste bezoek.",
+      "steps": [
+        {
+          "title": "Vertel ons over je woning",
+          "text": "Type, gebied, badkamers, airco-units en installaties. Geen afwezigheidsdata of toegangsgegevens."
+        },
+        {
+          "title": "Eerste technisch bezoek",
+          "text": "We bekijken het huis, de installaties en de werkelijke tijd die elke controle kost."
+        },
+        {
+          "title": "Voorstel op maat",
+          "text": "Plan, frequentie, grenzen en prijs, op papier."
+        },
+        {
+          "title": "Bezoeken en rapporten",
+          "text": "Periodieke controles met een fotorapport na elk bezoek."
+        },
+        {
+          "title": "Alleen met jouw akkoord",
+          "text": "Elke reparatie wordt geoffreerd en alleen uitgevoerd als jij die goedkeurt."
+        }
+      ]
+    },
+    "faq": {
+      "eyebrow": "Veelgestelde vragen",
+      "title": "Wat eigenaren ons meestal vragen.",
+      "items": [
+        {
+          "q": "Wat is Eivitech Home Care 365?",
+          "a": "Het is een preventieve technische onderhoudsdienst voor tweede woningen en villa's op Ibiza. Een technicus van Eivitech bezoekt de woning volgens een afgesproken schema, controleert water, afvoeren, elektra, airco, ramen en deuren, en vocht, en stuurt de eigenaar na elk bezoek een rapport met foto's."
+        },
+        {
+          "q": "Wat is het verschil met een conciërgedienst of property management?",
+          "a": "Home Care 365 omvat geen schoonmaak, tuinonderhoud, zwembadonderhoud of verhuurbeheer. De dienst richt zich op de technische werking van het huis en wordt uitgevoerd door een renovatie- en installatiebedrijf dat ook eventuele reparaties kan offreren en uitvoeren."
+        },
+        {
+          "q": "Hoe vaak wordt de woning bezocht?",
+          "a": "Als richtlijn eens per maand bij Essential, twee keer per maand bij Care en eens per week bij Premium. De definitieve frequentie spreken we af op basis van de woning en hoe je hem gebruikt."
+        },
+        {
+          "q": "Wat kost Home Care 365?",
+          "a": "De prijs wordt bepaald na een eerste technisch bezoek, omdat die afhangt van de oppervlakte, het aantal badkamers en airco-units, de installaties en hoe vaak we langskomen. Reparaties, onderdelen en materialen worden apart geoffreerd."
+        },
+        {
+          "q": "Zijn reparaties inbegrepen?",
+          "a": "Nee. Als we tijdens een bezoek een gebrek vinden, leggen we dat vast in het rapport en maken we op verzoek een offerte. Geen enkele reparatie wordt zonder jouw akkoord uitgevoerd."
+        },
+        {
+          "q": "Hebben jullie de sleutels van het huis nodig?",
+          "a": "Ja, zodat we het huis kunnen bezoeken terwijl je weg bent. De overdracht en bewaring van sleutels en toegangsgegevens spreken we af bij het afsluiten van de dienst, nooit via het webformulier."
+        },
+        {
+          "q": "Garandeert de dienst dat er niets kapotgaat?",
+          "a": "Nee. Geen enkele dienst kan dat garanderen. Regelmatige controles verkleinen de kans op problemen bij aankomst, sporen ze eerder op en leggen de staat van de woning vast."
+        },
+        {
+          "q": "In welke delen van Ibiza werken jullie?",
+          "a": "We werken op Ibiza. In het eerste gesprek bevestigen we de beschikbaarheid voor de locatie van je woning."
+        }
+      ]
+    },
+    "form": {
+      "eyebrow": "Aanvraag",
+      "title": "Vertel ons hoe je huis eruitziet.",
+      "intro": "Met deze gegevens bereiden we het eerste technische bezoek voor. We vragen niet wanneer het huis leegstaat of naar toegangsgegevens: die spreken we af bij het afsluiten.",
+      "name": "Naam",
+      "email": "E-mail",
+      "phone": "Telefoon / WhatsApp",
+      "profile": "Je bent",
+      "profileOptions": {
+        "propietario": "Eigenaar",
+        "agencia": "Makelaar, beheerder of property manager",
+        "empresa": "Bedrijf",
+        "otro": "Anders"
+      },
+      "propertyType": "Type woning",
+      "propertyOptions": {
+        "villa": "Villa",
+        "apartamento": "Appartement",
+        "casa": "Huis of finca",
+        "otro": "Anders"
+      },
+      "zone": "Gebied op Ibiza",
+      "zonePlaceholder": "Sant Josep, Santa Eulària…",
+      "size": "Geschatte oppervlakte",
+      "sizeOptions": {
+        "lt100": "Minder dan 100 m²",
+        "100-200": "100–200 m²",
+        "200-400": "200–400 m²",
+        "gt400": "Meer dan 400 m²"
+      },
+      "bathrooms": "Badkamers",
+      "acUnits": "Airco-units",
+      "acOptions": {
+        "0": "Geen",
+        "1-2": "1–2",
+        "3-5": "3–5",
+        "6+": "6 of meer"
+      },
+      "usage": "Hoeveel van het jaar gebruik je het huis?",
+      "usageOptions": {
+        "lt1": "Minder dan 1 maand",
+        "1-3": "1–3 maanden",
+        "4-6": "4–6 maanden",
+        "gt6": "Meer dan 6 maanden"
+      },
+      "plan": "Plan waarin je geïnteresseerd bent",
+      "planUndecided": "Weet ik nog niet",
+      "systems": "Bijzondere installaties",
+      "systemsOptions": {
+        "osmosis": "Omgekeerde osmose of waterfilters",
+        "bombas": "Pompen of hydrofoor",
+        "ventilacion": "Mechanische ventilatie",
+        "aerotermia": "Warmtepomp of zonneboiler"
+      },
+      "message": "Nog iets wat we moeten weten",
+      "messagePlaceholder": "Bijvoorbeeld: problemen die je eerder bij aankomst aantrof.",
+      "required": "verplicht",
+      "consent": "Ik heb het",
+      "consentLink": "privacybeleid",
+      "consentTail": " gelezen en ga akkoord met de verwerking van mijn gegevens om op de aanvraag te reageren.",
+      "marketingOptional": "Optioneel.",
+      "marketing": "Ik wil via e-mail nieuws, tips en commerciële communicatie van Eivitech ontvangen. Ik kan me op elk moment uitschrijven.",
+      "submit": "Technisch bezoek aanvragen",
+      "submitting": "Verzenden…",
+      "error": "We konden de aanvraag nu niet verzenden. Probeer het opnieuw of stuur ons een bericht via WhatsApp.",
+      "errors": {
+        "name": "Vul je naam in",
+        "email": "Ongeldig e-mailadres",
+        "phone": "Vul een telefoonnummer of WhatsApp-nummer in",
+        "consent": "Je moet het privacybeleid accepteren"
+      }
+    },
+    "cta": {
+      "title": "Kom aan op Ibiza en begin je vakantie.",
+      "text": "Vertel ons over je woning en we stellen na een technisch bezoek het juiste plan voor.",
+      "whatsapp": "Hallo, ik heb interesse in Home Care 365 voor mijn huis op Ibiza."
+    }
+  }
+}

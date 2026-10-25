@@ -52,7 +52,7 @@ function breadcrumbEntries(route) {
   if (route.path === "/") return [];
 
   const home = { name: "Eivitech", path: "/" };
-  const current = { name: breadcrumbTitle(route.title), path: route.path };
+  const current = { name: route.breadcrumbName || breadcrumbTitle(route.title), path: route.path };
 
   if (route.path.startsWith("/servicios/")) {
     return [home, { name: "Servicios", path: "/servicios" }, current];
@@ -239,6 +239,10 @@ function replaceMeta(html, route, noIndex) {
     output = output.replace("</head>", `${jsonLd}\n  </head>`);
   }
 
+  if (route.prerenderHtml) {
+    output = output.replace('<div id="root"></div>', `<div id="root">${route.prerenderHtml}</div>`);
+  }
+
   return output;
 }
 
@@ -268,6 +272,7 @@ function redirectHtml(from, to) {
 function writeStaticPages() {
   const template = readFileSync(resolve("dist/index.html"), "utf8");
 
+  let localizedCount = 0;
   for (const route of indexableRoutes) {
     if (route.path === "/") {
       writeFileSync(
@@ -275,6 +280,16 @@ function writeStaticPages() {
       );
     } else {
       writeRouteFile(route.path, replaceMeta(template, route, false));
+    }
+
+    // Routes with per-language copy get their own snapshot under /<lang>/;
+    // apply-multilingual-seo.mjs then adds canonical, hreflang and URLs.
+    for (const [language, overrides] of Object.entries(route.localized || {})) {
+      writeRouteFile(
+        `/${language}${route.path}`,
+        replaceMeta(template, { ...route, ...overrides, language }, false),
+      );
+      localizedCount += 1;
     }
   }
   for (const route of noIndexRoutes) {
@@ -286,9 +301,59 @@ function writeStaticPages() {
 
   writeFileSync(resolve("dist/.nojekyll"), "");
   console.log(
-    `Static entry pages written (${indexableRoutes.length - 1} canonical, ${noIndexRoutes.length} noindex, ${redirects.length} redirects)`,
+    `Static entry pages written (${indexableRoutes.length - 1} canonical, ${localizedCount} localized, ${noIndexRoutes.length} noindex, ${redirects.length} redirects)`,
   );
 }
 
-if (process.argv.includes("--sitemap")) writeSitemap();
+function llmsLine(path, title, description, language = "es") {
+  const url = pageUrl(`/${language}${path === "/" ? "/" : path}`);
+  return `- [${breadcrumbTitle(title)}](${url}): ${description}`;
+}
+
+// llms.txt: a plain-text map of the site for AI assistants and answer engines.
+function writeLlmsTxt() {
+  const byPrefix = (prefix) => indexableRoutes.filter((route) => route.path.startsWith(prefix));
+  const pick = (paths) => paths.map((path) => indexableRoutes.find((route) => route.path === path)).filter(Boolean);
+  const lines = (routes) => routes.map((route) => llmsLine(route.path, route.title, route.description, route.language || "es"));
+
+  const localizedRoutes = indexableRoutes.filter((route) => route.localized);
+  const localizedLines = localizedRoutes.flatMap((route) => [
+    llmsLine(route.path, `${route.title} (ES)`, route.description, "es"),
+    ...Object.entries(route.localized).map(([language, copy]) =>
+      llmsLine(route.path, `${copy.title} (${language.toUpperCase()})`, copy.description, language),
+    ),
+  ]);
+
+  const content = [
+    "# Eivitech Ibiza",
+    "",
+    "> Eivitech (EIVITECH PLUS SL) es una empresa de reformas, instalaciones y acabados en Ibiza (Islas Baleares, España) para villas, apartamentos, fincas y locales. Con Home Care 365 ofrece además mantenimiento técnico preventivo para segundas residencias que pasan largos periodos vacías.",
+    "",
+    "Cada página está disponible en español (/es/), italiano (/it/), inglés (/en/) y neerlandés (/nl/). Contacto: +34 674 735 188 · info@eivitech.com.",
+    "",
+    "## Home Care 365",
+    ...localizedLines,
+    "",
+    "## Servicios",
+    ...lines(byPrefix("/servicios")),
+    "",
+    "## Transformaciones",
+    ...lines(byPrefix("/transformations")),
+    "",
+    "## Empresa",
+    ...lines(pick(["/", "/empresa", "/the-eivitech-way", "/materials-atmosphere", "/contacto"])),
+    "",
+    "## Optional",
+    ...lines(pick(["/privacy-policy", "/cookie-policy", "/aviso-legal"])),
+    "",
+  ].join("\n");
+
+  writeFileSync(resolve("public/llms.txt"), content);
+  console.log("llms.txt written");
+}
+
+if (process.argv.includes("--sitemap")) {
+  writeSitemap();
+  writeLlmsTxt();
+}
 if (process.argv.includes("--pages")) writeStaticPages();

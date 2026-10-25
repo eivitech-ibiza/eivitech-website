@@ -32,6 +32,7 @@ type Props = {
   trackPayload?: Record<string, unknown>;
   noIndex?: boolean;
   ogType?: "website" | "article";
+  breadcrumbName?: string;
 };
 
 const DEFAULT_OG_IMAGE = "/media/social/eivitech-og-brand-preview-v1.png";
@@ -42,11 +43,11 @@ function breadcrumbTitle(title: string) {
     .trim();
 }
 
-function getBreadcrumbItems(path: string, title: string) {
+function getBreadcrumbItems(path: string, title: string, currentName?: string) {
   if (path === "/") return [];
 
   const home = { name: "Eivitech", path: "/" };
-  const current = { name: breadcrumbTitle(title), path };
+  const current = { name: currentName || breadcrumbTitle(title), path };
 
   if (path.startsWith("/servicios/")) {
     return [
@@ -111,6 +112,7 @@ export function SEO({
   trackPayload,
   noIndex = false,
   ogType = "website",
+  breadcrumbName,
 }: Props) {
   const localizedPath = localizePath(path, CURRENT_LANGUAGE);
 
@@ -129,7 +131,7 @@ export function SEO({
   const robots = noIndex
     ? "noindex, nofollow"
     : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
-  const breadcrumbs = getBreadcrumbItems(path, title).map((item) => ({
+  const breadcrumbs = getBreadcrumbItems(path, title, breadcrumbName).map((item) => ({
     ...item,
     path: localizePath(item.path, CURRENT_LANGUAGE),
   }));

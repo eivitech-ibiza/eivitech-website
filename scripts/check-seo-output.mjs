@@ -151,6 +151,54 @@ for (const route of noIndexRoutes) {
   }
 }
 
+function htmlEscape(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+let localizedPages = 0;
+for (const route of indexableRoutes.filter((route) => route.localized)) {
+  const copies = { es: route, ...route.localized };
+  for (const language of LANGUAGES) {
+    const copy = copies[language];
+    const path = localizedPath(route.path, language);
+    const html = readRoute(path);
+    assert.ok(
+      html.includes(`<title data-rh="true">${htmlEscape(copy.title)}</title>`),
+      `Localized title missing for ${path}`,
+    );
+    assert.ok(
+      html.includes(`<meta name="description" content="${htmlEscape(copy.description)}"`),
+      `Localized description missing for ${path}`,
+    );
+    if (copy.prerenderHtml) {
+      assert.ok(html.includes('<div id="root"><main'), `Prerendered content missing for ${path}`);
+      assert.ok(html.includes(htmlEscape(copy.prerenderHeading)), `Prerendered heading missing for ${path}`);
+    }
+    for (const otherLanguage of LANGUAGES.filter((other) => other !== language)) {
+      assert.equal(
+        html.includes(`<title data-rh="true">${htmlEscape(copies[otherLanguage].title)}</title>`),
+        false,
+        `${path} carries the ${otherLanguage} title`,
+      );
+    }
+    localizedPages += 1;
+  }
+}
+
+const llms = readFileSync(resolve(DIST, "llms.txt"), "utf8");
+for (const route of indexableRoutes.filter((route) => route.localized)) {
+  for (const language of LANGUAGES) {
+    assert.ok(
+      llms.includes(pageUrl(localizedPath(route.path, language))),
+      `llms.txt does not list ${localizedPath(route.path, language)}`,
+    );
+  }
+}
+
 const rootRedirect = readRoute("/");
 assert.ok(rootRedirect.includes("noindex, follow"), "Legacy root must be a noindex redirect");
 assert.ok(
@@ -216,5 +264,6 @@ assert.ok(entryGzip <= MAX_ENTRY_GZIP_BYTES, `Gzipped entry bundle is too large:
 
 console.log(`SEO output verified: ${sitemapUrls.length} multilingual canonical URLs`);
 console.log("hreflang/canonical migration verified for ES, IT, EN and NL");
+console.log(`Localized static copy verified on ${localizedPages} pages; llms.txt verified`);
 console.log("Branded social preview verified: 1200x630 PNG");
 console.log(`Entry bundle verified: ${entryRaw} bytes raw, ${entryGzip} bytes gzip`);

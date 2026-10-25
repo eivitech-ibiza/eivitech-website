@@ -1,3 +1,10 @@
+import { readFileSync } from "node:fs";
+import {
+  HOME_CARE_PATH,
+  homeCareStaticHtml,
+  homeCareStructuredData,
+} from "../src/data/homeCare365.seo.mjs";
+
 const SITE_URL = "https://eivitech.com";
 const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 const WEBSITE_ID = `${SITE_URL}/#website`;
@@ -86,6 +93,51 @@ const projectMetadata = ({ slug, name, description, zone, image, imageAlt, width
         height,
       },
     },
+  };
+};
+
+
+const homeCareContent = JSON.parse(
+  readFileSync(new URL("../src/data/homeCare365.content.json", import.meta.url), "utf8"),
+);
+const HOME_CARE_CONTACT = { phone: "+34 674 735 188", email: "info@eivitech.com" };
+export const LOCALIZED_LANGUAGES = ["it", "en", "nl"];
+
+// Home Care 365 ships fully localized static entry pages: title, description,
+// structured data and a prerendered copy of the content for each language, so
+// search engines and AI crawlers that do not run JavaScript read the real page.
+const homeCareRoute = () => {
+  const url = `${SITE_URL}${HOME_CARE_PATH}/`;
+  const forLanguage = (language) => {
+    const copy = homeCareContent[language];
+    const [service, faq] = homeCareStructuredData(homeCareContent, language);
+    return {
+      title: copy.meta.title,
+      description: copy.meta.description,
+      socialImageAlt: copy.meta.imageAlt,
+      breadcrumbName: copy.meta.breadcrumb,
+      prerenderHtml: homeCareStaticHtml(homeCareContent, language, HOME_CARE_CONTACT),
+      prerenderHeading: copy.hero.title,
+      jsonLd: [
+        {
+          ...service,
+          "@id": `${url}#service`,
+          url,
+          mainEntityOfPage: { "@id": `${url}#webpage` },
+        },
+        faq,
+      ],
+    };
+  };
+
+  return {
+    path: HOME_CARE_PATH,
+    ...forLanguage("es"),
+    socialImage: homeCareContent.image.src,
+    socialImageType: homeCareContent.image.type,
+    socialImageWidth: homeCareContent.image.width,
+    socialImageHeight: homeCareContent.image.height,
+    localized: Object.fromEntries(LOCALIZED_LANGUAGES.map((language) => [language, forLanguage(language)])),
   };
 };
 
@@ -236,6 +288,7 @@ export const indexableRoutes = [
     title: "Materiales y atmósfera | Eivitech Ibiza",
     description: "Materiales naturales, luz cálida y soluciones saludables para reformas premium en Ibiza.",
   },
+  homeCareRoute(),
   {
     path: "/contacto",
     title: "Contacto | Eivitech Ibiza",
