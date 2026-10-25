@@ -86,7 +86,7 @@ const importSchema = z.object({
 const segmentSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: optionalText(500),
-  filters: z.record(z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
 });
 
 const segmentMembersSchema = z.object({
@@ -105,7 +105,7 @@ const campaignSchema = z.object({
   status: campaignStatusSchema.optional(),
   segment_id: z.string().uuid().optional().nullable(),
   topic: optionalText(160),
-  editor_json: z.record(z.unknown()).optional(),
+  editor_json: z.record(z.string(), z.unknown()).optional(),
   html: z.string().max(500_000).optional(),
   scheduled_at: z.string().datetime().optional().nullable(),
 });
