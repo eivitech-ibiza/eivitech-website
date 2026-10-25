@@ -235,6 +235,23 @@ export function fetchMarketingSegments(token: string) {
   return marketingRequest<{ segments: MarketingSegment[] }>("/segments", { token });
 }
 
+export type MarketingSegmentCampaign = Pick<
+  MarketingCampaign,
+  | "id" | "name" | "status" | "created_at" | "sent_at" | "scheduled_at"
+  | "recipient_count" | "delivered_count" | "opened_count" | "clicked_count"
+  | "bounced_count" | "unsubscribed_count"
+>;
+
+export function fetchMarketingSegmentCampaigns(token: string, segmentId: string, offset = 0) {
+  const params = new URLSearchParams({ offset: String(offset) });
+  return marketingRequest<{
+    campaigns: MarketingSegmentCampaign[];
+    total: number;
+    offset: number;
+    limit: number;
+  }>(`/segments/${encodeURIComponent(segmentId)}/campaigns?${params.toString()}`, { token });
+}
+
 export type MarketingSegmentOverlap = {
   left_id: string;
   right_id: string;
