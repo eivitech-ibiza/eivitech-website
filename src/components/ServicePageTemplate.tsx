@@ -10,6 +10,9 @@ import { SERVICES } from "@/data/services";
 import { serviceJsonLd, faqJsonLd } from "@/lib/seo";
 import { tr } from "@/lib/i18n";
 import { Check } from "lucide-react";
+import { HomeCareTeaser } from "@/components/HomeCareTeaser";
+
+const HOME_CARE_LINKED_SERVICES = new Set(["fontaneria", "electricidad-iluminacion"]);
 const heroImg = `${import.meta.env.BASE_URL}media/projects/casa-mediterraneo/casa-mediterraneo-ibiza-warm-contemporary-apartment-cover.webp`;
 
 export function ServicePageTemplate({ service }: { service: Service }) {
@@ -73,6 +76,7 @@ export function ServicePageTemplate({ service }: { service: Service }) {
                 )}
               </Link>
             )}
+            {HOME_CARE_LINKED_SERVICES.has(service.slug) && <HomeCareTeaser compact />}
           </div>
           <div>
             <div className="eyebrow">{tr("Cuándo solicitarlo", "Quando richiederlo", "When to request it")}</div>

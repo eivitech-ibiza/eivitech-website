@@ -16,6 +16,7 @@ const NAV = [
   { to: "/materials-atmosphere", label: tr("Materiales", "Materiali", "Materials", "Materialen") },
   { to: "/transformations", label: tr("Transformaciones", "Trasformazioni", "Transformations") },
   { to: "/the-eivitech-way", label: tr("Método", "Metodo", "Method") },
+  { to: "/home-care-365", label: "Home Care 365" },
   { to: "/contacto", label: tr("Contacto", "Contatto", "Contact") },
 ];
 
@@ -141,14 +142,14 @@ export function Header() {
           <EivitechLogo className="h-auto w-[165px] md:w-[210px]" />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden xl:flex items-center gap-8">
           {NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.to === "/"}
               className={({ isActive }) =>
-                `text-sm tracking-wide transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+                `whitespace-nowrap text-sm tracking-wide transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
               }
             >
               {n.label}
@@ -156,7 +157,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden xl:flex items-center gap-3">
           <HeaderLanguageSelector />
           <Link
             to="/contacto"
@@ -166,7 +167,7 @@ export function Header() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 xl:hidden">
           <HeaderLanguageSelector />
           <button
             aria-label={open ? tr("Cerrar menú", "Chiudi menu", "Close menu") : tr("Abrir menú", "Apri menu", "Open menu")}
@@ -179,7 +180,7 @@ export function Header() {
       </div>
 
       {open && (
-        <div className="absolute right-4 top-full z-50 w-[min(20rem,calc(100vw-2rem))] md:hidden">
+        <div className="absolute right-4 top-full z-50 w-[min(20rem,calc(100vw-2rem))] xl:hidden">
           <nav
             aria-label={tr("Navegación móvil", "Navigazione mobile", "Mobile navigation", "Mobiele navigatie")}
             className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-sm border border-border bg-background p-2 shadow-xl"

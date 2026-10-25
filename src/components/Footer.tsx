@@ -76,6 +76,11 @@ export function Footer() {
                 </Link>
               </li>
             ))}
+            <li>
+              <Link to="/home-care-365" className="font-medium text-foreground hover:text-primary">
+                Home Care 365
+              </Link>
+            </li>
           </ul>
         </div>
 

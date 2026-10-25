@@ -194,13 +194,22 @@ function legacyLanguageRedirectHtml(basePath) {
 function writeLocalizedPages() {
   const snapshots = new Map();
 
+  const localizedKey = (pathname, language) => `${language}:${pathname}`;
+
   for (const route of [...indexableRoutes, ...noIndexRoutes]) {
     snapshots.set(route.path, readFileSync(routeFile(route.path), "utf8"));
+    // Per-language snapshots written by generate-seo-files.mjs --pages.
+    for (const language of Object.keys(route.localized || {})) {
+      snapshots.set(
+        localizedKey(route.path, language),
+        readFileSync(routeFile(localizedPath(route.path, language)), "utf8"),
+      );
+    }
   }
 
   for (const route of indexableRoutes) {
-    const html = snapshots.get(route.path);
     for (const language of LANGUAGES) {
+      const html = snapshots.get(localizedKey(route.path, language)) || snapshots.get(route.path);
       writeRouteFile(
         localizedPath(route.path, language),
         transformPage(html, route.path, language, true),

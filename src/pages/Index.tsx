@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { SEO } from "@/components/SEO";
+import { HomeCareTeaser } from "@/components/HomeCareTeaser";
 import { ProjectCard } from "@/components/ProjectCard";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { GENERAL_FAQS } from "@/data/faqs";
@@ -204,6 +205,8 @@ const Index = () => (
         </div>
       </div>
     </section>
+
+    <HomeCareTeaser />
 
     <section className="section bg-foreground text-background">
       <div className="container-x max-w-4xl text-center">

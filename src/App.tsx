@@ -15,6 +15,7 @@ const Proyectos = lazy(() => import("./pages/Proyectos.tsx"));
 const Proyecto = lazy(() => import("./pages/Proyecto.tsx"));
 const TheEivitechWay = lazy(() => import("./pages/TheEivitechWay.tsx"));
 const MaterialsAtmosphere = lazy(() => import("./pages/MaterialsAtmosphere.tsx"));
+const HomeCare365 = lazy(() => import("./pages/HomeCare365.tsx"));
 const Contacto = lazy(() => import("./pages/Contacto.tsx"));
 const Gracias = lazy(() => import("./pages/Gracias.tsx"));
 const LandingGoogle = lazy(() => import("./pages/LandingGoogle.tsx"));
@@ -45,6 +46,7 @@ const router = createBrowserRouter([
       { path: "/proyectos/:slug", element: <Proyecto /> },
       { path: "/the-eivitech-way", element: <TheEivitechWay /> },
       { path: "/materials-atmosphere", element: <MaterialsAtmosphere /> },
+      { path: "/home-care-365", element: <HomeCare365 /> },
       { path: "/contacto", element: <Contacto /> },
       { path: "/gracias", element: <Gracias /> },
       { path: "/reformas-ibiza", element: <LandingGoogle /> },

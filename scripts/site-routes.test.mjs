@@ -18,8 +18,8 @@ function walk(directory) {
   });
 }
 
-test("the sitemap inventory contains 27 unique canonical routes", () => {
-  assert.equal(indexableRoutes.length, 27);
+test("the sitemap inventory contains 28 unique canonical routes", () => {
+  assert.equal(indexableRoutes.length, 28);
 
   const paths = indexableRoutes.map((route) => route.path);
   const titles = indexableRoutes.map((route) => route.title);
